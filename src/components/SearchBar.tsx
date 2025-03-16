@@ -27,7 +27,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
-  // Sample suggested searches
+  // Expanded suggested searches to be more like Getty Images
   const suggestions = [
     'Steam locomotives',
     'Mountain railways',
@@ -36,6 +36,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
     'Railway stations',
     'Freight trains',
     'Subway trains',
+    'High-speed trains',
+    'Railway bridges',
+    'Train interiors',
+    'Railroad workers',
+    'Train at sunset',
   ];
 
   const handleSearch = (value: string) => {

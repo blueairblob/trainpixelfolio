@@ -14,7 +14,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
 
-    --primary: 246 46% 48%;
+    --primary: 345 83% 41%;
     --primary-foreground: 0 0% 98%;
 
     --secondary: 240 4.8% 95.9%;
@@ -31,9 +31,9 @@
 
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 246 46% 48%;
+    --ring: 345 83% 41%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -168,4 +168,25 @@
 
 .text-balance {
   text-wrap: balance;
+}
+
+/* Getty Images specific utilities */
+.getty-container {
+  @apply max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.getty-card {
+  @apply bg-white rounded-lg overflow-hidden shadow-sm transition-shadow hover:shadow-md;
+}
+
+.getty-button {
+  @apply bg-[#e4163d] hover:bg-[#c41434] text-white font-medium;
+}
+
+.getty-link {
+  @apply text-[#e4163d] hover:text-[#c41434] font-medium;
+}
+
+.getty-gradient {
+  @apply bg-gradient-to-b from-transparent to-black/60;
 }
