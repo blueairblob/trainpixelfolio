@@ -1,153 +1,183 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
 import { ShoppingCart, Menu, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useMobile } from '@/hooks/use-mobile';
 import { useCart } from '@/context/CartContext';
+import SearchBar from '@/components/SearchBar';
 
-const Navbar: React.FC = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+const Navbar = () => {
   const location = useLocation();
-  const { totalItems } = useCart();
+  const isMobile = useMobile();
+  const { cart } = useCart();
+  const [isScrolled, setIsScrolled] = useState(false);
+  const isHomePage = location.pathname === '/';
 
-  // Check if route is active
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
-
-  // Toggle mobile menu
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
-  // Close mobile menu when route changes
-  useEffect(() => {
-    setIsMenuOpen(false);
-  }, [location]);
-
-  // Add background when scrolled
+  // Calculate total items in cart
+  const cartItemsCount = cart.reduce((total, item) => total + item.quantity, 0);
+  
+  // Monitor scroll position to change navbar style
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 20) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 20);
     };
-
+    
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    handleScroll(); // Check initial position
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
-
+  
+  const navbarClasses = cn(
+    "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+    isHomePage && !isScrolled 
+      ? "bg-transparent text-white py-4 md:py-6" 
+      : "bg-background/95 backdrop-blur-md border-b shadow-sm py-3 md:py-4"
+  );
+  
+  const logoClasses = cn(
+    "text-xl font-bold tracking-tight",
+    isHomePage && !isScrolled ? "text-white" : "text-foreground"
+  );
+  
+  const linkClasses = (active: boolean) => cn(
+    "px-1 py-1.5 rounded-md text-sm transition-colors relative",
+    isHomePage && !isScrolled 
+      ? "text-white/90 hover:text-white"
+      : "text-foreground/80 hover:text-foreground",
+    active && "font-medium",
+    active && (isHomePage && !isScrolled 
+      ? "text-white after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-white" 
+      : "text-foreground after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-foreground"
+    )
+  );
+  
+  const mobileMenuClasses = cn(
+    isMobile ? "flex md:hidden" : "hidden"
+  );
+  
+  const desktopMenuClasses = cn(
+    isMobile ? "hidden md:flex" : "flex"
+  );
+  
   return (
-    <nav 
-      className={cn(
-        'fixed top-0 left-0 right-0 z-50 transition-all duration-300 px-6 py-4',
-        isScrolled ? 'glassmorphism subtle-shadow' : 'bg-transparent'
-      )}
-    >
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Logo */}
-        <Link 
-          to="/" 
-          className="text-xl font-medium tracking-tight transition-opacity hover:opacity-80"
-        >
-          TrainPixel
-        </Link>
-
+    <header className={navbarClasses}>
+      <div className="container px-6 mx-auto flex items-center justify-between">
+        <div className="flex items-center">
+          <Link to="/" className={logoClasses}>
+            TrainImagery
+          </Link>
+        </div>
+        
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center space-x-8">
-          <Link 
-            to="/" 
-            className={cn(
-              "text-sm font-medium transition-colors",
-              isActive('/') ? 'text-primary' : 'text-muted-foreground hover:text-primary'
-            )}
-          >
+        <nav className={cn(desktopMenuClasses, "items-center gap-1 mx-4")}>
+          <Link to="/" className={linkClasses(location.pathname === '/')}>
             Home
           </Link>
-          <Link 
-            to="/gallery" 
-            className={cn(
-              "text-sm font-medium transition-colors",
-              isActive('/gallery') ? 'text-primary' : 'text-muted-foreground hover:text-primary'
-            )}
-          >
+          <Link to="/gallery" className={linkClasses(location.pathname === '/gallery')}>
             Gallery
           </Link>
-          <Link 
-            to="/cart" 
-            className="relative"
-          >
-            <ShoppingCart className={cn(
-              "h-5 w-5 transition-colors",
-              isActive('/cart') ? 'text-primary' : 'text-muted-foreground hover:text-primary'
-            )} />
-            {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center animate-scale-in">
-                {totalItems}
-              </span>
-            )}
+          <Link to="#" className={linkClasses(false)}>
+            Collections
           </Link>
-        </div>
-
-        {/* Mobile Menu Button */}
-        <div className="flex items-center space-x-4 md:hidden">
-          <Link 
-            to="/cart" 
-            className="relative"
-          >
-            <ShoppingCart className="h-5 w-5" />
-            {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center animate-scale-in">
-                {totalItems}
-              </span>
-            )}
+          <Link to="#" className={linkClasses(false)}>
+            Photographers
           </Link>
-          <button 
-            onClick={toggleMenu}
-            className="focus:outline-none"
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
+          <Link to="#" className={linkClasses(false)}>
+            Pricing
+          </Link>
+        </nav>
+        
+        {/* Search and Cart */}
+        <div className="flex items-center gap-2">
+          <div className="hidden md:block w-64">
+            <SearchBar variant="navbar" />
+          </div>
+          
+          <Link to="/cart">
+            <Button 
+              variant={isHomePage && !isScrolled ? "outline" : "ghost"} 
+              size="icon"
+              className={cn(
+                "relative",
+                isHomePage && !isScrolled && "border-white/20 text-white hover:bg-white/10"
+              )}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartItemsCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-5 h-5 rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {cartItemsCount}
+                </span>
+              )}
+            </Button>
+          </Link>
+          
+          {/* Mobile Menu Button */}
+          <div className={mobileMenuClasses}>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button 
+                  variant={isHomePage && !isScrolled ? "outline" : "ghost"} 
+                  size="icon"
+                  className={isHomePage && !isScrolled ? "border-white/20 text-white hover:bg-white/10" : ""}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[80%] sm:w-[350px] pt-12">
+                <nav className="flex flex-col gap-4">
+                  <div className="px-2 pb-4">
+                    <SearchBar />
+                  </div>
+                  <Link 
+                    to="/" 
+                    className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-secondary"
+                  >
+                    Home
+                  </Link>
+                  <Link 
+                    to="/gallery" 
+                    className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-secondary"
+                  >
+                    Gallery
+                  </Link>
+                  <Link 
+                    to="#" 
+                    className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-secondary"
+                  >
+                    Collections
+                  </Link>
+                  <Link 
+                    to="#" 
+                    className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-secondary"
+                  >
+                    Photographers
+                  </Link>
+                  <Link 
+                    to="#" 
+                    className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-secondary"
+                  >
+                    Pricing
+                  </Link>
+                  <Link 
+                    to="/cart" 
+                    className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-secondary"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    Cart ({cartItemsCount})
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      <div 
-        className={cn(
-          "fixed inset-0 z-40 bg-background/95 backdrop-blur-md transition-transform md:hidden pt-24",
-          isMenuOpen ? "translate-x-0" : "translate-x-full"
-        )}
-      >
-        <div className="flex flex-col items-center space-y-8 p-8">
-          <Link 
-            to="/" 
-            className={cn(
-              "text-lg font-medium transition-colors",
-              isActive('/') ? 'text-primary' : 'text-muted-foreground'
-            )}
-          >
-            Home
-          </Link>
-          <Link 
-            to="/gallery" 
-            className={cn(
-              "text-lg font-medium transition-colors",
-              isActive('/gallery') ? 'text-primary' : 'text-muted-foreground'
-            )}
-          >
-            Gallery
-          </Link>
-        </div>
-      </div>
-    </nav>
+    </header>
   );
 };
 

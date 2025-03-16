@@ -1,9 +1,16 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Heart, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Photo, useCart } from '@/context/CartContext';
+import { Button } from '@/components/ui/button';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PhotoCardProps {
   photo: Photo;
@@ -30,12 +37,13 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     <Link 
       to={`/photo/${photo.id}`}
       className={cn(
-        "group relative rounded-2xl overflow-hidden bg-muted transition-all duration-300 hover:shadow-lg",
+        "group block relative rounded-xl overflow-hidden bg-muted transition-all duration-300 hover:shadow-lg",
         className
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Image container */}
       <div className="aspect-[4/3] w-full relative overflow-hidden">
         {/* Blurred placeholder */}
         <div 
@@ -57,38 +65,64 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
           onLoad={() => setIsLoaded(true)}
         />
         
-        {/* Overlay on hover */}
-        <div 
-          className={cn(
-            "absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity duration-300", 
-            isHovered && "opacity-100"
-          )}
-        />
-      </div>
-      
-      <div className="p-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="font-medium text-base line-clamp-1">{photo.title}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{photo.photographer}</p>
-          </div>
-          <div className="font-medium">
-            ${photo.price.toFixed(2)}
-          </div>
+        {/* Category tag */}
+        <div className="absolute top-3 left-3 z-20">
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-black/40 text-white backdrop-blur-sm">
+            {photo.tags[0]}
+          </span>
         </div>
         
-        <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">{photo.location}</p>
-          <button
-            onClick={handleAddToCart}
-            className={cn(
-              "text-xs flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 transition-all",
-              "hover:bg-primary hover:text-primary-foreground"
-            )}
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Add</span>
-          </button>
+        {/* Action buttons overlay */}
+        <div 
+          className={cn(
+            "absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent opacity-0 transition-opacity duration-300 flex flex-col justify-between p-3", 
+            isHovered && "opacity-100"
+          )}
+        >
+          {/* Top buttons row */}
+          <div className="flex justify-end gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={(e) => e.preventDefault()}
+                    className="size-8 rounded-full bg-black/40 flex items-center justify-center text-white backdrop-blur-sm transition-colors hover:bg-black/60"
+                  >
+                    <Heart className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Save to favorites</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          
+          {/* Bottom info */}
+          <div>
+            <h3 className="text-sm font-medium text-white line-clamp-1">
+              {photo.title}
+            </h3>
+            <p className="text-xs text-white/80">{photo.photographer}</p>
+            
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs font-medium text-white">
+                ${photo.price.toFixed(2)}
+              </span>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleAddToCart}
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 px-2 rounded-full flex items-center gap-1 text-xs bg-white text-primary hover:bg-white/90"
+                >
+                  <PlusCircle className="size-3.5" />
+                  <span>Add</span>
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Link>
