@@ -1,22 +1,23 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ShoppingCart, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useCart } from '@/context/CartContext';
 import SearchBar from '@/components/SearchBar';
 
 const Navbar = () => {
   const location = useLocation();
-  const isMobile = useMobile();
-  const { cart } = useCart();
+  const isMobile = useIsMobile();
+  const { items } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const isHomePage = location.pathname === '/';
 
   // Calculate total items in cart
-  const cartItemsCount = cart.reduce((total, item) => total + item.quantity, 0);
+  const cartItemsCount = items.reduce((total, item) => total + item.quantity, 0);
   
   // Monitor scroll position to change navbar style
   useEffect(() => {
