@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { Filter } from 'lucide-react';
+import { Filter, SlidersHorizontal } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import PhotoCard from '@/components/PhotoCard';
 import { Photo } from '@/context/CartContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StaggerChildren } from '@/utils/animations';
+import FilterPanel, { PhotoFilters } from '@/components/FilterPanel';
 
 // Sample gallery data
 const allPhotos: Photo[] = [
@@ -102,39 +103,119 @@ const allPhotos: Photo[] = [
   }
 ];
 
-// Extract all unique tags
-const allTags = Array.from(new Set(allPhotos.flatMap(photo => photo.tags)));
+// Extract unique metadata values
+const extractMetadata = () => {
+  const tags = Array.from(new Set(allPhotos.flatMap(photo => photo.tags)));
+  const photographers = Array.from(new Set(allPhotos.map(photo => photo.photographer)));
+  const locations = Array.from(new Set(allPhotos.map(photo => photo.location)));
+  const prices = allPhotos.map(photo => photo.price);
+  const minPrice = Math.floor(Math.min(...prices));
+  const maxPrice = Math.ceil(Math.max(...prices));
+  
+  return { tags, photographers, locations, minPrice, maxPrice };
+};
 
 const Gallery = () => {
-  const [filters, setFilters] = useState<string[]>([]);
+  const { tags, photographers, locations, minPrice, maxPrice } = extractMetadata();
+  
+  const [filters, setFilters] = useState<PhotoFilters>({
+    tags: [],
+    photographers: [],
+    locations: [],
+    priceRange: [minPrice, maxPrice],
+    orientation: undefined,
+    sortBy: 'newest'
+  });
+  
   const [displayPhotos, setDisplayPhotos] = useState<Photo[]>(allPhotos);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   
   // Apply filters when they change
   useEffect(() => {
-    if (filters.length === 0) {
-      setDisplayPhotos(allPhotos);
-    } else {
-      const filtered = allPhotos.filter(photo => 
-        photo.tags.some(tag => filters.includes(tag))
+    let filtered = [...allPhotos];
+    
+    // Filter by tags
+    if (filters.tags.length > 0) {
+      filtered = filtered.filter(photo => 
+        photo.tags.some(tag => filters.tags.includes(tag))
       );
-      setDisplayPhotos(filtered);
     }
-  }, [filters]);
-  
-  // Toggle filter
-  const toggleFilter = (tag: string) => {
-    setFilters(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag) 
-        : [...prev, tag]
+    
+    // Filter by photographers
+    if (filters.photographers.length > 0) {
+      filtered = filtered.filter(photo => 
+        filters.photographers.includes(photo.photographer)
+      );
+    }
+    
+    // Filter by locations
+    if (filters.locations.length > 0) {
+      filtered = filtered.filter(photo => 
+        filters.locations.includes(photo.location)
+      );
+    }
+    
+    // Filter by price range
+    filtered = filtered.filter(photo => 
+      photo.price >= filters.priceRange[0] && photo.price <= filters.priceRange[1]
     );
-  };
+    
+    // Filter by orientation (this is simulated since we don't have orientation data)
+    if (filters.orientation) {
+      // In a real app, you would filter based on actual image dimensions
+      // For this example, we're simulating by filtering even/odd IDs
+      const isLandscape = filters.orientation === 'landscape';
+      filtered = filtered.filter(photo => {
+        const id = parseInt(photo.id.split('-')[1]);
+        return isLandscape ? id % 2 === 0 : id % 2 !== 0;
+      });
+    }
+    
+    // Apply sorting
+    switch (filters.sortBy) {
+      case 'newest':
+        // Simulate sorting by newest (reverse order of IDs)
+        filtered = [...filtered].sort((a, b) => {
+          const idA = parseInt(a.id.split('-')[1]);
+          const idB = parseInt(b.id.split('-')[1]);
+          return idB - idA;
+        });
+        break;
+      case 'popular':
+        // Simulate sorting by popularity (random sort for this example)
+        filtered = [...filtered].sort(() => Math.random() - 0.5);
+        break;
+      case 'price_high':
+        filtered = [...filtered].sort((a, b) => b.price - a.price);
+        break;
+      case 'price_low':
+        filtered = [...filtered].sort((a, b) => a.price - b.price);
+        break;
+    }
+    
+    setDisplayPhotos(filtered);
+  }, [filters]);
   
   // Clear all filters
   const clearFilters = () => {
-    setFilters([]);
+    setFilters({
+      tags: [],
+      photographers: [],
+      locations: [],
+      priceRange: [minPrice, maxPrice],
+      orientation: undefined,
+      sortBy: 'newest'
+    });
   };
+  
+  // Check if any filters are active
+  const hasActiveFilters = 
+    filters.tags.length > 0 || 
+    filters.photographers.length > 0 || 
+    filters.locations.length > 0 || 
+    filters.priceRange[0] > minPrice ||
+    filters.priceRange[1] < maxPrice ||
+    filters.orientation !== undefined;
 
   return (
     <div className="min-h-screen pb-20">
@@ -158,7 +239,7 @@ const Gallery = () => {
       <section>
         <div className="container px-6">
           {/* Filter bar */}
-          <div className="mb-10 flex flex-col sm:flex-row justify-between gap-4">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Button 
                 variant="outline"
@@ -167,10 +248,16 @@ const Gallery = () => {
                 onClick={() => setShowFilterMenu(!showFilterMenu)}
               >
                 <Filter className="size-4" />
-                Filters {filters.length > 0 && `(${filters.length})`}
+                Filters {hasActiveFilters && `(${
+                  filters.tags.length + 
+                  filters.photographers.length + 
+                  filters.locations.length + 
+                  (filters.orientation ? 1 : 0) +
+                  ((filters.priceRange[0] > minPrice || filters.priceRange[1] < maxPrice) ? 1 : 0)
+                })`}
               </Button>
               
-              {filters.length > 0 && (
+              {hasActiveFilters && (
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -186,35 +273,24 @@ const Gallery = () => {
             </div>
           </div>
           
-          {/* Filter menu */}
-          <div 
-            className={cn(
-              "mb-8 bg-card border rounded-lg p-4 transition-all",
-              showFilterMenu ? "opacity-100 max-h-96 overflow-y-auto" : "opacity-0 max-h-0 overflow-hidden"
-            )}
-          >
-            <h3 className="font-medium mb-3">Filter by Tags</h3>
-            <div className="flex flex-wrap gap-2">
-              {allTags.map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => toggleFilter(tag)}
-                  className={cn(
-                    "px-3 py-1.5 text-xs rounded-full transition-colors",
-                    filters.includes(tag) 
-                      ? "bg-primary text-primary-foreground" 
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  )}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Filter component */}
+          <FilterPanel
+            filters={filters}
+            setFilters={setFilters}
+            allTags={tags}
+            allPhotographers={photographers}
+            allLocations={locations}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            totalPhotos={allPhotos.length}
+            displayPhotos={displayPhotos.length}
+            onClearFilters={clearFilters}
+            isOpen={showFilterMenu}
+          />
           
           {/* Photos grid */}
           {displayPhotos.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
               <StaggerChildren>
                 {displayPhotos.map((photo, index) => (
                   <PhotoCard 
