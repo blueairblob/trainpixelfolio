@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, Image, TouchableOpacity, 
-  ScrollView, Share, Dimensions 
+  ScrollView, Share, Dimensions, Animated, StatusBar,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,23 @@ const PhotoDetailScreen = ({ route, navigation }) => {
   };
   
   const [quantity, setQuantity] = useState(1);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    // Reset animation when photo changes
+    setImageLoaded(false);
+    fadeAnim.setValue(0);
+  }, [id]);
+  
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  };
   
   const increaseQuantity = () => {
     setQuantity(prev => prev + 1);
@@ -47,40 +65,66 @@ const PhotoDetailScreen = ({ route, navigation }) => {
   
   const handleAddToCart = () => {
     // In a real app, we'd call the cart context's addToCart method
-    // For now, just navigate back
-    navigation.goBack();
+    navigation.navigate('Cart');
   };
   
   const screenWidth = Dimensions.get('window').width;
   
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Header with back button */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Photo Details</Text>
-          <TouchableOpacity onPress={handleShare}>
+          <TouchableOpacity 
+            onPress={handleShare}
+            style={styles.shareButton}
+          >
             <Ionicons name="share-outline" size={24} color="#374151" />
           </TouchableOpacity>
         </View>
         
         {/* Photo */}
-        <Image
-          source={{ uri: photo.imageUrl }}
-          style={[styles.photoImage, { width: screenWidth, height: screenWidth * 0.75 }]}
-          resizeMode="cover"
-        />
+        <View style={styles.imageContainer}>
+          {!imageLoaded && (
+            <View style={[styles.imagePlaceholder, { width: screenWidth, height: screenWidth * 0.75 }]}>
+              <Ionicons name="image-outline" size={48} color="#d1d5db" />
+            </View>
+          )}
+          <Animated.Image
+            source={{ uri: photo.imageUrl }}
+            style={[
+              styles.photoImage, 
+              { width: screenWidth, height: screenWidth * 0.75, opacity: fadeAnim }
+            ]}
+            resizeMode="cover"
+            onLoad={handleImageLoad}
+          />
+        </View>
         
         {/* Photo Info */}
         <View style={styles.photoInfo}>
           <Text style={styles.photoTitle}>{photo.title}</Text>
           
           <View style={styles.photographerRow}>
-            <Text style={styles.photographerName}>By {photo.photographer}</Text>
-            <Text style={styles.location}>{photo.location}</Text>
+            <View style={styles.photographerInfo}>
+              <Ionicons name="person-outline" size={16} color="#4f46e5" style={styles.infoIcon} />
+              <Text style={styles.photographerName}>{photo.photographer}</Text>
+            </View>
+            <View style={styles.locationInfo}>
+              <Ionicons name="location-outline" size={16} color="#4f46e5" style={styles.infoIcon} />
+              <Text style={styles.location}>{photo.location}</Text>
+            </View>
           </View>
           
           <View style={styles.tagsContainer}>
@@ -126,10 +170,11 @@ const PhotoDetailScreen = ({ route, navigation }) => {
               <Text style={styles.quantityLabel}>Quantity:</Text>
               <View style={styles.quantityControls}>
                 <TouchableOpacity 
-                  style={styles.quantityButton}
+                  style={[styles.quantityButton, quantity <= 1 && styles.quantityButtonDisabled]}
                   onPress={decreaseQuantity}
+                  disabled={quantity <= 1}
                 >
-                  <Ionicons name="remove" size={18} color="#4b5563" />
+                  <Ionicons name="remove" size={18} color={quantity <= 1 ? "#9ca3af" : "#4b5563"} />
                 </TouchableOpacity>
                 <Text style={styles.quantityValue}>{quantity}</Text>
                 <TouchableOpacity 
@@ -167,17 +212,44 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
+  scrollContent: {
+    paddingBottom: 30,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1f2937',
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  shareButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  imageContainer: {
+    position: 'relative',
+    backgroundColor: '#f9fafb',
+  },
+  imagePlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   photoImage: {
     width: '100%',
@@ -189,12 +261,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   photographerRow: {
+    marginBottom: 16,
+  },
+  photographerInfo: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoIcon: {
+    marginRight: 6,
   },
   photographerName: {
     fontSize: 15,
@@ -240,7 +322,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
     color: '#4b5563',
   },
   licenseInfo: {
@@ -249,7 +331,7 @@ const styles = StyleSheet.create({
   licenseItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   licenseText: {
     fontSize: 14,
@@ -260,6 +342,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     padding: 16,
     borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   priceLabel: {
     fontSize: 16,
@@ -288,23 +375,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quantityButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     backgroundColor: '#f3f4f6',
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  quantityButtonDisabled: {
+    backgroundColor: '#e5e7eb',
+  },
   quantityValue: {
     fontSize: 16,
     fontWeight: '500',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
   },
   totalLabel: {
     fontSize: 16,
@@ -321,8 +414,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 8,
+    shadowColor: '#4338ca',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   addToCartText: {
     color: '#ffffff',
