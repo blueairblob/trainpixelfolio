@@ -15,7 +15,8 @@ const Gallery = () => {
     filters, 
     setFilters, 
     displayPhotos, 
-    clearFilters 
+    clearFilters,
+    setSortBy
   } = usePhotoFilters({
     allPhotos,
     minPrice,
@@ -25,6 +26,11 @@ const Gallery = () => {
   // Check if any filters are active
   const activeFilters = hasActiveFilters(filters, minPrice, maxPrice);
   const activeFilterCount = countActiveFilters(filters, minPrice, maxPrice);
+
+  // Handle sort change
+  const handleSortChange = (sortBy: string) => {
+    setSortBy(sortBy);
+  };
 
   return (
     <div className="min-h-screen pb-20">
@@ -52,7 +58,9 @@ const Gallery = () => {
             toggleFilterMenu={() => setShowFilterMenu(!showFilterMenu)}
             hasActiveFilters={activeFilters}
             clearFilters={clearFilters}
-            displayCount={activeFilters ? activeFilterCount : displayPhotos.length}
+            displayCount={displayPhotos.length}
+            sortBy={filters.sortBy}
+            onSortChange={handleSortChange}
           />
           
           {/* Filter component */}

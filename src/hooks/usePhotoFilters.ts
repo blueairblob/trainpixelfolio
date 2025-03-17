@@ -15,6 +15,7 @@ interface UsePhotoFiltersReturn {
   setFilters: React.Dispatch<React.SetStateAction<PhotoFilters>>;
   displayPhotos: Photo[];
   clearFilters: () => void;
+  setSortBy: (sortBy: string) => void;
 }
 
 export const usePhotoFilters = ({
@@ -47,14 +48,23 @@ export const usePhotoFilters = ({
       locations: [],
       priceRange: [minPrice, maxPrice],
       orientation: undefined,
-      sortBy: 'newest'
+      sortBy: filters.sortBy // Keep the current sort option
     });
+  };
+  
+  // Set sort by option
+  const setSortBy = (sortBy: string) => {
+    setFilters(prev => ({
+      ...prev,
+      sortBy
+    }));
   };
   
   return {
     filters,
     setFilters,
     displayPhotos,
-    clearFilters
+    clearFilters,
+    setSortBy
   };
 };

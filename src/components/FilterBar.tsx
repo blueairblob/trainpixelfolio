@@ -1,21 +1,42 @@
 
 import React from 'react';
-import { Filter } from 'lucide-react';
+import { Filter, ArrowDownUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FilterBarProps {
   toggleFilterMenu: () => void;
   hasActiveFilters: boolean;
   clearFilters: () => void;
   displayCount: number;
+  sortBy: string;
+  onSortChange: (value: string) => void;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({ 
   toggleFilterMenu, 
   hasActiveFilters, 
   clearFilters, 
-  displayCount 
+  displayCount,
+  sortBy,
+  onSortChange
 }) => {
+  // Array of sorting options
+  const sortOptions = [
+    { value: 'newest', label: 'Newest' },
+    { value: 'popular', label: 'Most Popular' },
+    { value: 'price_high', label: 'Price: High to Low' },
+    { value: 'price_low', label: 'Price: Low to High' },
+  ];
+
+  // Find the current sort option label
+  const currentSortLabel = sortOptions.find(option => option.value === sortBy)?.label || 'Newest';
+
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-2">
@@ -40,8 +61,34 @@ const FilterBar: React.FC<FilterBarProps> = ({
         )}
       </div>
       
-      <div className="text-sm text-muted-foreground">
-        Showing {displayCount} {displayCount === 1 ? 'photo' : 'photos'}
+      <div className="flex items-center gap-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-2"
+            >
+              <ArrowDownUp className="size-4" />
+              Sort: {currentSortLabel}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {sortOptions.map((option) => (
+              <DropdownMenuItem 
+                key={option.value}
+                onClick={() => onSortChange(option.value)}
+                className={sortBy === option.value ? "bg-muted" : ""}
+              >
+                {option.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+        <div className="text-sm text-muted-foreground">
+          Showing {displayCount} {displayCount === 1 ? 'photo' : 'photos'}
+        </div>
       </div>
     </div>
   );
