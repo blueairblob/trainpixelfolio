@@ -15,7 +15,7 @@ interface UsePhotoFiltersReturn {
   setFilters: React.Dispatch<React.SetStateAction<PhotoFilters>>;
   displayPhotos: Photo[];
   clearFilters: () => void;
-  setSortBy: (sortBy: string) => void;
+  setSortBy: (sortBy: 'newest' | 'popular' | 'price_high' | 'price_low') => void;
 }
 
 export const usePhotoFilters = ({
@@ -53,7 +53,7 @@ export const usePhotoFilters = ({
   };
   
   // Set sort by option
-  const setSortBy = (sortBy: string) => {
+  const setSortBy = (sortBy: 'newest' | 'popular' | 'price_high' | 'price_low') => {
     setFilters(prev => ({
       ...prev,
       sortBy

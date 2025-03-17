@@ -28,7 +28,7 @@ const Gallery = () => {
   const activeFilterCount = countActiveFilters(filters, minPrice, maxPrice);
 
   // Handle sort change
-  const handleSortChange = (sortBy: string) => {
+  const handleSortChange = (sortBy: 'newest' | 'popular' | 'price_high' | 'price_low') => {
     setSortBy(sortBy);
   };
 

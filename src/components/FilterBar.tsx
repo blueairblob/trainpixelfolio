@@ -15,7 +15,7 @@ interface FilterBarProps {
   clearFilters: () => void;
   displayCount: number;
   sortBy: string;
-  onSortChange: (value: string) => void;
+  onSortChange: (value: 'newest' | 'popular' | 'price_high' | 'price_low') => void;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({ 
@@ -28,10 +28,10 @@ const FilterBar: React.FC<FilterBarProps> = ({
 }) => {
   // Array of sorting options
   const sortOptions = [
-    { value: 'newest', label: 'Newest' },
-    { value: 'popular', label: 'Most Popular' },
-    { value: 'price_high', label: 'Price: High to Low' },
-    { value: 'price_low', label: 'Price: Low to High' },
+    { value: 'newest' as const, label: 'Newest' },
+    { value: 'popular' as const, label: 'Most Popular' },
+    { value: 'price_high' as const, label: 'Price: High to Low' },
+    { value: 'price_low' as const, label: 'Price: Low to High' },
   ];
 
   // Find the current sort option label
