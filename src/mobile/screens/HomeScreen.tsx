@@ -7,10 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 const HomeScreen = ({ navigation }) => {
   // Featured categories
   const categories = [
-    { id: 'steam', title: 'Steam Locomotives', icon: 'train-outline' },
-    { id: 'modern', title: 'Modern Trains', icon: 'subway-outline' },
-    { id: 'stations', title: 'Railway Stations', icon: 'business-outline' },
-    { id: 'scenic', title: 'Scenic Railways', icon: 'image-outline' },
+    { id: 'steam', title: 'Steam Locomotives', icon: 'train' },
+    { id: 'modern', title: 'Modern Trains', icon: 'subway' },
+    { id: 'stations', title: 'Railway Stations', icon: 'business' },
+    { id: 'scenic', title: 'Scenic Railways', icon: 'image' },
   ];
 
   // Sample featured photo
@@ -31,7 +31,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.header}>
           <Text style={styles.title}>TrainPhoto</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
-            <Ionicons name="cart-outline" size={24} color="#4f46e5" />
+            <Ionicons name="cart" size={24} color="#4f46e5" />
           </TouchableOpacity>
         </View>
 
@@ -288,3 +288,4 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
+
