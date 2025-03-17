@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -60,7 +59,7 @@ const HomeScreen = ({ navigation }) => {
                 style={styles.categoryCard}
                 onPress={() => navigation.navigate('Gallery', { category: category.id })}
               >
-                <Ionicons name={category.icon} size={24} color="#4f46e5" />
+                <Ionicons name={category.icon as any} size={24} color="#4f46e5" />
                 <Text style={styles.categoryTitle}>{category.title}</Text>
               </TouchableOpacity>
             ))}
@@ -288,4 +287,3 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
-
