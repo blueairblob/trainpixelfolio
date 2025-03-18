@@ -1,17 +1,17 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Mock user database
-const users = [
+// Mock user data for demo purposes
+const USERS = [
   {
-    id: 'user1',
+    id: '1',
     name: 'Admin User',
     email: 'admin@example.com',
     password: 'admin123',
     role: 'admin'
   },
   {
-    id: 'user2',
+    id: '2',
     name: 'Regular User',
     email: 'user@example.com',
     password: 'user123',
@@ -19,115 +19,103 @@ const users = [
   }
 ];
 
-// Initialize users in AsyncStorage
-const initializeUsers = async () => {
-  try {
-    const existingUsers = await AsyncStorage.getItem('users');
-    if (!existingUsers) {
-      await AsyncStorage.setItem('users', JSON.stringify(users));
-    }
-  } catch (error) {
-    console.error('Error initializing users:', error);
-  }
-};
-
-// Call initialization when the file is imported
-initializeUsers();
-
-// Login function
 export const login = async (email, password) => {
-  try {
-    // Get users from storage
-    const usersJson = await AsyncStorage.getItem('users');
-    const users = usersJson ? JSON.parse(usersJson) : [];
-    
-    // Find user with matching email and password
-    const user = users.find(u => 
-      u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-    
-    if (!user) {
-      throw new Error('Invalid email or password');
-    }
-    
-    // Return user data and token (in a real app, you'd generate a proper token)
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: `mock-token-${user.id}-${Date.now()}`
-    };
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const user = USERS.find(
+    user => user.email.toLowerCase() === email.toLowerCase() && user.password === password
+  );
+  
+  if (!user) {
+    throw new Error('Invalid email or password');
   }
+  
+  // Create a user session object without the password
+  const userSession = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    token: `mock-jwt-token-${user.id}`,
+  };
+  
+  // Save the session data to AsyncStorage
+  await AsyncStorage.setItem('userToken', userSession.token);
+  await AsyncStorage.setItem('userRole', userSession.role);
+  await AsyncStorage.setItem('userProfile', JSON.stringify(userSession));
+  
+  return userSession;
 };
 
-// Register function
 export const register = async (name, email, password) => {
-  try {
-    // Get users from storage
-    const usersJson = await AsyncStorage.getItem('users');
-    const users = usersJson ? JSON.parse(usersJson) : [];
-    
-    // Check if email already exists
-    const existingUser = users.find(u => 
-      u.email.toLowerCase() === email.toLowerCase()
-    );
-    
-    if (existingUser) {
-      throw new Error('Email already in use');
-    }
-    
-    // Create new user
-    const newUser = {
-      id: `user${Date.now()}`,
-      name,
-      email,
-      password,
-      role: 'user' // Default role
-    };
-    
-    // Save updated users
-    const updatedUsers = [...users, newUser];
-    await AsyncStorage.setItem('users', JSON.stringify(updatedUsers));
-    
-    // Return user data and token
-    return {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      token: `mock-token-${newUser.id}-${Date.now()}`
-    };
-  } catch (error) {
-    console.error('Registration error:', error);
-    throw error;
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Check if user already exists
+  const existingUser = USERS.find(
+    user => user.email.toLowerCase() === email.toLowerCase()
+  );
+  
+  if (existingUser) {
+    throw new Error('User with this email already exists');
   }
+  
+  // In a real app, this would be a POST request to your API
+  // For this demo, we'll just create a mock user
+  const newUser = {
+    id: `${USERS.length + 1}`,
+    name,
+    email,
+    password,
+    role: 'user'
+  };
+  
+  // Add user to our mock database
+  USERS.push(newUser);
+  
+  // Create user session without the password
+  const userSession = {
+    id: newUser.id,
+    name: newUser.name,
+    email: newUser.email,
+    role: newUser.role,
+    token: `mock-jwt-token-${newUser.id}`,
+  };
+  
+  // Save the session data
+  await AsyncStorage.setItem('userToken', userSession.token);
+  await AsyncStorage.setItem('userRole', userSession.role);
+  await AsyncStorage.setItem('userProfile', JSON.stringify(userSession));
+  
+  return userSession;
 };
 
-// Password reset request (mock implementation)
-export const requestPasswordReset = async (email) => {
-  try {
-    // Get users from storage
-    const usersJson = await AsyncStorage.getItem('users');
-    const users = usersJson ? JSON.parse(usersJson) : [];
-    
-    // Check if email exists
-    const user = users.find(u => 
-      u.email.toLowerCase() === email.toLowerCase()
-    );
-    
-    if (!user) {
-      throw new Error('Email not found');
-    }
-    
-    // In a real app, send an email with reset link
-    // Here we just return success
-    return { success: true, message: 'Password reset link sent' };
-  } catch (error) {
-    console.error('Password reset request error:', error);
-    throw error;
+export const logout = async () => {
+  // Remove all session data
+  await AsyncStorage.removeItem('userToken');
+  await AsyncStorage.removeItem('userRole');
+  await AsyncStorage.removeItem('userProfile');
+};
+
+export const getCurrentUser = async () => {
+  const userProfileJson = await AsyncStorage.getItem('userProfile');
+  if (!userProfileJson) {
+    return null;
   }
+  return JSON.parse(userProfileJson);
+};
+
+export const checkAuth = async () => {
+  const token = await AsyncStorage.getItem('userToken');
+  const role = await AsyncStorage.getItem('userRole');
+  
+  if (!token) {
+    return { isAuthenticated: false, isAdmin: false };
+  }
+  
+  return { 
+    isAuthenticated: true, 
+    isAdmin: role === 'admin' 
+  };
 };

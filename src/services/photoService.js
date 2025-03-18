@@ -1,160 +1,145 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Sample data
-const samplePhotos = [
+// Mock photo data for demo purposes
+const PHOTOS = [
   {
-    id: 'photo1',
-    title: 'Vintage Steam Locomotive',
-    description: 'A beautifully restored steam locomotive passing through mountain scenery.',
+    id: '1',
+    title: 'Steam Train in the Mountains',
     photographer: 'John Smith',
-    location: 'Swiss Alps',
-    price: 49.99,
-    tags: ['steam', 'vintage', 'mountain'],
+    price: 29.99,
     imageUrl: 'https://images.unsplash.com/photo-1527684651001-731c474bbb5a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80',
+    location: 'Swiss Alps',
+    description: 'A beautiful vintage steam train crossing the mountains in the Swiss Alps on a clear summer day.',
+    categoryId: '1',
+    createdAt: '2023-05-15',
+    featured: true
   },
   {
-    id: 'photo2',
-    title: 'Modern High-Speed Train',
-    description: 'A sleek, modern high-speed train speeding through the countryside.',
+    id: '2',
+    title: 'Subway Train at Night',
     photographer: 'Sarah Johnson',
-    location: 'Japan',
-    price: 39.99,
-    tags: ['modern', 'high-speed', 'technology'],
-    imageUrl: 'https://images.unsplash.com/photo-1679679008383-6f778fe07382?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+    price: 19.99,
+    imageUrl: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2084&q=80',
+    location: 'New York City',
+    description: 'A moody shot of a subway train arriving at the station late at night in New York City.',
+    categoryId: '2',
+    createdAt: '2023-06-20',
+    featured: false
   },
   {
-    id: 'photo3',
-    title: 'Mountain Railway',
-    description: 'A traditional railway winding through breathtaking mountain scenery.',
-    photographer: 'Alice Williams',
-    location: 'Rocky Mountains',
-    price: 59.99,
-    tags: ['scenic', 'mountain', 'landscape'],
-    imageUrl: 'https://images.unsplash.com/photo-1425913397330-cf8af2ff40a1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80',
-  },
-  {
-    id: 'photo4',
-    title: 'Historic Railway Station',
-    description: 'The grand architecture of a historic European railway station.',
-    photographer: 'Michael Brown',
-    location: 'Paris, France',
-    price: 44.99,
-    tags: ['stations', 'historic', 'architecture'],
-    imageUrl: 'https://images.unsplash.com/photo-1609618996942-44532fa2e24d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
-  },
-  {
-    id: 'photo5',
-    title: 'Old Train in City',
-    description: 'Vintage train passing through a modern urban area, contrasting old and new.',
+    id: '3',
+    title: 'High-Speed Train',
     photographer: 'David Chen',
-    location: 'Berlin, Germany',
     price: 34.99,
-    tags: ['urban', 'vintage', 'city'],
-    imageUrl: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1484&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1541427468627-a89a96e5ca1d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80',
+    location: 'Tokyo, Japan',
+    description: 'A Japanese bullet train (Shinkansen) speeding through the countryside near Tokyo.',
+    categoryId: '3',
+    createdAt: '2023-07-05',
+    featured: false
   },
   {
-    id: 'photo6',
-    title: 'Night Train',
-    description: 'A long-exposure shot of a train moving through the night, creating light trails.',
-    photographer: 'Emma Davis',
-    location: 'Chicago, USA',
-    price: 54.99,
-    tags: ['night', 'modern', 'artistic'],
-    imageUrl: 'https://images.unsplash.com/photo-1553696590-4b3f68898333?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+    id: '4',
+    title: 'Train on Historic Bridge',
+    photographer: 'Emma Wilson',
+    price: 24.99,
+    imageUrl: 'https://images.unsplash.com/photo-1623811035446-63ea62979ada?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+    location: 'Edinburgh, Scotland',
+    description: 'A historic train crossing the famous Forth Bridge in Scotland during sunset.',
+    categoryId: '1',
+    createdAt: '2023-04-30',
+    featured: true
   },
+  {
+    id: '5',
+    title: 'Freight Train in Desert',
+    photographer: 'Michael Brown',
+    price: 22.99,
+    imageUrl: 'https://images.unsplash.com/photo-1531752074002-abf991376d04?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+    location: 'Arizona, USA',
+    description: 'A long freight train carrying goods through the Arizona desert landscape.',
+    categoryId: '4',
+    createdAt: '2023-05-10',
+    featured: false
+  },
+  {
+    id: '6',
+    title: 'Mountain Railway',
+    photographer: 'Sophia Garcia',
+    price: 27.99,
+    imageUrl: 'https://images.unsplash.com/photo-1468805498375-1896a933aba9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
+    location: 'Colorado, USA',
+    description: 'A scenic railway winding through the Rocky Mountains in Colorado during fall season.',
+    categoryId: '1',
+    createdAt: '2023-09-15',
+    featured: false
+  }
 ];
 
-// Initialize storage with sample data on first run
-const initializeStorage = async () => {
-  try {
-    const existingPhotos = await AsyncStorage.getItem('photos');
-    if (!existingPhotos) {
-      await AsyncStorage.setItem('photos', JSON.stringify(samplePhotos));
-    }
-  } catch (error) {
-    console.error('Error initializing storage:', error);
+// Mock categories
+const CATEGORIES = [
+  { id: 'all', title: 'All Photos', icon: 'images-outline' },
+  { id: '1', title: 'Steam Trains', icon: 'train-outline' },
+  { id: '2', title: 'Subway & Metro', icon: 'subway-outline' },
+  { id: '3', title: 'High-Speed', icon: 'flash-outline' },
+  { id: '4', title: 'Freight', icon: 'cube-outline' }
+];
+
+export const getPhotos = async (categoryId = null) => {
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  let filteredPhotos = [...PHOTOS];
+  
+  if (categoryId && categoryId !== 'all') {
+    filteredPhotos = filteredPhotos.filter(photo => photo.categoryId === categoryId);
   }
+  
+  return filteredPhotos;
 };
 
-// Call initialization when the file is imported
-initializeStorage();
+export const getPhotoById = async (id) => {
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  const photo = PHOTOS.find(photo => photo.id === id);
+  
+  if (!photo) {
+    throw new Error('Photo not found');
+  }
+  
+  return photo;
+};
 
-// Get all photos
-export const getAllPhotos = async () => {
-  try {
-    const photosJson = await AsyncStorage.getItem('photos');
-    return photosJson ? JSON.parse(photosJson) : [];
-  } catch (error) {
-    console.error('Error getting photos:', error);
+export const getFeaturedPhotos = async () => {
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  return PHOTOS.filter(photo => photo.featured);
+};
+
+export const getCategories = async () => {
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  return CATEGORIES;
+};
+
+export const searchPhotos = async (query) => {
+  // Simulate API call delay
+  await new Promise(resolve => setTimeout(resolve, 800));
+  
+  if (!query || query.trim() === '') {
     return [];
   }
-};
-
-// Get a single photo by ID
-export const getPhotoById = async (id) => {
-  try {
-    const photosJson = await AsyncStorage.getItem('photos');
-    const photos = photosJson ? JSON.parse(photosJson) : [];
-    return photos.find(photo => photo.id === id);
-  } catch (error) {
-    console.error('Error getting photo by ID:', error);
-    return null;
-  }
-};
-
-// Add a new photo
-export const addPhoto = async (photoData) => {
-  try {
-    const photosJson = await AsyncStorage.getItem('photos');
-    const photos = photosJson ? JSON.parse(photosJson) : [];
-    
-    const newPhoto = {
-      ...photoData,
-      id: `photo${Date.now()}`, // Generate a unique ID
-    };
-    
-    const updatedPhotos = [...photos, newPhoto];
-    await AsyncStorage.setItem('photos', JSON.stringify(updatedPhotos));
-    
-    return newPhoto;
-  } catch (error) {
-    console.error('Error adding photo:', error);
-    throw error;
-  }
-};
-
-// Update an existing photo
-export const updatePhoto = async (id, photoData) => {
-  try {
-    const photosJson = await AsyncStorage.getItem('photos');
-    const photos = photosJson ? JSON.parse(photosJson) : [];
-    
-    const updatedPhotos = photos.map(photo => 
-      photo.id === id ? { ...photo, ...photoData } : photo
-    );
-    
-    await AsyncStorage.setItem('photos', JSON.stringify(updatedPhotos));
-    
-    return updatedPhotos.find(photo => photo.id === id);
-  } catch (error) {
-    console.error('Error updating photo:', error);
-    throw error;
-  }
-};
-
-// Delete a photo
-export const deletePhoto = async (id) => {
-  try {
-    const photosJson = await AsyncStorage.getItem('photos');
-    const photos = photosJson ? JSON.parse(photosJson) : [];
-    
-    const updatedPhotos = photos.filter(photo => photo.id !== id);
-    await AsyncStorage.setItem('photos', JSON.stringify(updatedPhotos));
-    
-    return true;
-  } catch (error) {
-    console.error('Error deleting photo:', error);
-    throw error;
-  }
+  
+  const lowercaseQuery = query.toLowerCase();
+  
+  return PHOTOS.filter(photo => 
+    photo.title.toLowerCase().includes(lowercaseQuery) ||
+    photo.photographer.toLowerCase().includes(lowercaseQuery) ||
+    photo.location.toLowerCase().includes(lowercaseQuery) ||
+    photo.description.toLowerCase().includes(lowercaseQuery)
+  );
 };

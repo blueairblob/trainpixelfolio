@@ -2,22 +2,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getPhotoById } from './photoService';
 
-// Get all cart items
+const CART_STORAGE_KEY = 'user_cart';
+
+// Get cart items with full photo details
 export const getCartItems = async () => {
   try {
-    const cartJson = await AsyncStorage.getItem('cart');
+    // Get cart from storage
+    const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+    const cart = cartData ? JSON.parse(cartData) : [];
     
-    // If no cart exists yet, return empty array
-    if (!cartJson) {
+    // If cart is empty, return empty array
+    if (cart.length === 0) {
       return [];
     }
     
-    // Parse cart data
-    const cartItems = JSON.parse(cartJson);
-    
-    // Get full details for each item
-    const itemsWithDetails = await Promise.all(
-      cartItems.map(async (item) => {
+    // Get full details for each photo in cart
+    const cartItemsWithDetails = await Promise.all(
+      cart.map(async (item) => {
         const photo = await getPhotoById(item.id);
         return {
           ...photo,
@@ -26,9 +27,9 @@ export const getCartItems = async () => {
       })
     );
     
-    return itemsWithDetails.filter(item => item); // Filter out any null items
+    return cartItemsWithDetails;
   } catch (error) {
-    console.error('Error getting cart items:', error);
+    console.error('Error fetching cart items:', error);
     return [];
   }
 };
@@ -36,15 +37,9 @@ export const getCartItems = async () => {
 // Add item to cart
 export const addToCart = async (photoId, quantity = 1) => {
   try {
-    // Get photo details
-    const photo = await getPhotoById(photoId);
-    if (!photo) {
-      throw new Error('Photo not found');
-    }
-    
     // Get current cart
-    const cartJson = await AsyncStorage.getItem('cart');
-    const cart = cartJson ? JSON.parse(cartJson) : [];
+    const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+    const cart = cartData ? JSON.parse(cartData) : [];
     
     // Check if item already exists in cart
     const existingItemIndex = cart.findIndex(item => item.id === photoId);
@@ -54,18 +49,15 @@ export const addToCart = async (photoId, quantity = 1) => {
       cart[existingItemIndex].quantity += quantity;
     } else {
       // Add new item if it doesn't exist
-      cart.push({
-        id: photoId,
-        quantity
-      });
+      cart.push({ id: photoId, quantity });
     }
     
     // Save updated cart
-    await AsyncStorage.setItem('cart', JSON.stringify(cart));
+    await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
     
-    return await getCartItems();
+    return cart;
   } catch (error) {
-    console.error('Error adding to cart:', error);
+    console.error('Error adding item to cart:', error);
     throw error;
   }
 };
@@ -74,32 +66,21 @@ export const addToCart = async (photoId, quantity = 1) => {
 export const updateCartItemQuantity = async (photoId, quantity) => {
   try {
     // Get current cart
-    const cartJson = await AsyncStorage.getItem('cart');
-    if (!cartJson) {
-      throw new Error('Cart not found');
-    }
-    
-    const cart = JSON.parse(cartJson);
+    const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+    const cart = cartData ? JSON.parse(cartData) : [];
     
     // Find the item
-    const itemIndex = cart.findIndex(item => item.id === photoId);
+    const existingItemIndex = cart.findIndex(item => item.id === photoId);
     
-    if (itemIndex === -1) {
-      throw new Error('Item not found in cart');
-    }
-    
-    if (quantity > 0) {
+    if (existingItemIndex >= 0) {
       // Update quantity
-      cart[itemIndex].quantity = quantity;
-    } else {
-      // Remove item if quantity is 0 or negative
-      cart.splice(itemIndex, 1);
+      cart[existingItemIndex].quantity = quantity;
+      
+      // Save updated cart
+      await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
     }
     
-    // Save updated cart
-    await AsyncStorage.setItem('cart', JSON.stringify(cart));
-    
-    return await getCartItems();
+    return cart;
   } catch (error) {
     console.error('Error updating cart item quantity:', error);
     throw error;
@@ -110,22 +91,18 @@ export const updateCartItemQuantity = async (photoId, quantity) => {
 export const removeFromCart = async (photoId) => {
   try {
     // Get current cart
-    const cartJson = await AsyncStorage.getItem('cart');
-    if (!cartJson) {
-      return [];
-    }
+    const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+    const cart = cartData ? JSON.parse(cartData) : [];
     
-    const cart = JSON.parse(cartJson);
-    
-    // Remove the item
+    // Filter out the item to remove
     const updatedCart = cart.filter(item => item.id !== photoId);
     
     // Save updated cart
-    await AsyncStorage.setItem('cart', JSON.stringify(updatedCart));
+    await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updatedCart));
     
-    return await getCartItems();
+    return updatedCart;
   } catch (error) {
-    console.error('Error removing from cart:', error);
+    console.error('Error removing item from cart:', error);
     throw error;
   }
 };
@@ -133,10 +110,23 @@ export const removeFromCart = async (photoId) => {
 // Clear entire cart
 export const clearCart = async () => {
   try {
-    await AsyncStorage.removeItem('cart');
+    await AsyncStorage.removeItem(CART_STORAGE_KEY);
     return [];
   } catch (error) {
     console.error('Error clearing cart:', error);
     throw error;
+  }
+};
+
+// Get cart count (number of items)
+export const getCartCount = async () => {
+  try {
+    const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+    const cart = cartData ? JSON.parse(cartData) : [];
+    
+    return cart.reduce((total, item) => total + item.quantity, 0);
+  } catch (error) {
+    console.error('Error getting cart count:', error);
+    return 0;
   }
 };
