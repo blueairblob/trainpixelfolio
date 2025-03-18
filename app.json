@@ -34,6 +34,9 @@
         "projectId": "your-project-id-here"
       }
     },
-    "owner": "blueairblob"
+    "owner": "blueairblob",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

@@ -4,7 +4,8 @@ module.exports = function(api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      // Add any Babel plugins here if needed
+      // For React Native specific transformations
+      'react-native-reanimated/plugin',
     ],
   };
 };
