@@ -41,7 +41,7 @@ const TabNavigator = () => {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#4f46e5',
+        tabBarActiveTintColor: '#D32F2F',
         tabBarInactiveTintColor: 'gray',
       })}
     >
@@ -85,7 +85,7 @@ const App = () => {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <NavigationContainer>
         <Stack.Navigator>
           {!isAuthenticated ? (

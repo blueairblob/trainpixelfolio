@@ -4,7 +4,7 @@ module.exports = function(api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      // Add any babel plugins here if needed
+      // Add any Babel plugins here if needed
     ],
   };
 };
