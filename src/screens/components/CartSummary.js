@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const CartSummary = ({ totalPrice, onCheckout }) => {
+  // Calculate tax and grand total
   const tax = totalPrice * 0.08;
   const grandTotal = totalPrice + tax;
   
@@ -15,7 +16,7 @@ const CartSummary = ({ totalPrice, onCheckout }) => {
       </View>
       
       <View style={styles.summaryRow}>
-        <Text style={styles.summaryLabel}>Tax</Text>
+        <Text style={styles.summaryLabel}>Tax (8%)</Text>
         <Text style={styles.summaryValue}>${tax.toFixed(2)}</Text>
       </View>
       
@@ -31,6 +32,7 @@ const CartSummary = ({ totalPrice, onCheckout }) => {
       <TouchableOpacity
         style={styles.checkoutButton}
         onPress={onCheckout}
+        activeOpacity={0.8}
       >
         <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
         <Ionicons name="arrow-forward" size={16} color="#ffffff" />
@@ -45,6 +47,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+    borderRadius: 0,
   },
   summaryRow: {
     flexDirection: 'row',
