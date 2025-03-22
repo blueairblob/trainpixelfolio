@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   View, 
@@ -17,7 +16,6 @@ import { useAuth } from '../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { login, register } from '../services/authService';
 
 const AuthScreen = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -27,43 +25,36 @@ const AuthScreen = () => {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const { login, register } = useAuth();
   
-  const handleSubmit = async () => {
+  const handleAuth = async () => {
     setError('');
     setIsLoading(true);
     let userData;
     
     try {
-      
       if (isLogin) {
         // Validation
         if (!email || !password) {
           Alert.alert("Error", "Please fill in all required fields");
-          return;
-        }
-
-        if (!isLogin && password !== confirmPassword) {
-          Alert.alert("Error", "Passwords do not match");
-          return;
-        }
-    
-        if (!isLogin && !name) {
-          Alert.alert("Error", "Please enter your name");
+          setIsLoading(false);
           return;
         }
         
         userData = await login(email, password);
       } else {
         // Handle registration
-        if (!email || !username || !password) {
-          Alert.alert("Error","Please fill in all fields");
+        if (!email || !name || !password) {
+          Alert.alert("Error", "Please fill in all fields");
+          setIsLoading(false);
           return;
         }
 
         if (password !== confirmPassword) {
           Alert.alert("Error", "Passwords do not match");
+          setIsLoading(false);
           return;
         }
 
@@ -82,8 +73,9 @@ const AuthScreen = () => {
         [{ text: "OK" }]
       );
     } catch (error) {
-      Alert.alert("Error", error.message || "Authentication failed");
-      setError(error.message);
+      const errorMessage = error.message || "Authentication failed";
+      Alert.alert("Error", errorMessage);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -39,6 +39,7 @@
     "@types/react": "~18.3.12",
     "@types/react-dom": "~18.3.1",
     "@vitejs/plugin-react-swc": "^3.8.1",
+    "lovable-tagger": "^1.1.7",
     "typescript": "^5.1.3"
   }
 }
