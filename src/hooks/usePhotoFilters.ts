@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { Photo as CartPhoto } from '@/context/CartContext';
 import { Photo as ServicePhoto, PhotoFilters } from '@/services/photoService';
-import { filterPhotos } from '@/services/photoService'; // Change .js to .ts
+import { filterPhotos } from '@/services/photoService'; 
 
 interface UsePhotoFiltersProps {
   allPhotos: CartPhoto[] | ServicePhoto[];
@@ -28,7 +27,6 @@ export const usePhotoFilters = ({
     photographers: [],
     locations: [],
     priceRange: [minPrice, maxPrice],
-    orientation: undefined,
     sortBy: 'newest'
   });
   
@@ -49,7 +47,6 @@ export const usePhotoFilters = ({
       photographers: [],
       locations: [],
       priceRange: [minPrice, maxPrice],
-      orientation: undefined,
       sortBy: filters.sortBy // Keep the current sort option
     });
   };

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
-import { allPhotos } from '../../services/photoService.ts'; // Change .js to .ts
+import { allPhotos } from '../../services/photoService'; // Removed .ts extension
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
 import FilterModal from '../components/FilterModal';

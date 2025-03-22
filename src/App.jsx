@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -8,12 +9,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import screens
-import HomeScreen from './src/screens/HomeScreen';
-import GalleryScreen from './src/screens/GalleryScreen';
-import PhotoDetailScreen from './src/screens/PhotoDetailScreen';
-import CartScreen from './src/screens/CartScreen';
-import ProfileScreen from './src/screens/ProfileScreen';
-import AuthScreen from './src/screens/AuthScreen';
+import HomeScreen from './screens/HomeScreen';
+import GalleryScreen from './screens/GalleryScreen';
+import PhotoDetailScreen from './screens/PhotoDetailScreen';
+import CartScreen from './screens/CartScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import AuthScreen from './screens/AuthScreen';
 
 // Create the navigators
 const Tab = createBottomTabNavigator();
