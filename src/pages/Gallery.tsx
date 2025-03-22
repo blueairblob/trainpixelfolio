@@ -5,7 +5,7 @@ import FilterPanel from '@/components/FilterPanel';
 import PhotoGrid from '@/components/PhotoGrid';
 import FilterBar from '@/components/FilterBar';
 import { usePhotoFilters } from '@/hooks/usePhotoFilters';
-import { allPhotos, extractMetadata, hasActiveFilters, countActiveFilters } from '@/services/photoService.ts'; // Change .js to .ts
+import { allPhotos, extractMetadata, hasActiveFilters, countActiveFilters } from '@/services/photoService'; // Removed .ts extension
 
 const Gallery = () => {
   const { tags, photographers, locations, minPrice, maxPrice } = extractMetadata();

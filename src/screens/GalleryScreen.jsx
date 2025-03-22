@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView, StyleSheet, FlatList, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { allPhotos } from '../../services/photoService.ts';
+import { allPhotos } from '../services/photoService';
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
 import FilterModal from '../components/FilterModal';

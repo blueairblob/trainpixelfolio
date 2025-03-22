@@ -28,7 +28,6 @@ export const usePhotoFilters = ({
     photographers: [],
     locations: [],
     priceRange: [minPrice, maxPrice],
-    orientation: undefined,
     sortBy: 'newest'
   });
   
@@ -49,7 +48,6 @@ export const usePhotoFilters = ({
       photographers: [],
       locations: [],
       priceRange: [minPrice, maxPrice],
-      orientation: undefined,
       sortBy: filters.sortBy // Keep the current sort option
     });
   };
