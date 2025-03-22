@@ -33,6 +33,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/react": "~18.3.12",
+    "lovable-tagger": "^1.1.7",
     "typescript": "^5.1.3"
   }
 }
