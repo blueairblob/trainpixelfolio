@@ -1,10 +1,19 @@
 
 import React, { useState } from 'react';
 import { 
-  View, Text, StyleSheet, TextInput, 
-  TouchableOpacity, Image, Alert, KeyboardAvoidingView, 
-  Platform, ScrollView 
+  View, 
+  Text,
+  TextInput,
+  TouchableOpacity,   
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform, 
+  ScrollView,
+  Image,
+  Alert
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '../context/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,31 +27,46 @@ const AuthScreen = () => {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const handleAuth = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please fill in all required fields");
-      return;
-    }
-    
-    if (!isLogin && password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
-      return;
-    }
 
-    if (!isLogin && !name) {
-      Alert.alert("Error", "Please enter your name");
-      return;
-    }
-    
+  const { login, register } = useAuth();
+  
+  const handleSubmit = async () => {
+    setError('');
     setIsLoading(true);
+    let userData;
     
     try {
-      let userData;
       
       if (isLogin) {
+        // Validation
+        if (!email || !password) {
+          Alert.alert("Error", "Please fill in all required fields");
+          return;
+        }
+
+        if (!isLogin && password !== confirmPassword) {
+          Alert.alert("Error", "Passwords do not match");
+          return;
+        }
+    
+        if (!isLogin && !name) {
+          Alert.alert("Error", "Please enter your name");
+          return;
+        }
+        
         userData = await login(email, password);
       } else {
+        // Handle registration
+        if (!email || !username || !password) {
+          Alert.alert("Error","Please fill in all fields");
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          Alert.alert("Error", "Passwords do not match");
+          return;
+        }
+
         userData = await register(name, email, password);
       }
       
@@ -59,6 +83,7 @@ const AuthScreen = () => {
       );
     } catch (error) {
       Alert.alert("Error", error.message || "Authentication failed");
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -84,11 +109,15 @@ const AuthScreen = () => {
   
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Logo and Header */}
           <View style={styles.header}>
             <Image 

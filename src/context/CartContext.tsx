@@ -1,100 +1,96 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { toast } from 'sonner';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Photo {
   id: string;
   title: string;
-  description: string;
-  price: number;
   imageUrl: string;
+  price: number;
   photographer: string;
-  location: string;
-  tags: string[];
+  [key: string]: any; // for other properties
 }
 
-interface CartItem extends Photo {
+export interface CartItem extends Photo {
   quantity: number;
 }
 
 interface CartContextType {
   items: CartItem[];
+  totalItems: number;
+  totalPrice: number;
   addToCart: (photo: Photo) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
-  totalItems: number;
-  totalPrice: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const CartProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalPrice, setTotalPrice] = useState(0);
-
-  // Update totals whenever cart changes
-  useEffect(() => {
-    const itemCount = items.reduce((total, item) => total + item.quantity, 0);
-    const price = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-    
-    setTotalItems(itemCount);
-    setTotalPrice(price);
-  }, [items]);
   
-  // Load cart from localStorage on initial render
+  // Calculate derived values
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0);
+  const totalPrice = items.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+  // Load cart from AsyncStorage on mount
   useEffect(() => {
-    try {
-      const savedCart = localStorage.getItem('trainphotoCart');
-      if (savedCart) {
-        setItems(JSON.parse(savedCart));
+    const loadCart = async () => {
+      try {
+        const storedCart = await AsyncStorage.getItem('cart');
+        if (storedCart) {
+          setItems(JSON.parse(storedCart));
+        }
+      } catch (error) {
+        console.error('Failed to load cart from storage', error);
       }
-    } catch (error) {
-      console.error('Error loading cart from localStorage:', error);
-    }
+    };
+
+    loadCart();
   }, []);
-  
-  // Save cart to localStorage whenever it changes
+
+  // Save cart to AsyncStorage whenever it changes
   useEffect(() => {
-    try {
-      localStorage.setItem('trainphotoCart', JSON.stringify(items));
-    } catch (error) {
-      console.error('Error saving cart to localStorage:', error);
-    }
+    const saveCart = async () => {
+      try {
+        await AsyncStorage.setItem('cart', JSON.stringify(items));
+      } catch (error) {
+        console.error('Failed to save cart to storage', error);
+      }
+    };
+
+    saveCart();
   }, [items]);
 
+  // Add item to cart
   const addToCart = (photo: Photo) => {
     setItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === photo.id);
+      // Check if item already exists in cart
+      const itemIndex = prevItems.findIndex(item => item.id === photo.id);
       
-      if (existingItem) {
-        // Increase quantity if item already in cart
-        const updatedItems = prevItems.map(item => 
-          item.id === photo.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-        toast.success(`Added another copy of "${photo.title}" to your cart`);
+      if (itemIndex > -1) {
+        // If item exists, increase quantity
+        const updatedItems = [...prevItems];
+        updatedItems[itemIndex] = {
+          ...updatedItems[itemIndex],
+          quantity: updatedItems[itemIndex].quantity + 1
+        };
         return updatedItems;
       } else {
-        // Add new item with quantity 1
-        toast.success(`Added "${photo.title}" to your cart`);
+        // If item doesn't exist, add it with quantity 1
         return [...prevItems, { ...photo, quantity: 1 }];
       }
     });
   };
 
+  // Remove item from cart
   const removeFromCart = (id: string) => {
-    setItems(prevItems => {
-      const itemToRemove = prevItems.find(item => item.id === id);
-      if (itemToRemove) {
-        toast.info(`Removed "${itemToRemove.title}" from your cart`);
-      }
-      return prevItems.filter(item => item.id !== id);
-    });
+    setItems(prevItems => prevItems.filter(item => item.id !== id));
   };
 
+  // Update item quantity
   const updateQuantity = (id: string, quantity: number) => {
-    if (quantity < 1) {
+    if (quantity <= 0) {
       removeFromCart(id);
       return;
     }
@@ -106,21 +102,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   };
 
+  // Clear the cart
   const clearCart = () => {
     setItems([]);
-    toast.info('Cart cleared');
   };
 
   return (
-    <CartContext.Provider 
-      value={{ 
-        items, 
-        addToCart, 
-        removeFromCart, 
-        updateQuantity, 
-        clearCart,
+    <CartContext.Provider
+      value={{
+        items,
         totalItems,
-        totalPrice
+        totalPrice,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart
       }}
     >
       {children}
@@ -128,6 +124,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// Custom hook to use the cart context
 export const useCart = () => {
   const context = useContext(CartContext);
   if (context === undefined) {

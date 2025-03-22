@@ -1,18 +1,21 @@
-
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, StyleSheet } from 'react-native';
-import { getAllPhotos } from '../services/photoService.ts'; // Change .js to .ts
+import { SafeAreaView, StyleSheet, FlatList, Text, View } from 'react-native';
+import { useRoute } from '@react-navigation/native';
+import { allPhotos } from '../../services/photoService.ts';
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
 import FilterModal from '../components/FilterModal';
 import PhotoList from '../components/PhotoList';
 
-const GalleryScreen = ({ navigation, route }) => {
-  const [photos, setPhotos] = useState([]);
+const GalleryScreen = ({ navigation }) => {
+  const route = useRoute();
+  const initialCategory = route.params?.category || 'all';
+  
+  const [photos, setPhotos] = useState(allPhotos);
   const [viewMode, setViewMode] = useState('grid');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [activeCategory, setActiveCategory] = useState(route.params?.category || 'all');
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState(initialCategory);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Categories for filter
   const categories = [
@@ -22,23 +25,6 @@ const GalleryScreen = ({ navigation, route }) => {
     { id: 'stations', title: 'Railway Stations' },
     { id: 'scenic', title: 'Scenic Railways' },
   ];
-
-  // Load photos on component mount
-  useEffect(() => {
-    const loadPhotos = async () => {
-      setIsLoading(true);
-      try {
-        const allPhotos = await getAllPhotos();
-        setPhotos(allPhotos);
-      } catch (error) {
-        console.error('Error loading photos:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadPhotos();
-  }, []);
 
   // Filter photos based on selected category
   const filteredPhotos = activeCategory === 'all' 

@@ -1,202 +1,214 @@
+// Photo data model
+export interface Photo {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  thumbnailUrl: string;
+  price: number;
+  photographer: string;
+  location: string;
+  dateTaken: string;
+  camera: string;
+  resolution: string;
+  tags: string[];
+  popularity: number;
+}
 
-import { Photo } from '@/context/CartContext';
-import { PhotoFilters } from '@/components/FilterPanel';
-
-// Sample gallery data
+// Sample data for the app
 export const allPhotos: Photo[] = [
   {
-    id: "train-1",
-    title: "Mountain Express at Sunset",
-    description: "A stunning mountain railway scene with a vintage train passing through alpine scenery as the sun sets in the background, creating a golden glow over the landscape.",
-    price: 79.99,
-    imageUrl: "https://images.unsplash.com/photo-1474487548417-781cb71495f3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1484&q=80",
-    photographer: "Thomas Railway",
-    location: "Swiss Alps",
-    tags: ["mountains", "sunset", "vintage"]
-  },
-  {
-    id: "train-2",
-    title: "Urban Transit",
-    description: "A modern high-speed train cutting through an urban landscape, showcasing the contrast between sleek modern engineering and the cityscape backdrop.",
-    price: 59.99,
-    imageUrl: "https://images.unsplash.com/photo-1679679008383-6f778fe07382?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-    photographer: "Metro Visuals",
-    location: "Tokyo, Japan",
-    tags: ["urban", "modern", "speed"]
-  },
-  {
-    id: "train-3",
-    title: "Steam Through the Forest",
-    description: "Heritage steam locomotive traveling through dense pine forest.",
+    id: 'photo1',
+    title: 'Steam Locomotive at Sunset',
+    description: 'A vintage steam locomotive traveling through a mountain pass at sunset.',
+    imageUrl: 'https://images.unsplash.com/photo-1527084010126-2a48931d701e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1920&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1527084010126-2a48931d701e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80',
     price: 49.99,
-    imageUrl: "https://images.unsplash.com/photo-1527684651001-731c474bbb5a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80",
-    photographer: "Heritage Rails",
-    location: "Black Forest, Germany",
-    tags: ["steam", "forest", "vintage"]
+    photographer: 'Thomas Rails',
+    location: 'Rocky Mountains, Colorado',
+    dateTaken: '2022-06-15',
+    camera: 'Canon EOS 5D Mark IV',
+    resolution: '5760 x 3840',
+    tags: ['steam', 'sunset', 'mountains'],
+    popularity: 94
   },
   {
-    id: "train-4",
-    title: "Station Waiting",
-    description: "Empty vintage train station early in the morning.",
+    id: 'photo2',
+    title: 'Modern High-Speed Train',
+    description: 'A sleek high-speed passenger train zooming through a rural landscape.',
+    imageUrl: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1920&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80',
     price: 39.99,
-    imageUrl: "https://images.unsplash.com/photo-1609618996942-44532fa2e24d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-    photographer: "Station Stories",
-    location: "York, England",
-    tags: ["station", "vintage", "architecture"]
+    photographer: 'Emma Tracks',
+    location: 'Countryside, Japan',
+    dateTaken: '2023-01-22',
+    camera: 'Sony Alpha A7 III',
+    resolution: '6000 x 4000',
+    tags: ['modern', 'high-speed', 'rural'],
+    popularity: 88
   },
   {
-    id: "train-5",
-    title: "Subway Motion",
-    description: "Long exposure shot of subway train in motion.",
+    id: 'photo3',
+    title: 'Historic Railway Station',
+    description: 'Interior view of a grand 19th century railway station with ornate architecture.',
+    imageUrl: 'https://images.unsplash.com/photo-1530793740-c7d0855c949a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1920&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1530793740-c7d0855c949a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80',
     price: 54.99,
-    imageUrl: "https://images.unsplash.com/photo-1515165362412-4cebd8bb6174?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-    photographer: "Urban Shutter",
-    location: "New York City, USA",
-    tags: ["subway", "motion", "urban"]
+    photographer: 'Michael Stations',
+    location: 'Grand Central, New York',
+    dateTaken: '2021-11-05',
+    camera: 'Nikon D850',
+    resolution: '8256 x 5504',
+    tags: ['stations', 'historic', 'architecture'],
+    popularity: 92
   },
   {
-    id: "train-6",
-    title: "Coastal Line",
-    description: "Passenger train running along scenic coastal track.",
-    price: 64.99,
-    imageUrl: "https://images.unsplash.com/photo-1425913397330-cf8af2ff40a1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80",
-    photographer: "Coastal Captures",
-    location: "California Coast, USA",
-    tags: ["coastal", "scenic", "passenger"]
+    id: 'photo4',
+    title: 'Mountain Railway Journey',
+    description: 'A scenic railway winding through alpine mountains covered with snow.',
+    imageUrl: 'https://images.unsplash.com/photo-1480796927426-f609979314bd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1920&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1480796927426-f609979314bd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80',
+    price: 59.99,
+    photographer: 'Sarah Alpine',
+    location: 'Swiss Alps, Switzerland',
+    dateTaken: '2022-02-18',
+    camera: 'Canon EOS R5',
+    resolution: '8192 x 5464',
+    tags: ['scenic', 'mountains', 'snow'],
+    popularity: 96
   },
   {
-    id: "train-7",
-    title: "Industrial Yard",
-    description: "Freight trains in an industrial railway yard at dusk.",
+    id: 'photo5',
+    title: 'Night Train Departure',
+    description: 'A passenger train illuminated at night, ready for departure from the platform.',
+    imageUrl: 'https://images.unsplash.com/photo-1474302694023-9711af8045cf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1920&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1474302694023-9711af8045cf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=600&q=80',
     price: 44.99,
-    imageUrl: "https://images.unsplash.com/photo-1553576900-9c8bec2bbef5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-    photographer: "Industrial Eye",
-    location: "Rotterdam, Netherlands",
-    tags: ["industrial", "freight", "dusk"]
-  },
-  {
-    id: "train-8",
-    title: "Morning Commute",
-    description: "Early morning commuter train with city skyline.",
-    price: 34.99,
-    imageUrl: "https://images.unsplash.com/photo-1673175032354-1c4c96427946?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-    photographer: "Daily Transit",
-    location: "Chicago, USA",
-    tags: ["commuter", "morning", "city"]
-  },
-  {
-    id: "train-9",
-    title: "Snow Journey",
-    description: "Train cutting through heavy snow in mountain pass.",
-    price: 69.99,
-    imageUrl: "https://images.unsplash.com/photo-1518458476302-cee643d3aa5d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80",
-    photographer: "Winter Rails",
-    location: "Norwegian Mountains",
-    tags: ["snow", "winter", "mountains"]
+    photographer: 'James Nightrail',
+    location: 'Berlin Central Station, Germany',
+    dateTaken: '2023-03-30',
+    camera: 'Sony Alpha A9 II',
+    resolution: '6000 x 4000',
+    tags: ['modern', 'night', 'stations'],
+    popularity: 86
   }
 ];
 
-// Extract unique metadata values
+// Service functions
+export const getAllPhotos = async (): Promise<Photo[]> => {
+  // Simulating API call with a delay
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(allPhotos);
+    }, 500);
+  });
+};
+
+export const getPhotoById = (id: string): Photo | undefined => {
+  return allPhotos.find(photo => photo.id === id);
+};
+
+export const getPhotosByCategory = (category: string): Photo[] => {
+  if (category === 'all') return allPhotos;
+  return allPhotos.filter(photo => photo.tags.includes(category));
+};
+
+// Extract metadata for filters
 export const extractMetadata = () => {
   const tags = Array.from(new Set(allPhotos.flatMap(photo => photo.tags)));
   const photographers = Array.from(new Set(allPhotos.map(photo => photo.photographer)));
   const locations = Array.from(new Set(allPhotos.map(photo => photo.location)));
   const prices = allPhotos.map(photo => photo.price);
-  const minPrice = Math.floor(Math.min(...prices));
-  const maxPrice = Math.ceil(Math.max(...prices));
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
   
   return { tags, photographers, locations, minPrice, maxPrice };
 };
 
-// Apply filters to photos
+// Filter helper functions
+export interface PhotoFilters {
+  tags: string[];
+  photographers: string[];
+  locations: string[];
+  priceRange: [number, number];
+  sortBy: 'newest' | 'popular' | 'price_high' | 'price_low';
+}
+
+export const hasActiveFilters = (
+  filters: PhotoFilters, 
+  defaultMinPrice: number, 
+  defaultMaxPrice: number
+): boolean => {
+  const { tags, photographers, locations, priceRange } = filters;
+  
+  return (
+    tags.length > 0 || 
+    photographers.length > 0 || 
+    locations.length > 0 || 
+    priceRange[0] > defaultMinPrice || 
+    priceRange[1] < defaultMaxPrice
+  );
+};
+
+export const countActiveFilters = (
+  filters: PhotoFilters, 
+  defaultMinPrice: number, 
+  defaultMaxPrice: number
+): number => {
+  const { tags, photographers, locations, priceRange } = filters;
+  
+  let count = 0;
+  if (tags.length > 0) count += 1;
+  if (photographers.length > 0) count += 1;
+  if (locations.length > 0) count += 1;
+  if (priceRange[0] > defaultMinPrice || priceRange[1] < defaultMaxPrice) count += 1;
+  
+  return count;
+};
+
 export const filterPhotos = (photos: Photo[], filters: PhotoFilters): Photo[] => {
+  const { tags, photographers, locations, priceRange, sortBy } = filters;
+  
+  // Filter photos
   let filtered = [...photos];
   
-  // Filter by tags
-  if (filters.tags.length > 0) {
+  if (tags.length > 0) {
     filtered = filtered.filter(photo => 
-      photo.tags.some(tag => filters.tags.includes(tag))
+      tags.some(tag => photo.tags.includes(tag))
     );
   }
   
-  // Filter by photographers
-  if (filters.photographers.length > 0) {
+  if (photographers.length > 0) {
     filtered = filtered.filter(photo => 
-      filters.photographers.includes(photo.photographer)
+      photographers.includes(photo.photographer)
     );
   }
   
-  // Filter by locations
-  if (filters.locations.length > 0) {
+  if (locations.length > 0) {
     filtered = filtered.filter(photo => 
-      filters.locations.includes(photo.location)
+      locations.includes(photo.location)
     );
   }
   
-  // Filter by price range
   filtered = filtered.filter(photo => 
-    photo.price >= filters.priceRange[0] && photo.price <= filters.priceRange[1]
+    photo.price >= priceRange[0] && photo.price <= priceRange[1]
   );
   
-  // Filter by orientation (simulated)
-  if (filters.orientation) {
-    // In a real app, you would filter based on actual image dimensions
-    // For this example, we're simulating by filtering even/odd IDs
-    const isLandscape = filters.orientation === 'landscape';
-    filtered = filtered.filter(photo => {
-      const id = parseInt(photo.id.split('-')[1]);
-      return isLandscape ? id % 2 === 0 : id % 2 !== 0;
-    });
-  }
-  
-  // Apply sorting
-  switch (filters.sortBy) {
+  // Sort photos
+  switch (sortBy) {
     case 'newest':
-      // Simulate sorting by newest (reverse order of IDs)
-      filtered = [...filtered].sort((a, b) => {
-        const idA = parseInt(a.id.split('-')[1]);
-        const idB = parseInt(b.id.split('-')[1]);
-        return idB - idA;
-      });
+      filtered.sort((a, b) => new Date(b.dateTaken).getTime() - new Date(a.dateTaken).getTime());
       break;
     case 'popular':
-      // Simulate sorting by popularity (random sort for this example)
-      filtered = [...filtered].sort(() => Math.random() - 0.5);
+      filtered.sort((a, b) => b.popularity - a.popularity);
       break;
     case 'price_high':
-      filtered = [...filtered].sort((a, b) => b.price - a.price);
+      filtered.sort((a, b) => b.price - a.price);
       break;
     case 'price_low':
-      filtered = [...filtered].sort((a, b) => a.price - b.price);
+      filtered.sort((a, b) => a.price - b.price);
       break;
   }
   
   return filtered;
-};
-
-// Helper to count active filters
-export const countActiveFilters = (
-  filters: PhotoFilters, 
-  minPrice: number, 
-  maxPrice: number
-): number => {
-  return filters.tags.length + 
-    filters.photographers.length + 
-    filters.locations.length + 
-    (filters.orientation ? 1 : 0) +
-    ((filters.priceRange[0] > minPrice || filters.priceRange[1] < maxPrice) ? 1 : 0);
-};
-
-// Check if there are any active filters
-export const hasActiveFilters = (
-  filters: PhotoFilters, 
-  minPrice: number, 
-  maxPrice: number
-): boolean => {
-  return filters.tags.length > 0 || 
-    filters.photographers.length > 0 || 
-    filters.locations.length > 0 || 
-    filters.priceRange[0] > minPrice ||
-    filters.priceRange[1] < maxPrice ||
-    filters.orientation !== undefined;
 };
