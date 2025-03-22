@@ -1,11 +1,11 @@
 
 import { useState, useEffect } from 'react';
-import { Photo } from '@/context/CartContext';
-import { PhotoFilters } from '@/components/FilterPanel';
-import { filterPhotos } from '@/services/photoService.ts'; // Change .js to .ts
+import { Photo as CartPhoto } from '@/context/CartContext';
+import { Photo as ServicePhoto, PhotoFilters } from '@/services/photoService';
+import { filterPhotos } from '@/services/photoService'; 
 
 interface UsePhotoFiltersProps {
-  allPhotos: Photo[];
+  allPhotos: CartPhoto[] | ServicePhoto[];
   minPrice: number;
   maxPrice: number;
 }
@@ -13,7 +13,7 @@ interface UsePhotoFiltersProps {
 interface UsePhotoFiltersReturn {
   filters: PhotoFilters;
   setFilters: React.Dispatch<React.SetStateAction<PhotoFilters>>;
-  displayPhotos: Photo[];
+  displayPhotos: CartPhoto[] | ServicePhoto[];
   clearFilters: () => void;
   setSortBy: (sortBy: 'newest' | 'popular' | 'price_high' | 'price_low') => void;
 }
@@ -32,11 +32,13 @@ export const usePhotoFilters = ({
     sortBy: 'newest'
   });
   
-  const [displayPhotos, setDisplayPhotos] = useState<Photo[]>(allPhotos);
+  const [displayPhotos, setDisplayPhotos] = useState<CartPhoto[] | ServicePhoto[]>(allPhotos);
   
   // Apply filters when they change
   useEffect(() => {
-    const filtered = filterPhotos(allPhotos, filters);
+    // Need to cast to ServicePhoto[] since filterPhotos expects that type
+    const servicePhotos = allPhotos as ServicePhoto[];
+    const filtered = filterPhotos(servicePhotos, filters);
     setDisplayPhotos(filtered);
   }, [filters, allPhotos]);
   
