@@ -131,6 +131,7 @@ export interface PhotoFilters {
   photographers: string[];
   locations: string[];
   priceRange: [number, number];
+  orientation?: 'landscape' | 'portrait' | undefined;
   sortBy: 'newest' | 'popular' | 'price_high' | 'price_low';
 }
 
