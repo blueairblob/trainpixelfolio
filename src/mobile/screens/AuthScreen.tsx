@@ -1,21 +1,25 @@
-
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, 
   TouchableOpacity, Image, Alert, KeyboardAvoidingView, 
-  Platform, ScrollView 
+  Platform, ScrollView, ActivityIndicator 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 
 const AuthScreen = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
-  const handleAuth = () => {
+  const { login, register } = useAuth();
+  
+  const handleAuth = async () => {
     if (!email || !password) {
       Alert.alert("Error", "Please fill in all required fields");
       return;
@@ -26,35 +30,57 @@ const AuthScreen = () => {
       return;
     }
     
-    // In a real app, we would call the appropriate auth function
-    if (isLogin) {
-      console.log("Login with:", email, password);
-      // Mock successful login
-      Alert.alert("Success", "Logged in successfully!");
-    } else {
-      console.log("Register with:", email, password);
-      // Mock successful registration
-      Alert.alert("Success", "Account created successfully!");
-      setIsLogin(true);
+    if (!isLogin && !name) {
+      Alert.alert("Error", "Please enter your name");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        await register(name, email, password);
+        // Registration was successful, but might require email verification
+        Alert.alert(
+          "Registration Successful", 
+          "Your account has been created. You may need to verify your email before logging in."
+        );
+        setIsLogin(true);
+      }
+    } catch (error: any) {
+      Alert.alert("Authentication Error", error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
   
   const handleGoogleAuth = () => {
-    // In a real app, we would initiate Google auth
-    Alert.alert("Google Auth", "Google authentication would be initiated here");
+    Alert.alert("Coming Soon", "Google authentication will be available soon");
   };
   
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
     if (!email) {
       Alert.alert("Error", "Please enter your email address");
       return;
     }
     
-    // In a real app, we would send a password reset email
-    Alert.alert(
-      "Password Reset",
-      `A password reset link would be sent to ${email}`
-    );
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      
+      if (error) throw error;
+      
+      Alert.alert(
+        "Password Reset",
+        `A password reset link has been sent to ${email}`
+      );
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -79,6 +105,21 @@ const AuthScreen = () => {
             <Text style={styles.formTitle}>
               {isLogin ? 'Log in to your account' : 'Create your account'}
             </Text>
+            
+            {!isLogin && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="person-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Your full name"
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
+              </View>
+            )}
             
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email</Text>
@@ -145,12 +186,17 @@ const AuthScreen = () => {
             )}
             
             <TouchableOpacity
-              style={styles.authButton}
+              style={[styles.authButton, isLoading && styles.authButtonDisabled]}
               onPress={handleAuth}
+              disabled={isLoading}
             >
-              <Text style={styles.authButtonText}>
-                {isLogin ? 'Log in' : 'Sign up'}
-              </Text>
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.authButtonText}>
+                  {isLogin ? 'Log in' : 'Sign up'}
+                </Text>
+              )}
             </TouchableOpacity>
             
             <View style={styles.dividerContainer}>
@@ -280,6 +326,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 16,
+  },
+  authButtonDisabled: {
+    backgroundColor: '#a5b4fc',
   },
   authButtonText: {
     fontSize: 16,

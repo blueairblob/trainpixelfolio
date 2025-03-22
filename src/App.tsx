@@ -13,7 +13,7 @@ import GalleryScreen from './screens/GalleryScreen';
 import PhotoDetailScreen from './screens/PhotoDetailScreen';
 import CartScreen from './screens/CartScreen';
 import ProfileScreen from './screens/ProfileScreen';
-import AuthScreen from './screens/AuthScreen';
+import AuthScreen from './mobile/screens/AuthScreen';
 
 // Import auth provider
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -35,7 +35,7 @@ const TabNavigator = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+          let iconName: string = '';
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
@@ -47,7 +47,7 @@ const TabNavigator = () => {
             iconName = focused ? 'person' : 'person-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName as any} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#D32F2F',
         tabBarInactiveTintColor: 'gray',
@@ -89,9 +89,13 @@ const Navigation = () => {
             <Stack.Screen 
               name="PhotoDetail" 
               component={PhotoDetailScreen} 
-              options={({ route }) => ({ 
-                title: route.params?.title || 'Photo Details' 
-              })}
+              options={({ route }) => {
+                // Use a type assertion since TypeScript doesn't know the structure
+                const params = route.params as { title?: string, id: string };
+                return { 
+                  title: params?.title || 'Photo Details' 
+                };
+              }}
             />
           </>
         )}

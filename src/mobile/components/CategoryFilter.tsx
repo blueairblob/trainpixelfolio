@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 
 interface Category {
   id: string;
@@ -10,30 +10,35 @@ interface Category {
 interface CategoryFilterProps {
   categories: Category[];
   activeCategory: string;
-  onCategoryPress: (categoryId: string) => void;
+  onCategoryPress: (category: string) => void;
 }
 
-const CategoryFilter = ({ categories, activeCategory, onCategoryPress }: CategoryFilterProps) => {
+const CategoryFilter = ({
+  categories,
+  activeCategory,
+  onCategoryPress,
+}: CategoryFilterProps) => {
   return (
-    <ScrollView 
-      horizontal 
+    <ScrollView
+      horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.categoriesScrollView}
+      contentContainerStyle={styles.container}
     >
-      {categories.map(category => (
+      {categories.map((category) => (
         <TouchableOpacity
           key={category.id}
           style={[
-            styles.categoryChip,
-            activeCategory === category.id && styles.activeCategoryChip
+            styles.categoryItem,
+            activeCategory === category.id && styles.activeCategoryItem,
           ]}
           onPress={() => onCategoryPress(category.id)}
         >
-          <Text 
+          <Text
             style={[
-              styles.categoryChipText,
-              activeCategory === category.id && styles.activeCategoryChipText
+              styles.categoryText,
+              activeCategory === category.id && styles.activeCategoryText,
             ]}
+            numberOfLines={1}
           >
             {category.title}
           </Text>
@@ -44,25 +49,29 @@ const CategoryFilter = ({ categories, activeCategory, onCategoryPress }: Categor
 };
 
 const styles = StyleSheet.create({
-  categoriesScrollView: {
+  container: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  categoryChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  categoryItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     backgroundColor: '#f3f4f6',
     marginRight: 8,
+    minWidth: 100,  // Set a minimum width
+    alignItems: 'center',
   },
-  activeCategoryChip: {
+  activeCategoryItem: {
     backgroundColor: '#4f46e5',
   },
-  categoryChipText: {
+  categoryText: {
     fontSize: 14,
     color: '#4b5563',
   },
-  activeCategoryChipText: {
+  activeCategoryText: {
     color: '#ffffff',
     fontWeight: '500',
   },
