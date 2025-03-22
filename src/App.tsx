@@ -18,9 +18,16 @@ import AuthScreen from './screens/AuthScreen';
 // Import auth provider
 import { AuthProvider, useAuth } from './context/AuthContext';
 
+// Define route param types
+type RootStackParamList = {
+  Auth: undefined;
+  Main: undefined;
+  PhotoDetail: { id: string; title?: string };
+};
+
 // Create the navigators
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 // Main tab navigator
 const TabNavigator = () => {
@@ -82,7 +89,9 @@ const Navigation = () => {
             <Stack.Screen 
               name="PhotoDetail" 
               component={PhotoDetailScreen} 
-              options={({ route }) => ({ title: route.params?.title || 'Photo Details' })}
+              options={({ route }) => ({ 
+                title: route.params?.title || 'Photo Details' 
+              })}
             />
           </>
         )}
