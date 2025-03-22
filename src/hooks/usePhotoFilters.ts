@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Photo } from '@/context/CartContext';
 import { PhotoFilters } from '@/components/FilterPanel';
-import { filterPhotos } from '@/services/photoService';
+import { filterPhotos } from '@/services/photoService.ts'; // Change .js to .ts
 
 interface UsePhotoFiltersProps {
   allPhotos: Photo[];
