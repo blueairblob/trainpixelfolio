@@ -20,6 +20,7 @@
     "@react-navigation/native-stack": "^6.9.13",
     "@types/react-router-dom": "^5.3.3",
     "check": "^1.0.0",
+    "class-variance-authority": "^0.7.1",
     "expo": "^52.0.40",
     "expo-font": "~13.0.4",
     "expo-splash-screen": "^0.29.22",
