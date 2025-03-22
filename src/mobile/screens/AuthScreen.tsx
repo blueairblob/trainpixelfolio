@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, 
@@ -7,6 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const AuthScreen = () => {
   const [isLogin, setIsLogin] = useState(true);
