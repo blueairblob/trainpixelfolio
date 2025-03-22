@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
-import { getAllPhotos } from '../services/photoService';
+import { getAllPhotos } from '../services/photoService.ts'; // Change .js to .ts
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
 import FilterModal from '../components/FilterModal';
