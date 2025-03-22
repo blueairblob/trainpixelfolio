@@ -54,6 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) throw error;
       
+      console.log("Login successful:", data);
       return data;
     } catch (error: any) {
       console.error('Error during login:', error);
@@ -75,6 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) throw error;
       
+      console.log("Registration successful:", data);
       return data;
     } catch (error: any) {
       console.error('Error during registration:', error);
@@ -86,6 +88,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
+      console.log("Logout successful");
     } catch (error) {
       console.error('Error during logout:', error);
       throw error;

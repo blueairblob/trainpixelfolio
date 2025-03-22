@@ -1,179 +1,274 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, StyleSheet, TouchableOpacity, 
-  Image, Switch, ScrollView, Alert 
+  View, Text, StyleSheet, ScrollView, 
+  TouchableOpacity, Image, Alert, ActivityIndicator 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/context/AuthContext';
 
 const ProfileScreen = ({ navigation }) => {
-  // Mock user data - in a real app, this would come from auth context
-  const user = {
-    name: 'Alex Johnson',
-    email: 'alex.johnson@example.com',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    isAdmin: true,
-  };
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('profile'); // profile, orders, favorites
   
-  // Settings state
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  
-  // Handle logout
-  const handleLogout = () => {
+  const { logout, user: authUser } = useAuth();
+
+  // Load user profile
+  useEffect(() => {
+    // If we have an authenticated user, use their info
+    if (authUser) {
+      setUser({
+        name: authUser.user_metadata?.name || "User",
+        email: authUser.email,
+        avatar: "https://randomuser.me/api/portraits/men/32.jpg", // Default avatar
+        isAdmin: false,
+        memberSince: new Date(authUser.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+        orders: [],
+        favorites: []
+      });
+    } else {
+      // Fallback to mock data for demo
+      setUser({
+        name: "Demo User",
+        email: "demo@example.com",
+        avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+        isAdmin: false,
+        memberSince: "January 2023",
+        orders: [
+          { id: "ORD-1234", date: "2023-05-15", total: 129.97, status: "Completed" }
+        ],
+        favorites: [
+          { id: "photo1", title: "Vintage Steam Locomotive", photographer: "John Smith", imageUrl: "https://images.unsplash.com/photo-1527684651001-731c474bbb5a" }
+        ]
+      });
+    }
+    setIsLoading(false);
+  }, [authUser]);
+
+  const handleLogout = async () => {
     Alert.alert(
-      "Log Out",
+      "Logout",
       "Are you sure you want to log out?",
       [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
+        { text: "Cancel", style: "cancel" },
         { 
-          text: "Log Out", 
-          style: "destructive",
-          // In a real app, we would call a logout function here
-          onPress: () => console.log("Logging out...") 
+          text: "Logout", 
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await logout();
+              // After logout, the auth state change will navigate back to login
+              setIsLoading(false);
+            } catch (error) {
+              console.error('Error during logout:', error);
+              Alert.alert("Error", "Failed to log out. Please try again.");
+              setIsLoading(false);
+            }
+          }
         }
       ]
     );
   };
-  
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4f46e5" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // Use the user data we set up
+  const userData = user;
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
-        
-        {/* User Info */}
-        <View style={styles.userInfoSection}>
+      {/* Profile Header */}
+      <View style={styles.header}>
+        <View style={styles.profileInfo}>
           <Image 
-            source={{ uri: user.avatar }}
+            source={{ uri: userData.avatar }}
             style={styles.avatar}
           />
-          <Text style={styles.userName}>{user.name}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
-          
-          <View style={styles.userActions}>
-            <TouchableOpacity style={styles.editProfileButton}>
-              <Text style={styles.editProfileText}>Edit Profile</Text>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{userData.name}</Text>
+            <Text style={styles.userEmail}>{userData.email}</Text>
+            <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
+          onPress={() => setActiveTab('profile')}
+        >
+          <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>Profile</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
+          onPress={() => setActiveTab('orders')}
+        >
+          <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>Orders</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'favorites' && styles.activeTab]}
+          onPress={() => setActiveTab('favorites')}
+        >
+          <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {activeTab === 'profile' && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Account Settings</Text>
+            
+            <TouchableOpacity style={styles.settingItem}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="person-outline" size={20} color="#4f46e5" />
+              </View>
+              <Text style={styles.settingText}>Edit Profile</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
-            {user.isAdmin && (
+            
+            <TouchableOpacity style={styles.settingItem}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#4f46e5" />
+              </View>
+              <Text style={styles.settingText}>Change Password</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.settingItem}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="notifications-outline" size={20} color="#4f46e5" />
+              </View>
+              <Text style={styles.settingText}>Notification Settings</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.settingItem}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="card-outline" size={20} color="#4f46e5" />
+              </View>
+              <Text style={styles.settingText}>Payment Methods</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
+            
+            {userData.isAdmin && (
               <TouchableOpacity 
-                style={styles.adminButton}
+                style={styles.settingItem}
                 onPress={() => navigation.navigate('Admin')}
               >
-                <Ionicons name="settings-outline" size={16} color="#ffffff" />
-                <Text style={styles.adminButtonText}>Admin Panel</Text>
+                <View style={styles.settingIconContainer}>
+                  <Ionicons name="settings-outline" size={20} color="#4f46e5" />
+                </View>
+                <Text style={styles.settingText}>Admin Dashboard</Text>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
               </TouchableOpacity>
             )}
+            
+            <TouchableOpacity 
+              style={[styles.settingItem, styles.logoutItem]}
+              onPress={handleLogout}
+            >
+              <View style={[styles.settingIconContainer, styles.logoutIconContainer]}>
+                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+              </View>
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-        
-        {/* Settings */}
-        <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="notifications-outline" size={20} color="#4b5563" />
-              <Text style={styles.settingText}>Push Notifications</Text>
-            </View>
-            <Switch
-              value={pushNotifications}
-              onValueChange={setPushNotifications}
-              trackColor={{ false: '#d1d5db', true: '#4f46e5' }}
-              thumbColor="#ffffff"
-            />
+        )}
+
+        {activeTab === 'orders' && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Your Orders</Text>
+            
+            {userData.orders.length > 0 ? (
+              userData.orders.map((order) => (
+                <TouchableOpacity 
+                  key={order.id}
+                  style={styles.orderItem}
+                >
+                  <View style={styles.orderHeader}>
+                    <Text style={styles.orderId}>{order.id}</Text>
+                    <View style={[
+                      styles.orderStatusBadge,
+                      order.status === "Completed" ? styles.completedStatus : styles.processingStatus
+                    ]}>
+                      <Text style={styles.orderStatusText}>{order.status}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.orderDetails}>
+                    <Text style={styles.orderDate}>Ordered on {order.date}</Text>
+                    <Text style={styles.orderTotal}>${order.total.toFixed(2)}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.emptyStateContainer}>
+                <Ionicons name="receipt-outline" size={48} color="#d1d5db" />
+                <Text style={styles.emptyStateTitle}>No orders yet</Text>
+                <Text style={styles.emptyStateMessage}>
+                  Your order history will appear here
+                </Text>
+                <TouchableOpacity
+                  style={styles.browseButton}
+                  onPress={() => navigation.navigate('Gallery')}
+                >
+                  <Text style={styles.browseButtonText}>Start Shopping</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="mail-outline" size={20} color="#4b5563" />
-              <Text style={styles.settingText}>Email Notifications</Text>
-            </View>
-            <Switch
-              value={emailNotifications}
-              onValueChange={setEmailNotifications}
-              trackColor={{ false: '#d1d5db', true: '#4f46e5' }}
-              thumbColor="#ffffff"
-            />
+        )}
+
+        {activeTab === 'favorites' && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Your Favorites</Text>
+            
+            {userData.favorites.length > 0 ? (
+              userData.favorites.map((favorite) => (
+                <TouchableOpacity 
+                  key={favorite.id}
+                  style={styles.favoriteItem}
+                  onPress={() => navigation.navigate('PhotoDetail', { id: favorite.id })}
+                >
+                  <Image 
+                    source={{ uri: favorite.imageUrl }}
+                    style={styles.favoriteImage}
+                  />
+                  <View style={styles.favoriteDetails}>
+                    <Text style={styles.favoriteTitle}>{favorite.title}</Text>
+                    <Text style={styles.favoritePhotographer}>{favorite.photographer}</Text>
+                  </View>
+                  <TouchableOpacity style={styles.favoriteRemoveButton}>
+                    <Ionicons name="heart" size={20} color="#ef4444" />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.emptyStateContainer}>
+                <Ionicons name="heart-outline" size={48} color="#d1d5db" />
+                <Text style={styles.emptyStateTitle}>No favorites yet</Text>
+                <Text style={styles.emptyStateMessage}>
+                  Save photos you like for later
+                </Text>
+                <TouchableOpacity
+                  style={styles.browseButton}
+                  onPress={() => navigation.navigate('Gallery')}
+                >
+                  <Text style={styles.browseButtonText}>Browse Photos</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="moon-outline" size={20} color="#4b5563" />
-              <Text style={styles.settingText}>Dark Mode</Text>
-            </View>
-            <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
-              trackColor={{ false: '#d1d5db', true: '#4f46e5' }}
-              thumbColor="#ffffff"
-            />
-          </View>
-        </View>
-        
-        {/* Account Options */}
-        <View style={styles.accountSection}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          
-          <TouchableOpacity style={styles.accountOption}>
-            <View style={styles.accountOptionInfo}>
-              <Ionicons name="card-outline" size={20} color="#4b5563" />
-              <Text style={styles.accountOptionText}>Payment Methods</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.accountOption}>
-            <View style={styles.accountOptionInfo}>
-              <Ionicons name="bag-check-outline" size={20} color="#4b5563" />
-              <Text style={styles.accountOptionText}>Purchase History</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.accountOption}>
-            <View style={styles.accountOptionInfo}>
-              <Ionicons name="heart-outline" size={20} color="#4b5563" />
-              <Text style={styles.accountOptionText}>Favorite Photos</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.accountOption}>
-            <View style={styles.accountOptionInfo}>
-              <Ionicons name="help-circle-outline" size={20} color="#4b5563" />
-              <Text style={styles.accountOptionText}>Help & Support</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.accountOption}>
-            <View style={styles.accountOptionInfo}>
-              <Ionicons name="shield-checkmark-outline" size={20} color="#4b5563" />
-              <Text style={styles.accountOptionText}>Privacy & Terms</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-          </TouchableOpacity>
-        </View>
-        
-        {/* Logout Button */}
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
-        
-        {/* App version */}
-        <Text style={styles.versionText}>TrainPhoto v1.0.0</Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -184,89 +279,84 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  header: {
-    padding: 16,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  header: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  userInfoSection: {
+  profileInfo: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: '#e5e7eb',
+  },
+  userInfo: {
+    marginLeft: 16,
   },
   userName: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#1f2937',
-    marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 4,
+  },
+  memberSince: {
+    fontSize: 12,
     color: '#6b7280',
-    marginBottom: 16,
   },
-  userActions: {
+  tabContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
-  editProfileButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#4f46e5',
-    marginRight: 8,
-  },
-  editProfileText: {
-    color: '#4f46e5',
-    fontWeight: '600',
-  },
-  adminButton: {
-    flexDirection: 'row',
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: '#4f46e5',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginLeft: 8,
   },
-  adminButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    marginLeft: 4,
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#4f46e5',
   },
-  settingsSection: {
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  activeTabText: {
+    color: '#4f46e5',
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  sectionContainer: {
     backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginBottom: 24,
-    borderRadius: 12,
+    marginTop: 16,
+    borderRadius: 8,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  accountSection: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginBottom: 24,
-    borderRadius: 12,
-    padding: 16,
+    margin: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -277,74 +367,144 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1f2937',
     marginBottom: 16,
   },
   settingItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
   },
-  settingInfo: {
-    flexDirection: 'row',
+  settingIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   settingText: {
-    fontSize: 15,
-    color: '#4b5563',
-    marginLeft: 12,
+    flex: 1,
+    fontSize: 16,
+    color: '#1f2937',
   },
-  accountOption: {
+  logoutItem: {
+    borderBottomWidth: 0,
+    marginTop: 16,
+  },
+  logoutIconContainer: {
+    backgroundColor: '#fee2e2',
+  },
+  logoutText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#ef4444',
+  },
+  orderItem: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  orderId: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  orderStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  completedStatus: {
+    backgroundColor: '#dcfce7',
+  },
+  processingStatus: {
+    backgroundColor: '#ffedd5',
+  },
+  orderStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#166534',
+  },
+  orderDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  orderDate: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  orderTotal: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  favoriteItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
   },
-  accountOptionInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  favoriteImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 4,
   },
-  accountOptionText: {
-    fontSize: 15,
-    color: '#4b5563',
+  favoriteDetails: {
+    flex: 1,
     marginLeft: 12,
   },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginBottom: 24,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  favoriteTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1f2937',
   },
-  logoutText: {
+  favoritePhotographer: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  favoriteRemoveButton: {
+    padding: 8,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateMessage: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  browseButton: {
+    backgroundColor: '#4f46e5',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  browseButtonText: {
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
-    color: '#ef4444',
-    marginLeft: 8,
-  },
-  versionText: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#9ca3af',
-    marginBottom: 24,
   },
 });
 

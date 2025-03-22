@@ -8,11 +8,11 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import screens
-import HomeScreen from './screens/HomeScreen';
-import GalleryScreen from './screens/GalleryScreen';
-import PhotoDetailScreen from './screens/PhotoDetailScreen';
-import CartScreen from './screens/CartScreen';
-import ProfileScreen from './screens/ProfileScreen';
+import HomeScreen from './mobile/screens/HomeScreen';
+import GalleryScreen from './mobile/screens/GalleryScreen';
+import PhotoDetailScreen from './mobile/screens/PhotoDetailScreen';
+import CartScreen from './mobile/screens/CartScreen';
+import ProfileScreen from './mobile/screens/ProfileScreen';
 import AuthScreen from './mobile/screens/AuthScreen';
 
 // Import auth provider
@@ -53,10 +53,10 @@ const TabNavigator = () => {
         tabBarInactiveTintColor: 'gray',
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Gallery" component={GalleryScreen} />
-      <Tab.Screen name="Cart" component={CartScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Gallery" component={GalleryScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Cart" component={CartScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 };
@@ -72,19 +72,17 @@ const Navigation = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <Stack.Screen 
             name="Auth" 
             component={AuthScreen} 
-            options={{ headerShown: false }}
           />
         ) : (
           <>
             <Stack.Screen 
               name="Main" 
               component={TabNavigator} 
-              options={{ headerShown: false }}
             />
             <Stack.Screen 
               name="PhotoDetail" 
@@ -93,7 +91,8 @@ const Navigation = () => {
                 // Use a type assertion since TypeScript doesn't know the structure
                 const params = route.params as { title?: string, id: string };
                 return { 
-                  title: params?.title || 'Photo Details' 
+                  title: params?.title || 'Photo Details',
+                  headerShown: true
                 };
               }}
             />
