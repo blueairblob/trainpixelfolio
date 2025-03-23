@@ -1,114 +1,70 @@
-
+// SearchBar.tsx
 import React, { useState } from 'react';
-import { Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { cn } from '@/lib/utils';
+import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface SearchBarProps {
-  className?: string;
-  variant?: 'default' | 'navbar';
+  onSearch: (text: string) => void;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ 
-  className,
-  variant = 'default'
-}) => {
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
+  const [searchText, setSearchText] = useState('');
 
-  // Expanded suggested searches to be more like Getty Images
-  const suggestions = [
-    'Steam locomotives',
-    'Mountain railways',
-    'Urban transit',
-    'Vintage trains',
-    'Railway stations',
-    'Freight trains',
-    'Subway trains',
-    'High-speed trains',
-    'Railway bridges',
-    'Train interiors',
-    'Railroad workers',
-    'Train at sunset',
-  ];
+  const handleSearch = () => {
+    onSearch(searchText);
+  };
 
-  const handleSearch = (value: string) => {
-    if (!value.trim()) return;
-    // For now we'll just redirect to gallery with future search implementation
-    navigate('/gallery');
-    setOpen(false);
+  const handleClear = () => {
+    setSearchText('');
+    onSearch('');
   };
 
   return (
-    <>
-      {variant === 'navbar' ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpen(true)}
-          className={cn(
-            "w-full md:w-64 justify-start text-sm text-muted-foreground",
-            className
-          )}
-        >
-          <Search className="mr-2 h-4 w-4" />
-          <span>Search train photos...</span>
-        </Button>
-      ) : (
-        <div className={cn("relative w-full max-w-xl mx-auto", className)}>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              onClick={() => setOpen(true)}
-              placeholder="Search for train photos..."
-              readOnly
-              className="pl-10 h-12 bg-background cursor-pointer"
-            />
-          </div>
-        </div>
-      )}
-
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput 
-          placeholder="Search train photos..." 
-          value={query}
-          onValueChange={setQuery}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleSearch(query);
-            }
-          }}
+    <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#6b7280" style={styles.icon} />
+        <TextInput
+          style={styles.input}
+          placeholder="Search train photos..."
+          value={searchText}
+          onChangeText={setSearchText}
+          onSubmitEditing={handleSearch}
+          returnKeyType="search"
         />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Suggestions">
-            {suggestions.map((suggestion) => (
-              <CommandItem 
-                key={suggestion}
-                onSelect={() => {
-                  handleSearch(suggestion);
-                }}
-              >
-                <Search className="mr-2 h-4 w-4" />
-                {suggestion}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
-    </>
+        {searchText.length > 0 && (
+          <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
+            <Ionicons name="close-circle" size={20} color="#6b7280" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    backgroundColor: '#ffffff',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  icon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    fontSize: 16,
+    color: '#1f2937',
+  },
+  clearButton: {
+    padding: 4,
+  },
+});
 
 export default SearchBar;
