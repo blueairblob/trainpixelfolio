@@ -1,5 +1,4 @@
 // App.tsx
-//import React from 'react';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -99,7 +98,7 @@ const App = () => {
       <StatusBar barStyle="dark-content" />
       <AuthProvider>
         <NavigationContainer>
-        <RootNavigator />
+          <RootNavigator />
         </NavigationContainer>
       </AuthProvider>
     </SafeAreaProvider>
