@@ -1,5 +1,6 @@
+
 // App.tsx
-//import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -57,12 +58,40 @@ const TabNavigator = () => {
   );
 };
 
-// Root navigator
-const App = () => {
-  // Mock authenticated state - in a real app, this would come from your auth context
-  const isAuthenticated = true;
-  const isAdmin = false;
+// Root navigator with auth check
+const RootNavigator = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  // Show nothing while checking authentication status
+  if (isLoading) {
+    return null;
+  }
 
+  return (
+    <Stack.Navigator>
+      {!isAuthenticated ? (
+        <Stack.Screen 
+          name="Auth" 
+          component={AuthScreen} 
+          options={{ headerShown: false }}
+        />
+      ) : (
+        <>
+          <Stack.Screen 
+            name="Main" 
+            component={TabNavigator} 
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="PhotoDetail" component={PhotoDetailScreen} />
+          <Stack.Screen name="Admin" component={AdminScreen} />
+        </>
+      )}
+    </Stack.Navigator>
+  );
+};
+
+// App component with auth provider
+const App = () => {
   console.log("Running App.tsx");
 
   return (
@@ -70,27 +99,7 @@ const App = () => {
       <StatusBar barStyle="dark-content" />
       <AuthProvider>
         <NavigationContainer>
-          <Stack.Navigator>
-            {!isAuthenticated ? (
-              <Stack.Screen 
-                name="Auth" 
-                component={AuthScreen} 
-                options={{ headerShown: false }}
-              />
-            ) : (
-              <>
-                <Stack.Screen 
-                  name="Main" 
-                  component={TabNavigator} 
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen name="PhotoDetail" component={PhotoDetailScreen} />
-                {isAdmin && (
-                  <Stack.Screen name="Admin" component={AdminScreen} />
-                )}
-              </>
-            )}
-          </Stack.Navigator>
+          <RootNavigator />
         </NavigationContainer>
       </AuthProvider>
     </SafeAreaProvider>
