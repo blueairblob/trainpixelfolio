@@ -1,51 +1,28 @@
 // ProfileScreen.tsx  
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, 
-  TouchableOpacity, Image, Alert, ActivityIndicator 
+  TouchableOpacity, Image, Alert, ActivityIndicator,
+  TextInput, Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 
 const ProfileScreen = ({ navigation }) => {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('profile'); // profile, orders, favorites
+  const [editProfileVisible, setEditProfileVisible] = useState(false);
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   
-  const { logout, user: authUser } = useAuth();
-
-  // Load user profile
-  useEffect(() => {
-    // If we have an authenticated user, use their info
-    if (authUser) {
-      setUser({
-        name: authUser.user_metadata?.name || "User",
-        email: authUser.email,
-        avatar: "https://randomuser.me/api/portraits/men/32.jpg", // Default avatar
-        isAdmin: false,
-        memberSince: new Date(authUser.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
-        orders: [],
-        favorites: []
-      });
-    } else {
-      // Fallback to mock data for demo
-      setUser({
-        name: "Demo User",
-        email: "demo@example.com",
-        avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-        isAdmin: false,
-        memberSince: "January 2023",
-        orders: [
-          { id: "ORD-1234", date: "2023-05-15", total: 129.97, status: "Completed" }
-        ],
-        favorites: [
-          { id: "photo1", title: "Vintage Steam Locomotive", photographer: "John Smith", imageUrl: "https://images.unsplash.com/photo-1527684651001-731c474bbb5a" }
-        ]
-      });
-    }
-    setIsLoading(false);
-  }, [authUser]);
+  const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  const { logout, userProfile, isAdmin, updateProfile, changePassword, refreshProfile } = useAuth();
 
   const handleLogout = async () => {
     Alert.alert(
@@ -72,6 +49,59 @@ const ProfileScreen = ({ navigation }) => {
     );
   };
 
+  const handleEditProfile = () => {
+    if (userProfile) {
+      setName(userProfile.name || '');
+      setAvatarUrl(userProfile.avatar_url || '');
+      setEditProfileVisible(true);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      setIsLoading(true);
+      await updateProfile({
+        name,
+        avatar_url: avatarUrl
+      });
+      setEditProfileVisible(false);
+      await refreshProfile();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChangePassword = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setChangePasswordVisible(true);
+  };
+
+  const handleSavePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Error", "New passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert("Error", "New password must be at least 6 characters");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await changePassword(currentPassword, newPassword);
+      setChangePasswordVisible(false);
+    } catch (error) {
+      console.error('Error changing password:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -81,8 +111,15 @@ const ProfileScreen = ({ navigation }) => {
     );
   }
 
-  // Use the user data we set up
-  const userData = user;
+  // Use the user data from context
+  const userData = userProfile || {
+    name: "User",
+    email: "user@example.com",
+    avatar_url: "https://randomuser.me/api/portraits/men/32.jpg",
+    memberSince: "Recently",
+    orders: [],
+    favorites: []
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -90,13 +127,17 @@ const ProfileScreen = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.profileInfo}>
           <Image 
-            source={{ uri: userData.avatar }}
+            source={{ uri: userData.avatar_url || "https://randomuser.me/api/portraits/men/32.jpg" }}
             style={styles.avatar}
           />
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{userData.name}</Text>
-            <Text style={styles.userEmail}>{userData.email}</Text>
-            <Text style={styles.memberSince}>Member since {userData.memberSince}</Text>
+            <Text style={styles.userName}>{userData.name || "User"}</Text>
+            <Text style={styles.memberSince}>Member since {new Date(userData.created_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</Text>
+            {isAdmin && (
+              <View style={styles.adminBadge}>
+                <Text style={styles.adminBadgeText}>Admin</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -128,7 +169,7 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Account Settings</Text>
             
-            <TouchableOpacity style={styles.settingItem}>
+            <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
               <View style={styles.settingIconContainer}>
                 <Ionicons name="person-outline" size={20} color="#4f46e5" />
               </View>
@@ -136,7 +177,10 @@ const ProfileScreen = ({ navigation }) => {
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.settingItem}>
+            <TouchableOpacity 
+              style={styles.settingItem}
+              onPress={handleChangePassword}
+            >
               <View style={styles.settingIconContainer}>
                 <Ionicons name="lock-closed-outline" size={20} color="#4f46e5" />
               </View>
@@ -160,7 +204,7 @@ const ProfileScreen = ({ navigation }) => {
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
             </TouchableOpacity>
             
-            {userData.isAdmin && (
+            {isAdmin && (
               <TouchableOpacity 
                 style={styles.settingItem}
                 onPress={() => navigation.navigate('Admin')}
@@ -271,6 +315,136 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={editProfileVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditProfileVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setEditProfileVisible(false)}>
+                <Ionicons name="close" size={24} color="#4b5563" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalContent}>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Display Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Your display name"
+                />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Avatar URL</Text>
+                <TextInput
+                  style={styles.input}
+                  value={avatarUrl}
+                  onChangeText={setAvatarUrl}
+                  placeholder="URL to your avatar image"
+                />
+              </View>
+              
+              {avatarUrl ? (
+                <View style={styles.avatarPreview}>
+                  <Text style={styles.previewLabel}>Preview:</Text>
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.previewAvatar}
+                    onError={() => Alert.alert("Error", "Could not load image from URL")}
+                  />
+                </View>
+              ) : null}
+              
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveProfile}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Change Password Modal */}
+      <Modal
+        visible={changePasswordVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setChangePasswordVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <TouchableOpacity onPress={() => setChangePasswordVisible(false)}>
+                <Ionicons name="close" size={24} color="#4b5563" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalContent}>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Current Password</Text>
+                <TextInput
+                  style={styles.input}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Your current password"
+                  secureTextEntry
+                />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>New Password</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Your new password"
+                  secureTextEntry
+                />
+              </View>
+              
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Confirm New Password</Text>
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm your new password"
+                  secureTextEntry
+                />
+              </View>
+              
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSavePassword}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Change Password</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -503,6 +677,99 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   browseButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  adminBadge: {
+    backgroundColor: '#4f46e5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  adminBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  modalContent: {
+    padding: 16,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4b5563',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  avatarPreview: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  previewLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 8,
+  },
+  previewAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  saveButton: {
+    backgroundColor: '#4f46e5',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  saveButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',

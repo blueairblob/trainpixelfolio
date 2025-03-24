@@ -1,51 +1,78 @@
+
 // GalleryScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, StyleSheet, View, FlatList } from 'react-native';
-import { allPhotos } from '../services/photoService'; // Removed .ts extension
+import { SafeAreaView, StyleSheet, View, FlatList, ActivityIndicator, Text } from 'react-native';
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
 import FilterModal from '../components/FilterModal';
 import PhotoList from '../components/PhotoList';
 import SearchBar from '../components/SearchBar';
+import { fetchCatalogPhotos, fetchPhotosByCategory, fetchCategories, CatalogPhoto } from '../services/catalogService';
 
-// Placeholder for now - we'll replace with a native version of our filter functionality
 const GalleryScreen = ({ navigation, route }) => {
-  const [photos, setPhotos] = useState(allPhotos);
-  const [filteredPhotos, setFilteredPhotos] = useState(allPhotos);
+  const [photos, setPhotos] = useState<CatalogPhoto[]>([]);
+  const [filteredPhotos, setFilteredPhotos] = useState<CatalogPhoto[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'single'>('grid');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeCategory, setActiveCategory] = useState(route.params?.category || 'all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<{id: string, title: string}[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Categories for filter with fixed width layout
-  const categories = [
-    { id: 'all', title: 'All Photos' },
-    { id: 'steam', title: 'Steam Locomotives' },
-    { id: 'modern', title: 'Modern Trains' },
-    { id: 'stations', title: 'Railway Stations' },
-    { id: 'scenic', title: 'Scenic Railways' },
-  ];
+  // Load photos and categories on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Fetch categories
+        const categoryData = await fetchCategories();
+        const formattedCategories = [
+          { id: 'all', title: 'All Photos' },
+          ...categoryData.map(category => ({ id: category, title: category }))
+        ];
+        setCategories(formattedCategories);
+        
+        // Fetch photos
+        let photoData: CatalogPhoto[];
+        if (activeCategory === 'all') {
+          photoData = await fetchCatalogPhotos();
+        } else {
+          photoData = await fetchPhotosByCategory(activeCategory);
+        }
+        
+        setPhotos(photoData);
+        setFilteredPhotos(photoData);
+      } catch (err) {
+        console.error('Error loading gallery data:', err);
+        setError('Failed to load photos. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [activeCategory]);
 
   // Filter photos based on selected category and search query
   useEffect(() => {
     let result = photos;
     
-    // Apply category filter
-    if (activeCategory !== 'all') {
-      result = result.filter(photo => photo.tags.includes(activeCategory));
-    }
-    
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(photo => 
-        photo.title.toLowerCase().includes(query) || 
-        photo.tags.some(tag => tag.toLowerCase().includes(query))
+        (photo.description?.toLowerCase().includes(query) || false) || 
+        (photo.category?.toLowerCase().includes(query) || false) ||
+        (photo.photographer?.toLowerCase().includes(query) || false) ||
+        (photo.location?.toLowerCase().includes(query) || false)
       );
     }
     
     setFilteredPhotos(result);
-  }, [activeCategory, searchQuery, photos]);
+  }, [searchQuery, photos]);
 
   // Handle search
   const handleSearch = (text: string) => {
@@ -63,6 +90,42 @@ const GalleryScreen = ({ navigation, route }) => {
     setSearchQuery('');
   };
 
+  // Handle category change
+  const handleCategoryChange = async (category: string) => {
+    setActiveCategory(category);
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <GalleryHeader 
+          onFilterPress={() => setFilterModalVisible(true)}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4f46e5" />
+          <Text style={styles.loadingText}>Loading photos...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <GalleryHeader 
+          onFilterPress={() => setFilterModalVisible(true)}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+        />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -77,25 +140,26 @@ const GalleryScreen = ({ navigation, route }) => {
 
       {/* Category Filters with fixed width */}
       <View style={styles.categoryContainer}>
-        <FlatList
-          data={categories}
-          renderItem={({ item }) => (
-            <CategoryFilter 
-              categories={categories}
-              activeCategory={activeCategory}
-              onCategoryPress={setActiveCategory}
-            />
-          )}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
-          style={styles.categoryList}
-        />
+        {categories.length > 0 && (
+          <CategoryFilter 
+            categories={categories}
+            activeCategory={activeCategory}
+            onCategoryPress={handleCategoryChange}
+          />
+        )}
       </View>
 
       {/* Photo List */}
       <PhotoList 
-        photos={filteredPhotos}
+        photos={filteredPhotos.map(photo => ({
+          id: photo.image_no,
+          title: photo.description || 'Untitled',
+          photographer: photo.photographer || 'Unknown',
+          price: 49.99, // Default price since it's not in the database
+          imageUrl: photo.thumbnail_url,
+          location: photo.location || '',
+          description: photo.description || ''
+        }))}
         viewMode={viewMode}
         onPhotoPress={handlePhotoPress}
       />
@@ -106,7 +170,7 @@ const GalleryScreen = ({ navigation, route }) => {
         onClose={() => setFilterModalVisible(false)}
         categories={categories}
         activeCategory={activeCategory}
-        onCategoryPress={setActiveCategory}
+        onCategoryPress={handleCategoryChange}
         onClearFilters={handleClearFilters}
       />
     </SafeAreaView>
@@ -123,8 +187,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  categoryList: {
-    paddingVertical: 8,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ef4444',
+    textAlign: 'center',
   },
 });
 

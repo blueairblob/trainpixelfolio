@@ -1,3 +1,4 @@
+
 // AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,9 +10,22 @@ type AuthContextType = {
   session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isAdmin: boolean;
+  userProfile: UserProfile | null;
   login: (email: string, password: string) => Promise<any>;
   register: (name: string, email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
+};
+
+export type UserProfile = {
+  id: string;
+  name: string | null;
+  avatar_url: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +35,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // Fetch user profile from database
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setUserProfile(data as UserProfile);
+      }
+      
+      // Check if user is admin
+      const { data: roleData, error: roleError } = await supabase
+        .rpc('is_admin', { user_id: userId });
+      
+      if (roleError) throw roleError;
+      
+      setIsAdmin(roleData || false);
+      
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -30,6 +74,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setIsAuthenticated(!!currentSession);
+        
+        if (currentSession?.user) {
+          fetchUserProfile(currentSession.user.id);
+        } else {
+          setUserProfile(null);
+          setIsAdmin(false);
+        }
       }
     );
 
@@ -39,6 +90,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setIsAuthenticated(!!currentSession);
+      
+      if (currentSession?.user) {
+        fetchUserProfile(currentSession.user.id);
+      }
+      
       setIsLoading(false);
     });
 
@@ -95,6 +151,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const updateProfile = async (profileData: Partial<UserProfile>) => {
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to update your profile");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileData)
+        .eq('id', user.id);
+      
+      if (error) throw error;
+      
+      // Refresh profile data
+      await refreshProfile();
+      
+      Alert.alert("Success", "Profile updated successfully");
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      Alert.alert("Profile Update Error", error.message);
+      throw error;
+    }
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user || !user.email) {
+      Alert.alert("Error", "You must be logged in to change your password");
+      return;
+    }
+    
+    try {
+      // First verify the current password by signing in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword
+      });
+      
+      if (signInError) throw signInError;
+      
+      // Then update the password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
+      
+      Alert.alert("Success", "Password changed successfully");
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      Alert.alert("Password Change Error", error.message);
+      throw error;
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (!user) return;
+    
+    await fetchUserProfile(user.id);
+  };
+
   const logout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -115,9 +232,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         session,
         isAuthenticated,
         isLoading,
+        isAdmin,
+        userProfile,
         login,
         register,
-        logout
+        logout,
+        updateProfile,
+        changePassword,
+        refreshProfile
       }}
     >
       {children}

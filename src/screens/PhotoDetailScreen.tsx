@@ -1,208 +1,285 @@
-// PhotoDetailScreen.tsx
+
 import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, StyleSheet, Image, TouchableOpacity, 
-  ScrollView, Share, Dimensions, Animated, StatusBar,
-  Platform
+  View, Text, StyleSheet, Image, ScrollView, 
+  TouchableOpacity, ActivityIndicator, Alert 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { allPhotos } from '../services/photoService';
+import { fetchPhotoById, getImageUrl } from '../services/catalogService';
 
 const PhotoDetailScreen = ({ route, navigation }) => {
   const { id } = route.params;
-  // Find the photo based on id
-  const photo = allPhotos.find(p => p.id === id) || {
-    id: 'not-found',
-    title: 'Photo Not Found',
-    description: 'The requested photo could not be found.',
-    price: 0,
-    imageUrl: 'https://via.placeholder.com/400x300?text=Not+Found',
-    photographer: 'Unknown',
-    location: 'Unknown',
-    tags: ['Error'],
-  };
-  
-  const [quantity, setQuantity] = useState(1);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const [photo, setPhoto] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isInCart, setIsInCart] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   
   useEffect(() => {
-    // Reset animation when photo changes
-    setImageLoaded(false);
-    fadeAnim.setValue(0);
+    const loadPhoto = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const photoData = await fetchPhotoById(id);
+        if (!photoData) {
+          throw new Error('Photo not found');
+        }
+        
+        setPhoto(photoData);
+      } catch (err) {
+        console.error('Error loading photo details:', err);
+        setError('Failed to load photo details. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadPhoto();
   }, [id]);
   
-  const handleImageLoad = () => {
-    setImageLoaded(true);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  };
-  
-  const increaseQuantity = () => {
-    setQuantity(prev => prev + 1);
-  };
-  
-  const decreaseQuantity = () => {
-    if (quantity > 1) {
-      setQuantity(prev => prev - 1);
-    }
-  };
-  
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        message: `Check out this amazing train photo: ${photo.title} by ${photo.photographer}`,
-        url: photo.imageUrl,
-      });
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
-  };
-  
   const handleAddToCart = () => {
-    // In a real app, we'd call the cart context's addToCart method
-    navigation.navigate('Cart');
+    // In a real implementation, this would add the photo to the cart in a state manager
+    setIsInCart(true);
+    Alert.alert('Added to Cart', 'This photo has been added to your cart.');
   };
   
-  const screenWidth = Dimensions.get('window').width;
+  const handleToggleFavorite = () => {
+    setIsFavorite(!isFavorite);
+    Alert.alert(
+      isFavorite ? 'Removed from Favorites' : 'Added to Favorites', 
+      isFavorite ? 'This photo has been removed from your favorites.' : 'This photo has been added to your favorites.'
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4f46e5" />
+        <Text style={styles.loadingText}>Loading photo details...</Text>
+      </SafeAreaView>
+    );
+  }
   
+  if (error || !photo) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error || 'Photo not found'}</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header with back button */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#374151" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Photo Details</Text>
-          <TouchableOpacity 
-            onPress={handleShare}
-            style={styles.shareButton}
-          >
-            <Ionicons name="share-outline" size={24} color="#374151" />
-          </TouchableOpacity>
-        </View>
-        
-        {/* Photo */}
-        <View style={styles.imageContainer}>
-          {!imageLoaded && (
-            <View style={[styles.imagePlaceholder, { width: screenWidth, height: screenWidth * 0.75 }]}>
-              <Ionicons name="image-outline" size={48} color="#d1d5db" />
-            </View>
-          )}
-          <Animated.Image
-            source={{ uri: photo.imageUrl }}
-            style={[
-              styles.photoImage, 
-              { width: screenWidth, height: screenWidth * 0.75, opacity: fadeAnim }
-            ]}
-            resizeMode="cover"
-            onLoad={handleImageLoad}
+    <SafeAreaView style={styles.container}>
+      {/* Header with back button */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#374151" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity 
+          onPress={handleToggleFavorite} 
+          style={styles.favoriteButton}
+        >
+          <Ionicons 
+            name={isFavorite ? 'heart' : 'heart-outline'} 
+            size={24} 
+            color={isFavorite ? '#ef4444' : '#374151'} 
           />
-        </View>
+        </TouchableOpacity>
+      </View>
+      
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Photo Image */}
+        <Image 
+          source={{ uri: getImageUrl(photo.image_no) }}
+          style={styles.photoImage}
+          resizeMode="contain"
+        />
         
-        {/* Photo Info */}
-        <View style={styles.photoInfo}>
-          <Text style={styles.photoTitle}>{photo.title}</Text>
+        {/* Photo Details */}
+        <View style={styles.detailsContainer}>
+          <Text style={styles.photoTitle}>{photo.description || 'Untitled'}</Text>
           
-          <View style={styles.photographerRow}>
-            <View style={styles.photographerInfo}>
-              <Ionicons name="person-outline" size={16} color="#4f46e5" style={styles.infoIcon} />
-              <Text style={styles.photographerName}>{photo.photographer}</Text>
+          <View style={styles.photographerContainer}>
+            <Text style={styles.photographerLabel}>Photographer:</Text>
+            <Text style={styles.photographerName}>{photo.photographer || 'Unknown'}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Location</Text>
+              <Text style={styles.detailValue}>{photo.location || 'Unknown'}</Text>
             </View>
-            <View style={styles.locationInfo}>
-              <Ionicons name="location-outline" size={16} color="#4f46e5" style={styles.infoIcon} />
-              <Text style={styles.location}>{photo.location}</Text>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Category</Text>
+              <Text style={styles.detailValue}>{photo.category || 'Uncategorized'}</Text>
             </View>
           </View>
           
-          <View style={styles.tagsContainer}>
-            {photo.tags.map(tag => (
-              <View key={tag} style={styles.tagChip}>
-                <Ionicons name="pricetag-outline" size={12} color="#4f46e5" style={styles.tagIcon} />
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
-          
-          <View style={styles.separator} />
-          
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>{photo.description}</Text>
-          
-          <View style={styles.separator} />
-          
-          <Text style={styles.sectionTitle}>License Information</Text>
-          <View style={styles.licenseInfo}>
-            <View style={styles.licenseItem}>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#10b981" />
-              <Text style={styles.licenseText}>Commercial use permitted</Text>
-            </View>
-            <View style={styles.licenseItem}>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#10b981" />
-              <Text style={styles.licenseText}>Digital and print media</Text>
-            </View>
-            <View style={styles.licenseItem}>
-              <Ionicons name="checkmark-circle-outline" size={20} color="#10b981" />
-              <Text style={styles.licenseText}>Lifetime license</Text>
-            </View>
-          </View>
-          
-          <View style={styles.separator} />
-          
-          {/* Purchase Section */}
-          <View style={styles.purchaseSection}>
-            <Text style={styles.priceLabel}>Price:</Text>
-            <Text style={styles.price}>${photo.price.toFixed(2)}</Text>
-            
-            <View style={styles.quantitySection}>
-              <Text style={styles.quantityLabel}>Quantity:</Text>
-              <View style={styles.quantityControls}>
-                <TouchableOpacity 
-                  style={[styles.quantityButton, quantity <= 1 && styles.quantityButtonDisabled]}
-                  onPress={decreaseQuantity}
-                  disabled={quantity <= 1}
-                >
-                  <Ionicons name="remove" size={18} color={quantity <= 1 ? "#9ca3af" : "#4b5563"} />
-                </TouchableOpacity>
-                <Text style={styles.quantityValue}>{quantity}</Text>
-                <TouchableOpacity 
-                  style={styles.quantityButton}
-                  onPress={increaseQuantity}
-                >
-                  <Ionicons name="add" size={18} color="#4b5563" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalPrice}>
-                ${(photo.price * quantity).toFixed(2)}
+          <View style={styles.detailRow}>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Date Taken</Text>
+              <Text style={styles.detailValue}>
+                {photo.date_taken 
+                  ? new Date(photo.date_taken).toLocaleDateString() 
+                  : 'Unknown'}
+                {photo.circa ? ' (circa)' : ''}
               </Text>
             </View>
+            <View style={styles.detailItem}>
+              <Text style={styles.detailLabel}>Collection</Text>
+              <Text style={styles.detailValue}>{photo.collection || 'General'}</Text>
+            </View>
+          </View>
+          
+          {photo.description && (
+            <View style={styles.descriptionContainer}>
+              <Text style={styles.descriptionLabel}>Description</Text>
+              <Text style={styles.descriptionText}>{photo.description}</Text>
+            </View>
+          )}
+          
+          {/* Image Metadata */}
+          <View style={styles.metadataContainer}>
+            <Text style={styles.metadataTitle}>Image Details</Text>
             
-            <TouchableOpacity 
-              style={styles.addToCartButton}
-              onPress={handleAddToCart}
-            >
-              <Ionicons name="cart-outline" size={20} color="#ffffff" />
-              <Text style={styles.addToCartText}>Add to Cart</Text>
-            </TouchableOpacity>
+            <View style={styles.metadataGrid}>
+              {photo.width && photo.height && (
+                <View style={styles.metadataItem}>
+                  <Text style={styles.metadataLabel}>Dimensions</Text>
+                  <Text style={styles.metadataValue}>{photo.width} x {photo.height}px</Text>
+                </View>
+              )}
+              
+              {photo.file_type && (
+                <View style={styles.metadataItem}>
+                  <Text style={styles.metadataLabel}>File Type</Text>
+                  <Text style={styles.metadataValue}>{photo.file_type}</Text>
+                </View>
+              )}
+              
+              {photo.resolution && (
+                <View style={styles.metadataItem}>
+                  <Text style={styles.metadataLabel}>Resolution</Text>
+                  <Text style={styles.metadataValue}>{photo.resolution} DPI</Text>
+                </View>
+              )}
+              
+              {photo.colour_space && (
+                <View style={styles.metadataItem}>
+                  <Text style={styles.metadataLabel}>Color Space</Text>
+                  <Text style={styles.metadataValue}>{photo.colour_space}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+          
+          {/* Train Details */}
+          {photo.gauge && (
+            <View style={styles.trainDetailsContainer}>
+              <Text style={styles.trainDetailsTitle}>Train Details</Text>
+              
+              <View style={styles.trainDetailItem}>
+                <Text style={styles.trainDetailLabel}>Gauge:</Text>
+                <Text style={styles.trainDetailValue}>{photo.gauge}</Text>
+              </View>
+              
+              {photo.builders && photo.builders.length > 0 && (
+                <View style={styles.trainDetailItem}>
+                  <Text style={styles.trainDetailLabel}>Builder:</Text>
+                  <Text style={styles.trainDetailValue}>
+                    {photo.builders[0].builder_name}
+                    {photo.builders[0].works_number ? ` (${photo.builders[0].works_number})` : ''}
+                  </Text>
+                </View>
+              )}
+              
+              {photo.builders && photo.builders.length > 0 && photo.builders[0].year_built && (
+                <View style={styles.trainDetailItem}>
+                  <Text style={styles.trainDetailLabel}>Year Built:</Text>
+                  <Text style={styles.trainDetailValue}>{photo.builders[0].year_built}</Text>
+                </View>
+              )}
+            </View>
+          )}
+          
+          {/* Usage Rights */}
+          <View style={styles.usageContainer}>
+            <Text style={styles.usageTitle}>Usage Rights</Text>
+            
+            <View style={styles.usageItem}>
+              <Text style={styles.usageLabel}>Prints Allowed:</Text>
+              <View style={[
+                styles.usageBadge, 
+                photo.prints_allowed ? styles.allowedBadge : styles.notAllowedBadge
+              ]}>
+                <Text style={styles.usageBadgeText}>
+                  {photo.prints_allowed ? 'Yes' : 'No'}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.usageItem}>
+              <Text style={styles.usageLabel}>Internet Use:</Text>
+              <View style={[
+                styles.usageBadge, 
+                photo.internet_use ? styles.allowedBadge : styles.notAllowedBadge
+              ]}>
+                <Text style={styles.usageBadgeText}>
+                  {photo.internet_use ? 'Yes' : 'No'}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.usageItem}>
+              <Text style={styles.usageLabel}>Publications Use:</Text>
+              <View style={[
+                styles.usageBadge, 
+                photo.publications_use ? styles.allowedBadge : styles.notAllowedBadge
+              ]}>
+                <Text style={styles.usageBadgeText}>
+                  {photo.publications_use ? 'Yes' : 'No'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
       </ScrollView>
+      
+      {/* Purchase button */}
+      <View style={styles.footer}>
+        <View style={styles.priceContainer}>
+          <Text style={styles.priceLabel}>Price</Text>
+          <Text style={styles.price}>$49.99</Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={[styles.purchaseButton, isInCart && styles.inCartButton]}
+          onPress={handleAddToCart}
+          disabled={isInCart}
+        >
+          <Text style={styles.purchaseButtonText}>
+            {isInCart ? 'Added to Cart' : 'Add to Cart'}
+          </Text>
+          <Ionicons 
+            name={isInCart ? 'checkmark-circle' : 'cart-outline'} 
+            size={20} 
+            color="#ffffff" 
+            style={styles.purchaseButtonIcon} 
+          />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -210,222 +287,259 @@ const PhotoDetailScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8f9fa',
   },
-  scrollContent: {
-    paddingBottom: 30,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6b7280',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ef4444',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
   },
   backButton: {
     padding: 8,
-    borderRadius: 20,
+  },
+  favoriteButton: {
+    padding: 8,
   },
   shareButton: {
     padding: 8,
-    borderRadius: 20,
+    marginRight: 8,
   },
-  imageContainer: {
-    position: 'relative',
-    backgroundColor: '#f9fafb',
-  },
-  imagePlaceholder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-    justifyContent: 'center',
+  content: {
+    paddingBottom: 90,
   },
   photoImage: {
     width: '100%',
+    height: 300,
+    backgroundColor: '#f3f4f6',
   },
-  photoInfo: {
+  detailsContainer: {
     padding: 16,
+    backgroundColor: '#ffffff',
   },
   photoTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: 12,
   },
-  photographerRow: {
+  photographerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
   },
-  photographerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  locationInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoIcon: {
-    marginRight: 6,
-  },
-  photographerName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#4b5563',
-  },
-  location: {
+  photographerLabel: {
     fontSize: 14,
     color: '#6b7280',
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  tagIcon: {
     marginRight: 4,
   },
-  tagText: {
+  photographerName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4b5563',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  detailItem: {
+    flex: 1,
+  },
+  detailLabel: {
     fontSize: 12,
-    color: '#4f46e5',
+    color: '#6b7280',
+    marginBottom: 2,
   },
-  separator: {
-    height: 1,
-    backgroundColor: '#e5e7eb',
-    marginVertical: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  detailValue: {
+    fontSize: 14,
     color: '#1f2937',
+  },
+  descriptionContainer: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  descriptionLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4b5563',
+    marginBottom: 6,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+  },
+  metadataContainer: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  metadataTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4b5563',
+    marginBottom: 12,
+  },
+  metadataGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  metadataItem: {
+    width: '50%',
     marginBottom: 8,
   },
-  description: {
+  metadataLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  metadataValue: {
     fontSize: 14,
-    lineHeight: 22,
-    color: '#4b5563',
-  },
-  licenseInfo: {
-    marginTop: 8,
-  },
-  licenseItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  licenseText: {
-    fontSize: 14,
-    color: '#4b5563',
-    marginLeft: 8,
-  },
-  purchaseSection: {
-    backgroundColor: '#f9fafb',
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  priceLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#4b5563',
-    marginBottom: 4,
-  },
-  price: {
-    fontSize: 24,
-    fontWeight: 'bold',
     color: '#1f2937',
-    marginBottom: 16,
   },
-  quantitySection: {
+  trainDetailsContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  trainDetailsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4b5563',
+    marginBottom: 12,
+  },
+  trainDetailItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  quantityLabel: {
+  trainDetailLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    width: 90,
+  },
+  trainDetailValue: {
+    fontSize: 14,
+    color: '#1f2937',
+    flex: 1,
+  },
+  usageContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  usageTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4b5563',
+    marginBottom: 12,
+  },
+  usageItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  usageLabel: {
     fontSize: 14,
     color: '#4b5563',
   },
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  usageBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
-  quantityButton: {
-    width: 36,
-    height: 36,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+  allowedBadge: {
+    backgroundColor: '#d1fae5',
   },
-  quantityButtonDisabled: {
-    backgroundColor: '#e5e7eb',
+  notAllowedBadge: {
+    backgroundColor: '#fee2e2',
   },
-  quantityValue: {
-    fontSize: 16,
+  usageBadgeText: {
+    fontSize: 12,
     fontWeight: '500',
-    paddingHorizontal: 16,
   },
-  totalRow: {
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingTop: 12,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 5,
   },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#4b5563',
+  priceContainer: {
+    flex: 1,
   },
-  totalPrice: {
+  priceLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  price: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4f46e5',
+    color: '#1f2937',
   },
-  addToCartButton: {
-    backgroundColor: '#4f46e5',
+  purchaseButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    backgroundColor: '#4f46e5',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
-    shadowColor: '#4338ca',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  addToCartText: {
+  inCartButton: {
+    backgroundColor: '#10b981',
+  },
+  purchaseButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  purchaseButtonIcon: {
     marginLeft: 8,
   },
 });
