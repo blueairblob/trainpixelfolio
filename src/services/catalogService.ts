@@ -42,7 +42,7 @@ export interface CatalogPhoto {
 export const fetchCatalogPhotos = async (): Promise<CatalogPhoto[]> => {
   try {
     const { data, error } = await supabase
-      .from('mobile_catalog_view')
+      .from('dev.mobile_catalog_view')
       .select('*')
       .order('date_taken', { ascending: false });
     
@@ -62,7 +62,7 @@ export const fetchCatalogPhotos = async (): Promise<CatalogPhoto[]> => {
 export const fetchPhotosByCategory = async (category: string): Promise<CatalogPhoto[]> => {
   try {
     const { data, error } = await supabase
-      .from('mobile_catalog_view')
+      .from('dev.mobile_catalog_view')
       .select('*')
       .eq('category', category)
       .order('date_taken', { ascending: false });
@@ -83,7 +83,7 @@ export const fetchPhotosByCategory = async (category: string): Promise<CatalogPh
 export const fetchPhotoById = async (imageNo: string): Promise<CatalogPhoto | null> => {
   try {
     const { data, error } = await supabase
-      .from('mobile_catalog_view')
+      .from('dev.mobile_catalog_view')
       .select('*')
       .eq('image_no', imageNo)
       .maybeSingle();
@@ -104,7 +104,7 @@ export const fetchPhotoById = async (imageNo: string): Promise<CatalogPhoto | nu
 export const fetchCategories = async (): Promise<string[]> => {
   try {
     const { data, error } = await supabase
-      .from('mobile_catalog_view')
+      .from('dev.mobile_catalog_view')
       .select('category')
       .not('category', 'is', null);
     
