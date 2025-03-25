@@ -1,5 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/types/supabase";  
 
 // Define the types for the catalog data
 export interface CatalogPhoto {
@@ -11,6 +11,7 @@ export interface CatalogPhoto {
   description: string | null;
   gauge: string | null;
   thumbnail_url: string;
+  image_url?: string;
   country: string | null;
   organisation: string | null;
   organisation_type: string | null;
@@ -38,20 +39,30 @@ export interface CatalogPhoto {
   last_updated: string | null;
 }
 
-// Function to fetch all photo catalog entries
+// catalogService.ts
 export const fetchCatalogPhotos = async (): Promise<CatalogPhoto[]> => {
   try {
     const { data, error } = await supabase
-      .from('dev.mobile_catalog_view')
+      .from('mobile_catalog_view')
       .select('*')
       .order('date_taken', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching catalog photos:', error);
-      throw error;
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      console.warn('No photos found in mobile_catalog_view');
+      return [];
     }
-    
-    return data || [];
+
+    const photosWithUrls = data.map(photo => {
+      const url = getImageUrl(photo.image_no); // Uses the updated getImageUrl
+      console.log(`Generated URL for ${photo.image_no}: ${url}`);
+      return {
+        ...photo,
+        image_url: url
+      };
+    });
+
+    return photosWithUrls;
   } catch (error) {
     console.error('Error in fetchCatalogPhotos:', error);
     throw error;
@@ -62,10 +73,13 @@ export const fetchCatalogPhotos = async (): Promise<CatalogPhoto[]> => {
 export const fetchPhotosByCategory = async (category: string): Promise<CatalogPhoto[]> => {
   try {
     const { data, error } = await supabase
-      .from('dev.mobile_catalog_view')
+      .from('mobile_catalog_view')
       .select('*')
       .eq('category', category)
       .order('date_taken', { ascending: false });
+
+      console.log('Fetched Photos:', data); // Log the raw data
+      console.log('Fetch Error:', error);   // Log any errors
     
     if (error) {
       console.error('Error fetching photos by category:', error);
@@ -73,6 +87,7 @@ export const fetchPhotosByCategory = async (category: string): Promise<CatalogPh
     }
     
     return data || [];
+
   } catch (error) {
     console.error('Error in fetchPhotosByCategory:', error);
     throw error;
@@ -83,7 +98,7 @@ export const fetchPhotosByCategory = async (category: string): Promise<CatalogPh
 export const fetchPhotoById = async (imageNo: string): Promise<CatalogPhoto | null> => {
   try {
     const { data, error } = await supabase
-      .from('dev.mobile_catalog_view')
+      .from('mobile_catalog_view')
       .select('*')
       .eq('image_no', imageNo)
       .maybeSingle();
@@ -104,7 +119,7 @@ export const fetchPhotoById = async (imageNo: string): Promise<CatalogPhoto | nu
 export const fetchCategories = async (): Promise<string[]> => {
   try {
     const { data, error } = await supabase
-      .from('dev.mobile_catalog_view')
+      .from('mobile_catalog_view')
       .select('category')
       .not('category', 'is', null);
     
@@ -127,5 +142,5 @@ export const fetchCategories = async (): Promise<string[]> => {
 
 // Get real image URL from Supabase storage
 export const getImageUrl = (imageNo: string): string => {
-  return supabase.storage.from('picaloco').getPublicUrl(`${imageNo}.jpg`).data.publicUrl;
+  return supabase.storage.from('picaloco').getPublicUrl(`images/${imageNo}.webp`).data.publicUrl;
 };

@@ -1,7 +1,5 @@
-
-// GalleryScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { SafeAreaView, StyleSheet, View, FlatList, ActivityIndicator, Text } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { SafeAreaView, StyleSheet, View, FlatList, ActivityIndicator, Text, RefreshControl } from 'react-native';
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
 import FilterModal from '../components/FilterModal';
@@ -18,49 +16,50 @@ const GalleryScreen = ({ navigation, route }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<{id: string, title: string}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load photos and categories on component mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Fetch categories
-        const categoryData = await fetchCategories();
-        const formattedCategories = [
-          { id: 'all', title: 'All Photos' },
-          ...categoryData.map(category => ({ id: category, title: category }))
-        ];
-        setCategories(formattedCategories);
-        
-        // Fetch photos
-        let photoData: CatalogPhoto[];
-        if (activeCategory === 'all') {
-          photoData = await fetchCatalogPhotos();
-        } else {
-          photoData = await fetchPhotosByCategory(activeCategory);
-        }
-        
-        setPhotos(photoData);
-        setFilteredPhotos(photoData);
-      } catch (err) {
-        console.error('Error loading gallery data:', err);
-        setError('Failed to load photos. Please try again later.');
-      } finally {
-        setIsLoading(false);
+  // Load data function, now memoized with useCallback
+  const loadData = useCallback(async () => {
+    try {
+      setError(null);
+      
+      // Fetch categories
+      const categoryData = await fetchCategories();
+      const formattedCategories = [
+        { id: 'all', title: 'All Photos' },
+        ...categoryData.map(category => ({ id: category, title: category }))
+      ];
+      setCategories(formattedCategories);
+      
+      // Fetch photos
+      let photoData: CatalogPhoto[];
+      if (activeCategory === 'all') {
+        photoData = await fetchCatalogPhotos();
+      } else {
+        photoData = await fetchPhotosByCategory(activeCategory);
       }
-    };
-    
-    loadData();
+      
+      setPhotos(photoData);
+      setFilteredPhotos(photoData);
+    } catch (err) {
+      console.error('Error loading gallery data:', err);
+      setError('Failed to load photos. Pull down to retry.');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }, [activeCategory]);
 
-  // Filter photos based on selected category and search query
+  // Initial load
+  useEffect(() => {
+    setIsLoading(true);
+    loadData();
+  }, [loadData]);
+
+  // Filter photos based on search query
   useEffect(() => {
     let result = photos;
-    
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(photo => 
@@ -70,32 +69,33 @@ const GalleryScreen = ({ navigation, route }) => {
         (photo.location?.toLowerCase().includes(query) || false)
       );
     }
-    
     setFilteredPhotos(result);
   }, [searchQuery, photos]);
 
-  // Handle search
+  // Handle refresh
+  const onRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadData();
+  }, [loadData]);
+
   const handleSearch = (text: string) => {
     setSearchQuery(text);
   };
 
-  // Navigate to photo detail
   const handlePhotoPress = (id: string) => {
     navigation.navigate('PhotoDetail', { id });
   };
 
-  // Clear all filters
   const handleClearFilters = () => {
     setActiveCategory('all');
     setSearchQuery('');
   };
 
-  // Handle category change
   const handleCategoryChange = async (category: string) => {
     setActiveCategory(category);
   };
 
-  if (isLoading) {
+  if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView style={styles.container}>
         <GalleryHeader 
@@ -111,34 +111,24 @@ const GalleryScreen = ({ navigation, route }) => {
     );
   }
 
-  if (error) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <GalleryHeader 
-          onFilterPress={() => setFilterModalVisible(true)}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-        />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const photoData = filteredPhotos.map(photo => ({
+    id: photo.id || photo.image_no,
+    title: photo.description || 'Untitled',
+    photographer: photo.photographer || 'Unknown',
+    price: 49.99,
+    imageUrl: photo.image_url,
+    location: photo.location || '',
+    description: photo.description || ''
+  }));
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <GalleryHeader 
         onFilterPress={() => setFilterModalVisible(true)}
         viewMode={viewMode}
         setViewMode={setViewMode}
       />
-      
-      {/* Search Bar */}
       <SearchBar onSearch={handleSearch} />
-
-      {/* Category Filters with fixed width */}
       <View style={styles.categoryContainer}>
         {categories.length > 0 && (
           <CategoryFilter 
@@ -148,23 +138,33 @@ const GalleryScreen = ({ navigation, route }) => {
           />
         )}
       </View>
-
-      {/* Photo List */}
-      <PhotoList 
-        photos={filteredPhotos.map(photo => ({
-          id: photo.image_no,
-          title: photo.description || 'Untitled',
-          photographer: photo.photographer || 'Unknown',
-          price: 49.99, // Default price since it's not in the database
-          imageUrl: photo.thumbnail_url,
-          location: photo.location || '',
-          description: photo.description || ''
-        }))}
-        viewMode={viewMode}
-        onPhotoPress={handlePhotoPress}
+      <FlatList
+        data={[{ key: 'photoList' }]} // Dummy data to render PhotoList once
+        renderItem={() => (
+          <PhotoList 
+            photos={photoData}
+            viewMode={viewMode}
+            onPhotoPress={handlePhotoPress}
+          />
+        )}
+        keyExtractor={item => item.key}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            colors={['#4f46e5']}
+            tintColor="#4f46e5"
+          />
+        }
+        ListHeaderComponent={
+          error && !isRefreshing ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null
+        }
+        contentContainerStyle={styles.flatListContent}
       />
-
-      {/* Filter Modal */}
       <FilterModal 
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
@@ -198,15 +198,16 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
+    alignItems: 'center',
   },
   errorText: {
     fontSize: 16,
     color: '#ef4444',
     textAlign: 'center',
+  },
+  flatListContent: {
+    flexGrow: 1,
   },
 });
 

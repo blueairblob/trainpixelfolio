@@ -27,9 +27,10 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
         onPress={() => onPress(photo.id)}
       >
         <Image 
-          source={{ uri: photo.imageUrl }}
+          source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150' }}
           style={styles.gridImage}
           resizeMode="cover"
+          onError={(error) => console.log(`Image failed to load: ${photo.imageUrl}`, error.nativeEvent.error)}
         />
         <View style={styles.gridItemInfo}>
           <Text style={styles.gridItemTitle} numberOfLines={1}>{photo.title}</Text>
@@ -44,9 +45,10 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
         onPress={() => onPress(photo.id)}
       >
         <Image 
-          source={{ uri: photo.imageUrl }}
+          source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150' }}
           style={styles.compactImage}
           resizeMode="cover"
+          onError={(error) => console.log(`Image failed to load: ${photo.imageUrl}`, error.nativeEvent.error)}
         />
         <View style={styles.compactInfo}>
           <Text style={styles.compactTitle} numberOfLines={1}>{photo.title}</Text>
@@ -64,9 +66,10 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
     return (
       <View style={styles.singleItem}>
         <Image 
-          source={{ uri: photo.imageUrl }}
+          source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150' }}
           style={styles.singleImage}
           resizeMode="cover"
+          onError={(error) => console.log(`Image failed to load: ${photo.imageUrl}`, error.nativeEvent.error)}
         />
         <View style={styles.singleInfo}>
           <Text style={styles.singleTitle}>{photo.title}</Text>

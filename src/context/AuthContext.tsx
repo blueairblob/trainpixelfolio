@@ -1,4 +1,3 @@
-
 // AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +25,8 @@ export type UserProfile = {
   avatar_url: string | null;
   created_at: string | null;
   updated_at: string | null;
+  orders: any[];
+  favorites: any[];
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,25 +43,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
+        .schema('public')
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       if (data) {
         setUserProfile(data as UserProfile);
       }
-      
+
       // Check if user is admin
       const { data: roleData, error: roleError } = await supabase
+        .schema('public')
         .rpc('is_admin', { user_id: userId });
-      
+
       if (roleError) throw roleError;
-      
+
       setIsAdmin(roleData || false);
-      
+
     } catch (error: any) {
       console.error('Error fetching user profile:', error);
     }
@@ -74,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setIsAuthenticated(!!currentSession);
-        
+
         if (currentSession?.user) {
           fetchUserProfile(currentSession.user.id);
         } else {
@@ -90,11 +93,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setIsAuthenticated(!!currentSession);
-      
+
       if (currentSession?.user) {
         fetchUserProfile(currentSession.user.id);
       }
-      
+
       setIsLoading(false);
     });
 
@@ -107,9 +110,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password
       });
-      
+
       if (error) throw error;
-      
+
       console.log("Login successful:", data);
       return data;
     } catch (error: any) {
@@ -130,11 +133,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
       });
-      
+
       if (error) throw error;
-      
+
       console.log("Registration successful:", data);
-      
+
       // If email confirmation is required
       if (data?.user && !data.user.confirmed_at) {
         Alert.alert(
@@ -142,7 +145,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           "Please check your email for a verification link to complete your registration."
         );
       }
-      
+
       return data;
     } catch (error: any) {
       console.error('Error during registration:', error);
@@ -156,7 +159,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       Alert.alert("Error", "You must be logged in to update your profile");
       return;
     }
-    
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -164,10 +167,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('id', user.id);
       
       if (error) throw error;
-      
+
       // Refresh profile data
       await refreshProfile();
-      
+
       Alert.alert("Success", "Profile updated successfully");
     } catch (error: any) {
       console.error('Error updating profile:', error);
@@ -181,23 +184,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       Alert.alert("Error", "You must be logged in to change your password");
       return;
     }
-    
+
     try {
       // First verify the current password by signing in
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPassword
       });
-      
+
       if (signInError) throw signInError;
-      
+
       // Then update the password
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
-      
+
       if (error) throw error;
-      
+
       Alert.alert("Success", "Password changed successfully");
     } catch (error: any) {
       console.error('Error changing password:', error);
@@ -208,7 +211,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshProfile = async () => {
     if (!user) return;
-    
+
     await fetchUserProfile(user.id);
   };
 
@@ -216,7 +219,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      
+
       console.log("Logout successful");
     } catch (error: any) {
       console.error('Error during logout:', error);
