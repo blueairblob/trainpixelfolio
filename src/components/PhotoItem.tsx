@@ -1,6 +1,5 @@
-// PhotoItem.tsx
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Photo {
@@ -20,18 +19,54 @@ interface PhotoItemProps {
 }
 
 const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const handleRetry = () => {
+    setHasError(false);
+    setIsLoading(true);
+    setRetryCount(prev => prev + 1);
+  };
+
+  const renderImage = (imageStyle: any) => (
+    <View style={{ position: 'relative' }}>
+      {isLoading && (
+        <ActivityIndicator
+          style={styles.loader}
+          size="small"
+          color="#4f46e5"
+        />
+      )}
+      {hasError && !isLoading && (
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Ionicons name="refresh" size={16} color="#fff" />
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      )}
+      <Image
+        source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150', cache: 'reload' }}
+        style={[imageStyle, hasError && styles.errorImage]}
+        resizeMode="cover"
+        onLoadStart={() => setIsLoading(true)}
+        onLoadEnd={() => setIsLoading(false)}
+        onError={(error) => {
+          console.log(`Image failed to load: ${photo.imageUrl}`, error.nativeEvent.error);
+          setIsLoading(false);
+          setHasError(true);
+        }}
+        key={retryCount} // Forces re-render on retry
+      />
+    </View>
+  );
+
   if (viewMode === 'grid') {
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.gridItem}
         onPress={() => onPress(photo.id)}
       >
-        <Image 
-          source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150' }}
-          style={styles.gridImage}
-          resizeMode="cover"
-          onError={(error) => console.log(`Image failed to load: ${photo.imageUrl}`, error.nativeEvent.error)}
-        />
+        {renderImage(styles.gridImage)}
         <View style={styles.gridItemInfo}>
           <Text style={styles.gridItemTitle} numberOfLines={1}>{photo.title}</Text>
           <Text style={styles.gridItemPrice}>${photo.price.toFixed(2)}</Text>
@@ -40,16 +75,11 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
     );
   } else if (viewMode === 'compact') {
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.compactItem}
         onPress={() => onPress(photo.id)}
       >
-        <Image 
-          source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150' }}
-          style={styles.compactImage}
-          resizeMode="cover"
-          onError={(error) => console.log(`Image failed to load: ${photo.imageUrl}`, error.nativeEvent.error)}
-        />
+        {renderImage(styles.compactImage)}
         <View style={styles.compactInfo}>
           <Text style={styles.compactTitle} numberOfLines={1}>{photo.title}</Text>
           <Text style={styles.compactPhotographer}>{photo.photographer}</Text>
@@ -65,12 +95,7 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
   } else {
     return (
       <View style={styles.singleItem}>
-        <Image 
-          source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150' }}
-          style={styles.singleImage}
-          resizeMode="cover"
-          onError={(error) => console.log(`Image failed to load: ${photo.imageUrl}`, error.nativeEvent.error)}
-        />
+        {renderImage(styles.singleImage)}
         <View style={styles.singleInfo}>
           <Text style={styles.singleTitle}>{photo.title}</Text>
           <Text style={styles.singlePhotographer}>By {photo.photographer}</Text>
@@ -79,7 +104,7 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
           <View style={styles.singleFooter}>
             <Text style={styles.singlePrice}>${photo.price.toFixed(2)}</Text>
             <View style={styles.singleButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.detailButton}
                 onPress={() => onPress(photo.id)}
               >
@@ -98,7 +123,7 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
 };
 
 const styles = StyleSheet.create({
-  // Grid view styles
+  // Existing styles...
   gridItem: {
     flex: 1,
     margin: 4,
@@ -132,7 +157,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#4f46e5',
   },
-  // Compact view styles
   compactItem: {
     flexDirection: 'row',
     backgroundColor: '#ffffff',
@@ -180,7 +204,6 @@ const styles = StyleSheet.create({
   compactButton: {
     padding: 4,
   },
-  // Single view styles
   singleItem: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
@@ -262,6 +285,33 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
     marginLeft: 4,
+  },
+  // New styles for loading and error states
+  loader: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -12 }, { translateY: -12 }],
+  },
+  retryButton: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -40 }, { translateY: -15 }],
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 5,
+    borderRadius: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  retryText: {
+    color: '#fff',
+    marginLeft: 5,
+    fontSize: 12,
+  },
+  errorImage: {
+    opacity: 0.5,
+    backgroundColor: '#f0f0f0',
   },
 });
 

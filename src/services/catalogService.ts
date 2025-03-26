@@ -40,27 +40,25 @@ export interface CatalogPhoto {
 }
 
 // catalogService.ts
-export const fetchCatalogPhotos = async (): Promise<CatalogPhoto[]> => {
+export const fetchCatalogPhotos = async (page: number = 1, limit: number = 10): Promise<CatalogPhoto[]> => {
   try {
+    const offset = (page - 1) * limit;
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('*')
-      .order('date_taken', { ascending: false });
+      .order('date_taken', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
     if (!data || data.length === 0) {
-      console.warn('No photos found in mobile_catalog_view');
+      console.warn('No photos found');
       return [];
     }
 
-    const photosWithUrls = data.map(photo => {
-      const url = getImageUrl(photo.image_no); // Uses the updated getImageUrl
-      console.log(`Generated URL for ${photo.image_no}: ${url}`);
-      return {
-        ...photo,
-        image_url: url
-      };
-    });
+    const photosWithUrls = data.map(photo => ({
+      ...photo,
+      image_url: getImageUrl(photo.image_no)
+    }));
 
     return photosWithUrls;
   } catch (error) {
@@ -70,24 +68,28 @@ export const fetchCatalogPhotos = async (): Promise<CatalogPhoto[]> => {
 };
 
 // Function to fetch catalog photos by category
-export const fetchPhotosByCategory = async (category: string): Promise<CatalogPhoto[]> => {
+export const fetchPhotosByCategory = async (category: string, page: number = 1, limit: number = 10): Promise<CatalogPhoto[]> => {
   try {
+    const offset = (page - 1) * limit;
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('*')
       .eq('category', category)
-      .order('date_taken', { ascending: false });
+      .order('date_taken', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-      console.log('Fetched Photos:', data); // Log the raw data
-      console.log('Fetch Error:', error);   // Log any errors
-    
-    if (error) {
-      console.error('Error fetching photos by category:', error);
-      throw error;
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      console.warn(`No photos found for category: ${category}`);
+      return [];
     }
-    
-    return data || [];
 
+    const photosWithUrls = data.map(photo => ({
+      ...photo,
+      image_url: getImageUrl(photo.image_no)
+    }));
+
+    return photosWithUrls;
   } catch (error) {
     console.error('Error in fetchPhotosByCategory:', error);
     throw error;

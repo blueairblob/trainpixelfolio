@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { SafeAreaView, StyleSheet, View, FlatList, ActivityIndicator, Text, RefreshControl } from 'react-native';
+import { SafeAreaView, StyleSheet, View, ActivityIndicator, Text, RefreshControl } from 'react-native';
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
 import FilterModal from '../components/FilterModal';
@@ -14,91 +14,165 @@ const GalleryScreen = ({ navigation, route }) => {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeCategory, setActiveCategory] = useState(route.params?.category || 'all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [categories, setCategories] = useState<{id: string, title: string}[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [categories, setCategories] = useState<{ id: string, title: string }[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  // Load data function, now memoized with useCallback
-  const loadData = useCallback(async () => {
+  const ITEMS_PER_PAGE = 20;
+
+  const loadData = useCallback(async (pageNum: number = 1, isRefresh: boolean = false) => {
+    console.log(`loadData called: page=${pageNum}, isRefresh=${isRefresh}, activeCategory=${activeCategory}`);
+
+    if ((isLoading || isLoadingMore) && !isRefresh) {
+      console.log('Skipping loadData: already loading');
+      return;
+    }
+
+    if (isRefresh) {
+      console.log('Setting isRefreshing to true');
+      setIsRefreshing(true);
+    } else if (pageNum === 1) {
+      console.log('Setting isLoading to true for initial load');
+      setIsLoading(true);
+    } else {
+      console.log('Setting isLoadingMore to true for pagination');
+      setIsLoadingMore(true);
+    }
+
     try {
       setError(null);
-      
-      // Fetch categories
-      const categoryData = await fetchCategories();
-      const formattedCategories = [
-        { id: 'all', title: 'All Photos' },
-        ...categoryData.map(category => ({ id: category, title: category }))
-      ];
-      setCategories(formattedCategories);
-      
+
+      // Fetch categories (only on initial load or refresh)
+      if (pageNum === 1) {
+        console.log('Fetching categories...');
+        const categoryData = await fetchCategories();
+        const formattedCategories = [
+          { id: 'all', title: 'All Photos' },
+          ...categoryData.map(category => ({ id: category, title: category }))
+        ];
+        setCategories(formattedCategories);
+        console.log('Categories fetched:', formattedCategories);
+      }
+
       // Fetch photos
+      console.log(`Fetching photos for page ${pageNum}...`);
       let photoData: CatalogPhoto[];
       if (activeCategory === 'all') {
-        photoData = await fetchCatalogPhotos();
+        photoData = await fetchCatalogPhotos(pageNum, ITEMS_PER_PAGE);
       } else {
-        photoData = await fetchPhotosByCategory(activeCategory);
+        photoData = await fetchPhotosByCategory(activeCategory, pageNum, ITEMS_PER_PAGE);
       }
-      
-      setPhotos(photoData);
-      setFilteredPhotos(photoData);
+
+      console.log(`Fetched ${photoData.length} photos for page ${pageNum}:`, photoData);
+
+      if (pageNum === 1) {
+        console.log('Setting photos for initial load:', photoData);
+        setPhotos(photoData);
+      } else {
+        console.log('Appending photos for pagination:', photoData);
+        setPhotos(prev => [...prev, ...photoData]);
+      }
+
+      if (photoData.length < ITEMS_PER_PAGE) {
+        console.log('No more photos to load');
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
     } catch (err) {
       console.error('Error loading gallery data:', err);
       setError('Failed to load photos. Pull down to retry.');
     } finally {
+      console.log('Resetting loading states');
       setIsLoading(false);
       setIsRefreshing(false);
+      setIsLoadingMore(false);
+      console.log(`Current state: photos.length=${photos.length}, filteredPhotos.length=${filteredPhotos.length}, hasMore=${hasMore}`);
     }
-  }, [activeCategory]);
+  }, [activeCategory]); // Removed isLoading, isLoadingMore, photos, filteredPhotos from dependencies
 
   // Initial load
   useEffect(() => {
-    setIsLoading(true);
-    loadData();
-  }, [loadData]);
+    console.log('Initial useEffect triggered');
+    setPage(1);
+    setHasMore(true);
+    loadData(1);
+  }, [activeCategory, loadData]); // Ensure this runs when activeCategory changes
+
+  // Load more photos when reaching the end
+  const loadMore = useCallback(() => {
+    if (!hasMore || isLoadingMore || isLoading) {
+      console.log('Skipping loadMore: no more photos or already loading');
+      return;
+    }
+    const nextPage = page + 1;
+    console.log(`loadMore triggered: moving to page ${nextPage}`);
+    setPage(nextPage);
+    loadData(nextPage);
+  }, [page, hasMore, isLoadingMore, isLoading, loadData]);
 
   // Filter photos based on search query
   useEffect(() => {
+    console.log('Filtering photos based on searchQuery:', searchQuery);
     let result = photos;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(photo => 
-        (photo.description?.toLowerCase().includes(query) || false) || 
+      result = result.filter(photo =>
+        (photo.description?.toLowerCase().includes(query) || false) ||
         (photo.category?.toLowerCase().includes(query) || false) ||
         (photo.photographer?.toLowerCase().includes(query) || false) ||
         (photo.location?.toLowerCase().includes(query) || false)
       );
     }
     setFilteredPhotos(result);
+    console.log('Filtered photos:', result);
   }, [searchQuery, photos]);
 
   // Handle refresh
   const onRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    loadData();
+    console.log('onRefresh triggered');
+    setPage(1);
+    setHasMore(true);
+    loadData(1, true);
   }, [loadData]);
 
   const handleSearch = (text: string) => {
+    console.log('Search query updated:', text);
     setSearchQuery(text);
   };
 
   const handlePhotoPress = (id: string) => {
+    console.log('Photo pressed:', id);
     navigation.navigate('PhotoDetail', { id });
   };
 
   const handleClearFilters = () => {
+    console.log('Clearing filters');
     setActiveCategory('all');
     setSearchQuery('');
+    setPage(1);
+    setHasMore(true);
+    loadData(1);
   };
 
   const handleCategoryChange = async (category: string) => {
+    console.log('Category changed to:', category);
     setActiveCategory(category);
+    setPage(1);
+    setHasMore(true);
+    setPhotos([]); // Clear photos to avoid showing old data
+    setFilteredPhotos([]);
   };
 
   if (isLoading && !isRefreshing) {
+    console.log('Rendering loading state');
     return (
       <SafeAreaView style={styles.container}>
-        <GalleryHeader 
+        <GalleryHeader
           onFilterPress={() => setFilterModalVisible(true)}
           viewMode={viewMode}
           setViewMode={setViewMode}
@@ -121,9 +195,11 @@ const GalleryScreen = ({ navigation, route }) => {
     description: photo.description || ''
   }));
 
+  console.log('Rendering PhotoList with photoData:', photoData);
+
   return (
     <SafeAreaView style={styles.container}>
-      <GalleryHeader 
+      <GalleryHeader
         onFilterPress={() => setFilterModalVisible(true)}
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -131,23 +207,17 @@ const GalleryScreen = ({ navigation, route }) => {
       <SearchBar onSearch={handleSearch} />
       <View style={styles.categoryContainer}>
         {categories.length > 0 && (
-          <CategoryFilter 
+          <CategoryFilter
             categories={categories}
             activeCategory={activeCategory}
             onCategoryPress={handleCategoryChange}
           />
         )}
       </View>
-      <FlatList
-        data={[{ key: 'photoList' }]} // Dummy data to render PhotoList once
-        renderItem={() => (
-          <PhotoList 
-            photos={photoData}
-            viewMode={viewMode}
-            onPhotoPress={handlePhotoPress}
-          />
-        )}
-        keyExtractor={item => item.key}
+      <PhotoList
+        photos={photoData}
+        viewMode={viewMode}
+        onPhotoPress={handlePhotoPress}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -156,6 +226,8 @@ const GalleryScreen = ({ navigation, route }) => {
             tintColor="#4f46e5"
           />
         }
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
         ListHeaderComponent={
           error && !isRefreshing ? (
             <View style={styles.errorContainer}>
@@ -163,9 +235,15 @@ const GalleryScreen = ({ navigation, route }) => {
             </View>
           ) : null
         }
-        contentContainerStyle={styles.flatListContent}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color="#4f46e5" />
+            </View>
+          ) : null
+        }
       />
-      <FilterModal 
+      <FilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
         categories={categories}
@@ -206,8 +284,9 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     textAlign: 'center',
   },
-  flatListContent: {
-    flexGrow: 1,
+  loadingMore: {
+    padding: 20,
+    alignItems: 'center',
   },
 });
 
