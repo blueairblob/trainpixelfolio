@@ -142,7 +142,56 @@ export const fetchCategories = async (): Promise<string[]> => {
   }
 };
 
-// Get real image URL from Supabase storage
+// New searchPhotos function
+export const searchPhotos = async (
+  searchQuery: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<CatalogPhoto[]> => {
+  try {
+    const searchTerms = searchQuery.toLowerCase().trim();
+    
+    // Skip search if query is empty
+    if (!searchTerms) {
+      return fetchCatalogPhotos(page, limit);
+    }
+    
+    // Calculate pagination offset
+    const offset = (page - 1) * limit;
+    
+    // Query using text search capabilities
+    const { data, error } = await supabase
+      .from('mobile_catalog_view')
+      .select('*')
+      .or(`description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,photographer.ilike.%${searchTerms}%,location.ilike.%${searchTerms}%`)
+      .order('date_taken', { ascending: false })
+      .range(offset, offset + limit - 1);
+    
+    if (error) throw error;
+    
+    if (!data || data.length === 0) {
+      console.warn('No photos found matching search query:', searchTerms);
+      return [];
+    }
+    
+    // Add image URLs to the results
+    const photosWithUrls = data.map(photo => ({
+      ...photo,
+      image_url: getImageUrl(photo.image_no)
+    }));
+    
+    return photosWithUrls;
+  } catch (error) {
+    console.error('Error searching photos:', error);
+    throw error;
+  }
+};
+
+
 export const getImageUrl = (imageNo: string): string => {
-  return supabase.storage.from('picaloco').getPublicUrl(`images/${imageNo}.webp`).data.publicUrl;
+  // Normalize the image_no by removing spaces to match the file name format
+  const normalizedImageNo = imageNo.replace(/\s/g, ''); // e.g., "Class 1800 (10)" -> "Class1800(10)"
+  const url = supabase.storage.from('picaloco').getPublicUrl(`images/${normalizedImageNo}.webp`).data.publicUrl;
+  console.log(`Generated URL: ${url}`);
+  return url;
 };

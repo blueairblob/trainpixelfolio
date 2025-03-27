@@ -1,14 +1,20 @@
 // SearchBar.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect  } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface SearchBarProps {
   onSearch: (text: string) => void;
+  initialValue?: string;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
-  const [searchText, setSearchText] = useState('');
+const SearchBar: React.FC<SearchBarProps> = ({ onSearch, initialValue = '' }) => {
+  const [searchText, setSearchText] = useState(initialValue);
+
+  // Update searchText when initialValue changes
+  useEffect(() => {
+    setSearchText(initialValue);
+  }, [initialValue]);
 
   const handleSearch = () => {
     onSearch(searchText);

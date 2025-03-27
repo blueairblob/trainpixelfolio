@@ -5,7 +5,8 @@ import CategoryFilter from '../components/CategoryFilter';
 import FilterModal from '../components/FilterModal';
 import PhotoList from '../components/PhotoList';
 import SearchBar from '../components/SearchBar';
-import { fetchCatalogPhotos, fetchPhotosByCategory, fetchCategories, CatalogPhoto } from '../services/catalogService';
+import { fetchCatalogPhotos, fetchPhotosByCategory, fetchCategories, CatalogPhoto, searchPhotos } from '../services/catalogService';
+import { supabase } from '../services/supabase'; // Adjust the import based on your setup
 
 const GalleryScreen = ({ navigation, route }) => {
   const [photos, setPhotos] = useState<CatalogPhoto[]>([]);
@@ -21,8 +22,9 @@ const GalleryScreen = ({ navigation, route }) => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 10;
 
   const loadData = useCallback(async (pageNum: number = 1, isRefresh: boolean = false) => {
     console.log(`loadData called: page=${pageNum}, isRefresh=${isRefresh}, activeCategory=${activeCategory}`);
@@ -56,6 +58,12 @@ const GalleryScreen = ({ navigation, route }) => {
         ];
         setCategories(formattedCategories);
         console.log('Categories fetched:', formattedCategories);
+      }
+
+      // Skip loading photos if we're searching
+      if (searchQuery) {
+        console.log('Skipping loadData: search is active');
+        return;
       }
 
       // Fetch photos
@@ -93,7 +101,7 @@ const GalleryScreen = ({ navigation, route }) => {
       setIsLoadingMore(false);
       console.log(`Current state: photos.length=${photos.length}, filteredPhotos.length=${filteredPhotos.length}, hasMore=${hasMore}`);
     }
-  }, [activeCategory]); // Removed isLoading, isLoadingMore, photos, filteredPhotos from dependencies
+  }, [activeCategory, searchQuery]); // Include searchQuery to skip loading when searching
 
   // Initial load
   useEffect(() => {
@@ -101,22 +109,80 @@ const GalleryScreen = ({ navigation, route }) => {
     setPage(1);
     setHasMore(true);
     loadData(1);
-  }, [activeCategory, loadData]); // Ensure this runs when activeCategory changes
+  }, [activeCategory, loadData]);
 
   // Load more photos when reaching the end
   const loadMore = useCallback(() => {
-    if (!hasMore || isLoadingMore || isLoading) {
-      console.log('Skipping loadMore: no more photos or already loading');
+    if (!hasMore || isLoadingMore || isLoading || isSearching) {
+      console.log('Skipping loadMore: no more photos, already loading, or searching');
       return;
     }
     const nextPage = page + 1;
     console.log(`loadMore triggered: moving to page ${nextPage}`);
     setPage(nextPage);
     loadData(nextPage);
-  }, [page, hasMore, isLoadingMore, isLoading, loadData]);
+  }, [page, hasMore, isLoadingMore, isLoading, isSearching, loadData]);
 
-  // Filter photos based on search query
+  // Debounce search to prevent rapid queries
+  const debounce = (func: (...args: any[]) => void, wait: number) => {
+    let timeout: NodeJS.Timeout;
+    return (...args: any[]) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), wait);
+    };
+  };
+
+  const debouncedSearch = useCallback(
+    debounce((query: string) => {
+      setPage(1);
+      setHasMore(true);
+      searchPhotos(query, 1);
+    }, 500),
+    [searchPhotos]
+  );
+
+// New function to handle search
+const handleSearch = useCallback((text: string) => {
+  console.log('Search query updated:', text);
+  setSearchQuery(text);
+  setPage(1); // Reset to first page when searching
+  setHasMore(true);
+  setIsLoading(true);
+  
+  // Use the new searchPhotos function
+  searchPhotos(text, 1, ITEMS_PER_PAGE)
+    .then(results => {
+      setPhotos(results);
+      setFilteredPhotos(results);
+      setHasMore(results.length >= ITEMS_PER_PAGE);
+    })
+    .catch(err => {
+      console.error('Search error:', err);
+      setError('Failed to search photos. Please try again.');
+    })
+    .finally(() => {
+      setIsLoading(false);
+    });
+  }, []);
+
+  // Load more search results
+  const loadMoreSearchResults = useCallback(() => {
+    if (!hasMore || isLoadingMore || isLoading || !isSearching) {
+      console.log('Skipping loadMoreSearchResults: no more results, already loading, or not searching');
+      return;
+    }
+    const nextPage = page + 1;
+    console.log(`loadMoreSearchResults triggered: moving to page ${nextPage}`);
+    setPage(nextPage);
+    searchPhotos(searchQuery, nextPage);
+  }, [hasMore, isLoadingMore, isLoading, isSearching, page, searchQuery]);
+
+  // Filter photos based on search query (only when not searching)
   useEffect(() => {
+    if (isSearching) {
+      console.log('Skipping client-side filtering: search is active');
+      return;
+    }
     console.log('Filtering photos based on searchQuery:', searchQuery);
     let result = photos;
     if (searchQuery) {
@@ -130,20 +196,19 @@ const GalleryScreen = ({ navigation, route }) => {
     }
     setFilteredPhotos(result);
     console.log('Filtered photos:', result);
-  }, [searchQuery, photos]);
+  }, [searchQuery, photos, isSearching]);
 
   // Handle refresh
   const onRefresh = useCallback(() => {
     console.log('onRefresh triggered');
     setPage(1);
     setHasMore(true);
-    loadData(1, true);
-  }, [loadData]);
-
-  const handleSearch = (text: string) => {
-    console.log('Search query updated:', text);
-    setSearchQuery(text);
-  };
+    if (searchQuery) {
+      searchPhotos(searchQuery, 1);
+    } else {
+      loadData(1, true);
+    }
+  }, [loadData, searchQuery]);
 
   const handlePhotoPress = (id: string) => {
     console.log('Photo pressed:', id);
@@ -156,16 +221,49 @@ const GalleryScreen = ({ navigation, route }) => {
     setSearchQuery('');
     setPage(1);
     setHasMore(true);
+    setIsSearching(false);
     loadData(1);
   };
 
   const handleCategoryChange = async (category: string) => {
     console.log('Category changed to:', category);
     setActiveCategory(category);
+    
+    // Clear search query when changing categories, especially for "all" category
+    if (category === 'all') {
+      setSearchQuery('');
+    }
+    
+    // Reset pagination
     setPage(1);
     setHasMore(true);
-    setPhotos([]); // Clear photos to avoid showing old data
+    
+    // Clear photos to avoid showing old data
+    setPhotos([]);
     setFilteredPhotos([]);
+    
+    // Show loading state
+    setIsLoading(true);
+    
+    try {
+      // Fetch photos based on category
+      let photoData: CatalogPhoto[];
+      if (category === 'all') {
+        photoData = await fetchCatalogPhotos(1, ITEMS_PER_PAGE);
+      } else {
+        photoData = await fetchPhotosByCategory(category, 1, ITEMS_PER_PAGE);
+      }
+      
+      // Update photos state
+      setPhotos(photoData);
+      setFilteredPhotos(photoData);
+      setHasMore(photoData.length >= ITEMS_PER_PAGE);
+    } catch (error) {
+      console.error('Error loading category photos:', error);
+      setError('Failed to load photos for this category. Pull down to retry.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading && !isRefreshing) {
@@ -196,7 +294,6 @@ const GalleryScreen = ({ navigation, route }) => {
   }));
 
   console.log('Rendering PhotoList with photoData:', photoData);
-
   return (
     <SafeAreaView style={styles.container}>
       <GalleryHeader
@@ -204,7 +301,7 @@ const GalleryScreen = ({ navigation, route }) => {
         viewMode={viewMode}
         setViewMode={setViewMode}
       />
-      <SearchBar onSearch={handleSearch} />
+      <SearchBar onSearch={handleSearch} initialValue={searchQuery}/>
       <View style={styles.categoryContainer}>
         {categories.length > 0 && (
           <CategoryFilter
@@ -226,7 +323,7 @@ const GalleryScreen = ({ navigation, route }) => {
             tintColor="#4f46e5"
           />
         }
-        onEndReached={loadMore}
+        onEndReached={isSearching ? loadMoreSearchResults : loadMore}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
           error && !isRefreshing ? (
