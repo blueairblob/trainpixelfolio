@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedPhotoData, cachePhotoData } from "../utils/cache";
 import { Database } from "@/types/supabase";  
 
 // Define the types for the catalog data
@@ -39,9 +40,19 @@ export interface CatalogPhoto {
   last_updated: string | null;
 }
 
-// catalogService.ts
+
 export const fetchCatalogPhotos = async (page: number = 1, limit: number = 10): Promise<CatalogPhoto[]> => {
   try {
+    const cacheKey = `photos_page_${page}_limit_${limit}`;
+    
+    // Try to get from cache first
+    const cachedData = await getCachedPhotoData(cacheKey);
+    if (cachedData) {
+      console.log('Using cached catalog photos');
+      return cachedData;
+    }
+    
+    // If not in cache, fetch from API
     const offset = (page - 1) * limit;
     const { data, error } = await supabase
       .from('mobile_catalog_view')
@@ -59,6 +70,9 @@ export const fetchCatalogPhotos = async (page: number = 1, limit: number = 10): 
       ...photo,
       image_url: getImageUrl(photo.image_no)
     }));
+    
+    // Cache the result
+    await cachePhotoData(cacheKey, photosWithUrls);
 
     return photosWithUrls;
   } catch (error) {
@@ -142,39 +156,40 @@ export const fetchCategories = async (): Promise<string[]> => {
   }
 };
 
-// New searchPhotos function
+// New search for new photos
 export const searchPhotos = async (
   searchQuery: string,
   page: number = 1,
-  limit: number = 20
+  limit: number = 10
 ): Promise<CatalogPhoto[]> => {
   try {
-    const searchTerms = searchQuery.toLowerCase().trim();
+    console.log(`Searching for "${searchQuery}" (page ${page}, limit ${limit})`);
     
-    // Skip search if query is empty
-    if (!searchTerms) {
-      return fetchCatalogPhotos(page, limit);
+    if (!searchQuery.trim()) {
+      return await fetchCatalogPhotos(page, limit);
     }
     
-    // Calculate pagination offset
+    const query = searchQuery.toLowerCase().trim();
     const offset = (page - 1) * limit;
     
-    // Query using text search capabilities
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('*')
-      .or(`description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,photographer.ilike.%${searchTerms}%,location.ilike.%${searchTerms}%`)
+      .or(`description.ilike.%${query}%,category.ilike.%${query}%,photographer.ilike.%${query}%,location.ilike.%${query}%`)
       .order('date_taken', { ascending: false })
       .range(offset, offset + limit - 1);
     
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase search error:', error);
+      throw error;
+    }
+    
+    console.log(`Search returned ${data?.length || 0} results`);
     
     if (!data || data.length === 0) {
-      console.warn('No photos found matching search query:', searchTerms);
       return [];
     }
     
-    // Add image URLs to the results
     const photosWithUrls = data.map(photo => ({
       ...photo,
       image_url: getImageUrl(photo.image_no)
@@ -182,11 +197,10 @@ export const searchPhotos = async (
     
     return photosWithUrls;
   } catch (error) {
-    console.error('Error searching photos:', error);
+    console.error('Error in searchPhotos:', error);
     throw error;
   }
 };
-
 
 export const getImageUrl = (imageNo: string): string => {
   // Normalize the image_no by removing spaces to match the file name format

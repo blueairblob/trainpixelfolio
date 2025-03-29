@@ -1,3 +1,4 @@
+// PhotoList.tsx
 import React from 'react';
 import { FlatList, View } from 'react-native';
 import PhotoItem from './PhotoItem';
@@ -21,6 +22,7 @@ interface PhotoListProps {
   onEndReachedThreshold?: number;
   ListHeaderComponent?: React.ReactElement;
   ListFooterComponent?: React.ReactElement;
+  ListEmptyComponent?: React.ReactElement;
 }
 
 const PhotoList: React.FC<PhotoListProps> = ({
@@ -32,6 +34,7 @@ const PhotoList: React.FC<PhotoListProps> = ({
   onEndReachedThreshold,
   ListHeaderComponent,
   ListFooterComponent,
+  ListEmptyComponent,
 }) => {
   return (
     <FlatList
@@ -51,7 +54,11 @@ const PhotoList: React.FC<PhotoListProps> = ({
       onEndReachedThreshold={onEndReachedThreshold}
       ListHeaderComponent={ListHeaderComponent}
       ListFooterComponent={ListFooterComponent}
-      contentContainerStyle={{ padding: viewMode === 'grid' ? 0 : 8 }}
+      ListEmptyComponent={ListEmptyComponent}
+      contentContainerStyle={[
+        { padding: viewMode === 'grid' ? 0 : 8 },
+        photos.length === 0 && { flexGrow: 1 }
+      ]}
     />
   );
 };

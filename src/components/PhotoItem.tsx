@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from 'react-native';
+// src/components/PhotoItem.tsx
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 
 interface Photo {
   id: string;
@@ -8,6 +10,7 @@ interface Photo {
   photographer: string;
   price: number;
   imageUrl: string;
+  thumbnailUrl?: string; // Make thumbnail optional
   location: string;
   description: string;
 }
@@ -23,11 +26,19 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
-  const handleRetry = () => {
+  // Memoize the onPress handler to prevent unnecessary re-renders
+  const handlePress = useCallback(() => {
+    onPress(photo.id);
+  }, [photo.id, onPress]);
+
+  const handleRetry = useCallback(() => {
     setHasError(false);
     setIsLoading(true);
     setRetryCount(prev => prev + 1);
-  };
+  }, []);
+
+  // Generate a placeholder blurhash-like color based on the photo id
+  const placeholderColor = `#${(parseInt(photo.id.replace(/\D/g, ''), 10) % 0xffffff).toString(16).padStart(6, '0')}`;
 
   const renderImage = (imageStyle: any) => (
     <View style={{ position: 'relative' }}>
@@ -45,17 +56,23 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
         </TouchableOpacity>
       )}
       <Image
-        source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150', cache: 'reload' }}
+        source={{ uri: photo.imageUrl || 'https://via.placeholder.com/150' }}
         style={[imageStyle, hasError && styles.errorImage]}
-        resizeMode="cover"
+        contentFit="cover"
+        transition={300}
+        placeholder={photo.thumbnailUrl}
+        placeholderContentFit="cover"
+        cachePolicy="memory-disk"
+        recyclingKey={`${photo.id}-${retryCount}`} // Helps with image refresh on retry
         onLoadStart={() => setIsLoading(true)}
-        onLoadEnd={() => setIsLoading(false)}
-        onError={(error) => {
-          console.log(`Image failed to load: ${photo.imageUrl}`, error.nativeEvent.error);
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          console.log(`Image failed to load: ${photo.imageUrl}`);
           setIsLoading(false);
           setHasError(true);
         }}
-        key={retryCount} // Forces re-render on retry
+        // Add placeholder background color when loading
+        //backgroundColor={placeholderColor}
       />
     </View>
   );
@@ -64,7 +81,8 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
     return (
       <TouchableOpacity
         style={styles.gridItem}
-        onPress={() => onPress(photo.id)}
+        onPress={handlePress}
+        activeOpacity={0.7} // Better feedback on touch
       >
         {renderImage(styles.gridImage)}
         <View style={styles.gridItemInfo}>
@@ -77,7 +95,8 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
     return (
       <TouchableOpacity
         style={styles.compactItem}
-        onPress={() => onPress(photo.id)}
+        onPress={handlePress}
+        activeOpacity={0.7}
       >
         {renderImage(styles.compactImage)}
         <View style={styles.compactInfo}>
@@ -85,7 +104,7 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
           <Text style={styles.compactPhotographer}>{photo.photographer}</Text>
           <View style={styles.compactFooter}>
             <Text style={styles.compactPrice}>${photo.price.toFixed(2)}</Text>
-            <TouchableOpacity style={styles.compactButton}>
+            <TouchableOpacity style={styles.compactButton} activeOpacity={0.6}>
               <Ionicons name="add-circle-outline" size={20} color="#4f46e5" />
             </TouchableOpacity>
           </View>
@@ -99,18 +118,24 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
         <View style={styles.singleInfo}>
           <Text style={styles.singleTitle}>{photo.title}</Text>
           <Text style={styles.singlePhotographer}>By {photo.photographer}</Text>
-          <Text style={styles.singleLocation}>{photo.location}</Text>
-          <Text style={styles.singleDescription} numberOfLines={3}>{photo.description}</Text>
+          {photo.location && <Text style={styles.singleLocation}>{photo.location}</Text>}
+          {photo.description && (
+            <Text style={styles.singleDescription} numberOfLines={3}>{photo.description}</Text>
+          )}
           <View style={styles.singleFooter}>
             <Text style={styles.singlePrice}>${photo.price.toFixed(2)}</Text>
             <View style={styles.singleButtons}>
               <TouchableOpacity
                 style={styles.detailButton}
-                onPress={() => onPress(photo.id)}
+                onPress={handlePress}
+                activeOpacity={0.7}
               >
                 <Text style={styles.detailButtonText}>Details</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.addButton}>
+              <TouchableOpacity 
+                style={styles.addButton}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="cart-outline" size={16} color="#ffffff" />
                 <Text style={styles.addButtonText}>Add</Text>
               </TouchableOpacity>
@@ -315,4 +340,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PhotoItem;
+export default React.memo(PhotoItem); // Add memo to prevent unnecessary re-renders
