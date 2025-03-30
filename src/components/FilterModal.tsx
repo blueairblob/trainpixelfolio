@@ -23,6 +23,8 @@ interface FilterModalProps {
   activeCategory: string;
   onCategoryPress: (category: string) => void;
   onClearFilters: () => void;
+  resultCount?: number; // Current result count
+  hasMoreResults?: boolean; // Whether there are more results available
 }
 
 const FilterModal = ({ 
@@ -31,7 +33,9 @@ const FilterModal = ({
   categories, 
   activeCategory, 
   onCategoryPress,
-  onClearFilters
+  onClearFilters,
+  resultCount,
+  hasMoreResults = false
 }: FilterModalProps) => {
   // Add state for additional filters
   const [priceRange, setPriceRange] = useState([0, 100]);
@@ -206,21 +210,31 @@ const FilterModal = ({
             </View>
           </ScrollView>
           
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={styles.resetButton} 
-              onPress={resetFilters}
-            >
-              <Text style={styles.resetButtonText}>Reset</Text>
-            </TouchableOpacity>
+          {/* Action Buttons with Result Count */}
+          <View style={styles.actionButtonsContainer}>
+            {/* Display current result count if available */}
+            {resultCount !== undefined && (
+              <Text style={styles.resultCountText}>
+                Currently showing {resultCount} {resultCount === 1 ? 'photo' : 'photos'}
+                {hasMoreResults ? '+' : ''}
+              </Text>
+            )}
             
-            <TouchableOpacity 
-              style={styles.applyButton}
-              onPress={applyFilters}
-            >
-              <Text style={styles.applyButtonText}>Apply Filters</Text>
-            </TouchableOpacity>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                style={styles.resetButton} 
+                onPress={resetFilters}
+              >
+                <Text style={styles.resetButtonText}>Reset</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.applyButton}
+                onPress={applyFilters}
+              >
+                <Text style={styles.applyButtonText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -347,11 +361,22 @@ const styles = StyleSheet.create({
   activeOrientationText: {
     color: '#ffffff',
   },
-  actionButtons: {
-    flexDirection: 'row',
+  // Updated action buttons container
+  actionButtonsContainer: {
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+  },
+  // New result count text style
+  resultCountText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  // Updated action buttons style
+  actionButtons: {
+    flexDirection: 'row',
   },
   resetButton: {
     flex: 1,

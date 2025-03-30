@@ -1,6 +1,7 @@
+// src/services/catalogService.ts
 import { supabase } from "@/integrations/supabase/client";
-import { getCachedPhotoData, cachePhotoData } from "../utils/cache";
-import { Database } from "@/types/supabase";  
+import { getCachedApiData, cacheApiData } from "@/utils/imageCache";
+import { Database } from "@/types/supabase";
 
 // Define the types for the catalog data
 export interface CatalogPhoto {
@@ -13,6 +14,7 @@ export interface CatalogPhoto {
   gauge: string | null;
   thumbnail_url: string;
   image_url?: string;
+  id?: string;  // Added for compatibility with other parts of the app
   country: string | null;
   organisation: string | null;
   organisation_type: string | null;
@@ -40,16 +42,50 @@ export interface CatalogPhoto {
   last_updated: string | null;
 }
 
+export interface PhotoFetchOptions {
+  page?: number;
+  limit?: number;
+  useCache?: boolean;
+  cacheDuration?: number; // minutes
+}
 
-export const fetchCatalogPhotos = async (page: number = 1, limit: number = 10): Promise<CatalogPhoto[]> => {
+const DEFAULT_OPTIONS: PhotoFetchOptions = {
+  page: 1,
+  limit: 10,
+  useCache: true,
+  cacheDuration: 60 // 1 hour
+};
+
+/**
+ * Generate Supabase storage URL for an image
+ */
+export const getImageUrl = (imageNo: string): string => {
+  // Normalize the image_no by removing spaces to match the file name format
+  const normalizedImageNo = imageNo.replace(/\s/g, ''); // e.g., "Class 1800 (10)" -> "Class1800(10)"
+  const url = supabase.storage.from('picaloco').getPublicUrl(`images/${normalizedImageNo}.webp`).data.publicUrl;
+  return url;
+};
+
+/**
+ * Fetch catalog photos with pagination and caching
+ */
+export const fetchCatalogPhotos = async (
+  page: number = 1, 
+  limit: number = 10,
+  options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
+): Promise<CatalogPhoto[]> => {
+  const { useCache, cacheDuration } = { ...DEFAULT_OPTIONS, ...options, page, limit };
+  
   try {
     const cacheKey = `photos_page_${page}_limit_${limit}`;
     
-    // Try to get from cache first
-    const cachedData = await getCachedPhotoData(cacheKey);
-    if (cachedData) {
-      console.log('Using cached catalog photos');
-      return cachedData;
+    // Try to get from cache first if enabled
+    if (useCache) {
+      const cachedData = await getCachedApiData(cacheKey);
+      if (cachedData) {
+        console.log('Using cached catalog photos for page:', page);
+        return cachedData;
+      }
     }
     
     // If not in cache, fetch from API
@@ -66,13 +102,17 @@ export const fetchCatalogPhotos = async (page: number = 1, limit: number = 10): 
       return [];
     }
 
+    // Add image URLs and normalize the data
     const photosWithUrls = data.map(photo => ({
       ...photo,
+      id: photo.image_no, // Ensure id is set for compatibility
       image_url: getImageUrl(photo.image_no)
     }));
     
-    // Cache the result
-    await cachePhotoData(cacheKey, photosWithUrls);
+    // Cache the result if enabled
+    if (useCache && photosWithUrls.length > 0) {
+      await cacheApiData(cacheKey, photosWithUrls, cacheDuration);
+    }
 
     return photosWithUrls;
   } catch (error) {
@@ -81,9 +121,34 @@ export const fetchCatalogPhotos = async (page: number = 1, limit: number = 10): 
   }
 };
 
-// Function to fetch catalog photos by category
-export const fetchPhotosByCategory = async (category: string, page: number = 1, limit: number = 10): Promise<CatalogPhoto[]> => {
+/**
+ * Fetch photos by category with pagination and caching
+ */
+export const fetchPhotosByCategory = async (
+  category: string, 
+  page: number = 1, 
+  limit: number = 10,
+  options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
+): Promise<CatalogPhoto[]> => {
+  const { useCache, cacheDuration } = { ...DEFAULT_OPTIONS, ...options, page, limit };
+  
+  if (!category) {
+    throw new Error('Category is required');
+  }
+
   try {
+    const cacheKey = `category_${category.toLowerCase()}_page_${page}_limit_${limit}`;
+    
+    // Try to get from cache first if enabled
+    if (useCache) {
+      const cachedData = await getCachedApiData(cacheKey);
+      if (cachedData) {
+        console.log('Using cached category photos for:', category, 'page:', page);
+        return cachedData;
+      }
+    }
+    
+    // If not in cache, fetch from API
     const offset = (page - 1) * limit;
     const { data, error } = await supabase
       .from('mobile_catalog_view')
@@ -98,10 +163,17 @@ export const fetchPhotosByCategory = async (category: string, page: number = 1, 
       return [];
     }
 
+    // Add image URLs and normalize the data
     const photosWithUrls = data.map(photo => ({
       ...photo,
+      id: photo.image_no, // Ensure id is set for compatibility
       image_url: getImageUrl(photo.image_no)
     }));
+    
+    // Cache the result if enabled
+    if (useCache && photosWithUrls.length > 0) {
+      await cacheApiData(cacheKey, photosWithUrls, cacheDuration);
+    }
 
     return photosWithUrls;
   } catch (error) {
@@ -110,9 +182,32 @@ export const fetchPhotosByCategory = async (category: string, page: number = 1, 
   }
 };
 
-// Function to fetch a single photo by image_no
-export const fetchPhotoById = async (imageNo: string): Promise<CatalogPhoto | null> => {
+/**
+ * Fetch a single photo by its ID (image_no)
+ */
+export const fetchPhotoById = async (
+  imageNo: string, 
+  options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
+): Promise<CatalogPhoto | null> => {
+  const { useCache, cacheDuration } = { ...DEFAULT_OPTIONS, ...options };
+  
+  if (!imageNo) {
+    throw new Error('Image number is required');
+  }
+
   try {
+    const cacheKey = `photo_${imageNo}`;
+    
+    // Try to get from cache first if enabled
+    if (useCache) {
+      const cachedData = await getCachedApiData(cacheKey);
+      if (cachedData) {
+        console.log('Using cached photo data for:', imageNo);
+        return cachedData;
+      }
+    }
+    
+    // If not in cache, fetch from API
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('*')
@@ -124,16 +219,50 @@ export const fetchPhotoById = async (imageNo: string): Promise<CatalogPhoto | nu
       throw error;
     }
     
-    return data;
+    if (!data) {
+      return null;
+    }
+
+    // Add image URL
+    const photoWithUrl = {
+      ...data,
+      id: data.image_no, // Ensure id is set for compatibility
+      image_url: getImageUrl(data.image_no)
+    };
+    
+    // Cache the result if enabled
+    if (useCache) {
+      await cacheApiData(cacheKey, photoWithUrl, cacheDuration || 180); // Cache individual photos longer (3 hours)
+    }
+    
+    return photoWithUrl;
   } catch (error) {
     console.error('Error in fetchPhotoById:', error);
     throw error;
   }
 };
 
-// Function to get unique categories
-export const fetchCategories = async (): Promise<string[]> => {
+/**
+ * Fetch unique categories
+ */
+export const fetchCategories = async (
+  options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
+): Promise<string[]> => {
+  const { useCache, cacheDuration } = { ...DEFAULT_OPTIONS, ...options };
+  
   try {
+    const cacheKey = 'categories_list';
+    
+    // Try to get from cache first if enabled
+    if (useCache) {
+      const cachedData = await getCachedApiData(cacheKey);
+      if (cachedData) {
+        console.log('Using cached categories data');
+        return cachedData;
+      }
+    }
+    
+    // If not in cache, fetch from API
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('category')
@@ -147,7 +276,17 @@ export const fetchCategories = async (): Promise<string[]> => {
     // Extract unique categories
     const categories = data
       .map(item => item.category)
-      .filter((value, index, self) => value && self.indexOf(value) === index) as string[];
+      .filter((value, index, self) => 
+        value && self.indexOf(value) === index
+      ) as string[];
+    
+    // Sort alphabetically
+    categories.sort();
+    
+    // Cache the result if enabled
+    if (useCache) {
+      await cacheApiData(cacheKey, categories, cacheDuration || 1440); // Cache categories for 1 day
+    }
     
     return categories;
   } catch (error) {
@@ -156,20 +295,36 @@ export const fetchCategories = async (): Promise<string[]> => {
   }
 };
 
-// New search for new photos
+/**
+ * Search photos by query term
+ */
 export const searchPhotos = async (
   searchQuery: string,
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
+  options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
 ): Promise<CatalogPhoto[]> => {
+  const { useCache, cacheDuration } = { ...DEFAULT_OPTIONS, ...options, page, limit };
+  
   try {
-    console.log(`Searching for "${searchQuery}" (page ${page}, limit ${limit})`);
-    
+    // If search query is empty, return regular catalog photos
     if (!searchQuery.trim()) {
-      return await fetchCatalogPhotos(page, limit);
+      return await fetchCatalogPhotos(page, limit, { useCache, cacheDuration });
     }
     
     const query = searchQuery.toLowerCase().trim();
+    const cacheKey = `search_${query}_page_${page}_limit_${limit}`;
+    
+    // Try to get from cache first if enabled
+    if (useCache) {
+      const cachedResults = await getCachedApiData(cacheKey);
+      if (cachedResults) {
+        console.log('Using cached search results for:', searchQuery, 'page:', page);
+        return cachedResults;
+      }
+    }
+    
+    // Not in cache, perform the search
     const offset = (page - 1) * limit;
     
     const { data, error } = await supabase
@@ -190,10 +345,17 @@ export const searchPhotos = async (
       return [];
     }
     
+    // Add image URLs and normalize the data
     const photosWithUrls = data.map(photo => ({
       ...photo,
+      id: photo.image_no, // Ensure id is set for compatibility
       image_url: getImageUrl(photo.image_no)
     }));
+    
+    // Cache the search results if enabled
+    if (useCache && photosWithUrls.length > 0) {
+      await cacheApiData(cacheKey, photosWithUrls, cacheDuration || 15); // Cache search results for 15 minutes
+    }
     
     return photosWithUrls;
   } catch (error) {
@@ -202,10 +364,116 @@ export const searchPhotos = async (
   }
 };
 
-export const getImageUrl = (imageNo: string): string => {
-  // Normalize the image_no by removing spaces to match the file name format
-  const normalizedImageNo = imageNo.replace(/\s/g, ''); // e.g., "Class 1800 (10)" -> "Class1800(10)"
-  const url = supabase.storage.from('picaloco').getPublicUrl(`images/${normalizedImageNo}.webp`).data.publicUrl;
-  console.log(`Generated URL: ${url}`);
-  return url;
+// Add photoService filter helpers for compatibility
+export interface PhotoFilters {
+  tags: string[];
+  photographers: string[];
+  locations: string[];
+  priceRange: [number, number];
+  orientation?: 'landscape' | 'portrait' | undefined;
+  sortBy: 'newest' | 'popular' | 'price_high' | 'price_low';
+}
+
+/**
+ * Check if filters are active
+ */
+export const hasActiveFilters = (
+  filters: PhotoFilters, 
+  defaultMinPrice: number, 
+  defaultMaxPrice: number
+): boolean => {
+  const { tags, photographers, locations, priceRange } = filters;
+  
+  return (
+    tags.length > 0 || 
+    photographers.length > 0 || 
+    locations.length > 0 || 
+    priceRange[0] > defaultMinPrice || 
+    priceRange[1] < defaultMaxPrice
+  );
+};
+
+/**
+ * Count active filters
+ */
+export const countActiveFilters = (
+  filters: PhotoFilters, 
+  defaultMinPrice: number, 
+  defaultMaxPrice: number
+): number => {
+  const { tags, photographers, locations, priceRange } = filters;
+  
+  let count = 0;
+  if (tags.length > 0) count += 1;
+  if (photographers.length > 0) count += 1;
+  if (locations.length > 0) count += 1;
+  if (priceRange[0] > defaultMinPrice || priceRange[1] < defaultMaxPrice) count += 1;
+  
+  return count;
+};
+
+/**
+ * Filter photos based on criteria
+ * (Compatible with both Photo and CatalogPhoto types)
+ */
+export const filterPhotos = (photos: CatalogPhoto[], filters: PhotoFilters): CatalogPhoto[] => {
+  const { tags, photographers, locations, priceRange, sortBy } = filters;
+  
+  // Filter photos
+  let filtered = [...photos];
+  
+  // Handle tags (this is different between Photo and CatalogPhoto)
+  if (tags.length > 0) {
+    filtered = filtered.filter(photo => {
+      // For CatalogPhoto, use category
+      if (photo.category && tags.includes(photo.category)) {
+        return true;
+      }
+      
+      // For objects with tags array (like from photoService)
+      if ('tags' in photo && Array.isArray(photo.tags)) {
+        return tags.some(tag => photo.tags.includes(tag));
+      }
+      
+      return false;
+    });
+  }
+  
+  // Filter by photographer
+  if (photographers.length > 0) {
+    filtered = filtered.filter(photo => 
+      photo.photographer && photographers.includes(photo.photographer)
+    );
+  }
+  
+  // Filter by location
+  if (locations.length > 0) {
+    filtered = filtered.filter(photo => 
+      photo.location && locations.includes(photo.location)
+    );
+  }
+  
+  // Price filtering is skipped for CatalogPhoto as it doesn't have price field
+  
+  // Sort photos based on available properties
+  if (sortBy) {
+    switch (sortBy) {
+      case 'newest':
+        filtered.sort((a, b) => {
+          const dateA = a.date_taken ? new Date(a.date_taken).getTime() : 0;
+          const dateB = b.date_taken ? new Date(b.date_taken).getTime() : 0;
+          return dateB - dateA;
+        });
+        break;
+      case 'popular':
+        // If we had a popularity metric, we'd use it here
+        break;
+      case 'price_high':
+      case 'price_low':
+        // Price sorting skipped for CatalogPhoto as it doesn't have price field
+        break;
+    }
+  }
+  
+  return filtered;
 };
