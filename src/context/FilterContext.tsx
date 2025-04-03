@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { CatalogPhoto } from '@/services/catalogService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define types for our filters
 export interface Organisation {
@@ -58,6 +59,7 @@ interface FilterContextType {
   error: string | null;
   filteredResults: CatalogPhoto[];
   hasActiveFilters: boolean;
+  refreshFilters: () => Promise<void>;
 }
 
 // Create the context
@@ -74,12 +76,35 @@ const initialFilterState: FilterState = {
   searchQuery: '',
 };
 
+// Helper function to clear catalog cache
+export const clearCatalogCache = async () => {
+  // Get all AsyncStorage keys
+  const keys = await AsyncStorage.getAllKeys();
+  
+  // Filter for catalog-related cache keys
+  const catalogCacheKeys = keys.filter(key => 
+    key.startsWith('app_cache_photos_page_') || 
+    key.startsWith('app_cache_category_') ||
+    key.startsWith('app_cache_photo_')
+  );
+  
+  // Remove these cache entries
+  if (catalogCacheKeys.length > 0) {
+    console.log(`Clearing ${catalogCacheKeys.length} catalog cache items`);
+    await AsyncStorage.multiRemove(catalogCacheKeys);
+    return true;
+  }
+  
+  return false;
+};
+
 // Provider component
 export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [filters, setFilters] = useState<FilterState>(initialFilterState);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filteredResults, setFilteredResults] = useState<CatalogPhoto[]>([]);
+  const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
 
   // Check if any filters are active
   const hasActiveFilters = Boolean(
@@ -126,6 +151,24 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const clearAllFilters = () => {
     console.log('Clearing all filters');
     setFilters(initialFilterState);
+    setFilteredResults([]);
+  };
+
+  // Force refresh filters by clearing cache and triggering a re-fetch
+  const refreshFilters = async () => {
+    try {
+      // First, clear the catalog cache to force fresh data
+      const cleared = await clearCatalogCache();
+      console.log(`Cache cleared: ${cleared}`);
+      
+      // Then update the lastRefreshTime to trigger a re-fetch
+      setLastRefreshTime(Date.now());
+      
+      console.log('Filters refreshed at:', new Date().toISOString());
+      return;
+    } catch (err) {
+      console.error('Error refreshing filters:', err);
+    }
   };
 
   // Apply filters to a query
@@ -137,30 +180,29 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (filters.organisation) {
       console.log(`Filtering by organisation: ${JSON.stringify(filters.organisation)}`);
       
-      // Try case-insensitive match instead of exact match
-      // This helps if there are case differences between the filter and database
-      query = query.ilike('organisation', filters.organisation.name);
+      // Use partial matching with wildcards to catch substrings
+      query = query.ilike('organisation', `%${filters.organisation.name}%`);
       
       // Log the SQL that would be generated (approximation)
-      console.log(`SQL (approx): WHERE organisation ILIKE '${filters.organisation.name}'`);
+      console.log(`SQL (approx): WHERE organisation ILIKE '%${filters.organisation.name}%'`);
     }
 
     // Apply location filter
     if (filters.location) {
       console.log(`Filtering by location: ${filters.location.name}`);
-      query = query.ilike('location', filters.location.name);
+      query = query.ilike('location', `%${filters.location.name}%`);
     }
 
     // Apply photographer filter
     if (filters.photographer) {
       console.log(`Filtering by photographer: ${filters.photographer.name}`);
-      query = query.ilike('photographer', filters.photographer.name);
+      query = query.ilike('photographer', `%${filters.photographer.name}%`);
     }
 
     // Apply collection filter
     if (filters.collection) {
       console.log(`Filtering by collection: ${filters.collection.name}`);
-      query = query.ilike('collection', filters.collection.name);
+      query = query.ilike('collection', `%${filters.collection.name}%`);
     }
 
     // Apply date range filter
@@ -224,8 +266,16 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       // Limit results for performance
       query = query.limit(50);
 
-      console.log('Executing Supabase query...');
-      const { data, error: queryError } = await query;
+      // Add cache control headers to force a fresh request
+      const timestamp = Date.now();
+      const headers = { 
+        'Cache-Control': 'no-cache', 
+        'Pragma': 'no-cache',
+        'X-Cache-Bypass': timestamp.toString() 
+      };
+      
+      console.log('Executing Supabase query with NO CACHE...');
+      const { data, error: queryError } = await query.headers(headers);
 
       if (queryError) {
         console.error('Supabase query error:', queryError);
@@ -234,17 +284,32 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       // Process and set the results
       const results = data || [];
-      console.log(`Query returned ${results.length} results`);
+      console.log(`Query returned ${results.length} results (FRESH DATA)`);
       
-      setFilteredResults(results.map(item => ({
+      const processedResults = results.map(item => ({
         ...item,
         id: item.image_no, // Ensure id is set for compatibility
         image_url: getImageUrl(item.image_no)
-      })));
+      }));
+      
+      console.log(`Processed ${processedResults.length} results with image URLs`);
+      
+      // Log a sample result to help debugging
+      if (processedResults.length > 0) {
+        console.log('Sample result (first item):', {
+          id: processedResults[0].id,
+          image_no: processedResults[0].image_no,
+          description: processedResults[0].description,
+          organisation: processedResults[0].organisation
+        });
+      }
+      
+      setFilteredResults(processedResults);
 
     } catch (err) {
-      console.error('Error executing filtered query:', err);
-      setError('Failed to apply filters');
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('Error executing filtered query:', errorMessage);
+      setError(errorMessage);
       setFilteredResults([]);
     } finally {
       setIsLoading(false);
@@ -260,9 +325,9 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   // Execute query when filters change
-  React.useEffect(() => {
+  useEffect(() => {
     executeFilteredQuery();
-  }, [executeFilteredQuery]);
+  }, [executeFilteredQuery, lastRefreshTime]);
 
   const value = {
     filters,
@@ -278,7 +343,8 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     isLoading,
     error,
     filteredResults,
-    hasActiveFilters
+    hasActiveFilters,
+    refreshFilters
   };
 
   return (

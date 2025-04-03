@@ -17,6 +17,7 @@ import CategoryFilter from '../components/CategoryFilter';
 import AdvancedFilterModal from '../components/AdvancedFilterModal';
 import PhotoList from '../components/PhotoList';
 import SearchBar from '../components/SearchBar';
+import FilterDebugger from '../components/FilterDebugger';
 
 // Import services and hooks
 import { 
@@ -35,6 +36,16 @@ const GalleryScreen = ({ navigation, route }) => {
   const initialSearchQuery = route.params?.searchQuery || '';
   const fromSearch = route.params?.fromSearch || false;
 
+  // Extract filter context at top level (Correctly following Rules of Hooks)
+  const { 
+    filteredResults, 
+    hasActiveFilters,
+    clearAllFilters,
+    refreshFilters,
+    isLoading: isFilterLoading,
+    error: filterError
+  } = useFilters();
+
   // State
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'single'>('grid');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -50,13 +61,6 @@ const GalleryScreen = ({ navigation, route }) => {
   
   // Network status
   const { isOffline } = useNetworkStatus();
-  
-  // Filter context
-  const { 
-    filteredResults, 
-    hasActiveFilters,
-    clearAllFilters 
-  } = useFilters();
   
   // Search hook
   const search = useSearch({
@@ -91,7 +95,7 @@ const GalleryScreen = ({ navigation, route }) => {
           fromSearch: undefined 
         });
       }
-    }, [route.params, navigation])
+    }, [route.params, navigation, activeCategory, search])
   );
 
   // Load categories
@@ -175,7 +179,7 @@ const GalleryScreen = ({ navigation, route }) => {
     }
   }, [isSearchMode, isLoadingMore, hasMore, page, activeCategory, hasActiveFilters]);
 
-  // Handle refresh
+  // Handle refresh - FIXED to use refreshFilters from closure
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     
@@ -184,10 +188,9 @@ const GalleryScreen = ({ navigation, route }) => {
         // Refresh search results
         search.setSearchQuery(search.query);
       } else if (hasActiveFilters) {
-        // Keep filters but refresh the data
-        // This will trigger a new filtered query in the FilterContext
+        // Call refreshFilters from the closure (not a new hook call)
         console.log('Refreshing with active filters');
-        // The FilterContext will handle the refresh
+        refreshFilters();
       } else {
         // Regular refresh without filters
         let refreshedPhotos: CatalogPhoto[];
@@ -208,7 +211,7 @@ const GalleryScreen = ({ navigation, route }) => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [isSearchMode, activeCategory, search, hasActiveFilters]);
+  }, [isSearchMode, activeCategory, search, hasActiveFilters, refreshFilters]);
 
   // Handle search
   const handleSearch = useCallback((text: string) => {
@@ -259,6 +262,19 @@ const GalleryScreen = ({ navigation, route }) => {
     // We don't load more for filtered results yet
   }, [isSearchMode, search, loadMore, hasActiveFilters]);
 
+  // Handle filter apply
+  const handleApplyFilters = useCallback(() => {
+    // When filters are applied, we want to exit search mode
+    if (isSearchMode) {
+      setIsSearchMode(false);
+      search.clearSearch();
+    }
+    
+    // Use refreshFilters from closure (not a new hook call)
+    refreshFilters();
+    handleRefresh();
+  }, [isSearchMode, search, refreshFilters, handleRefresh]);
+
   // Create photo display data
   const getPhotoDisplayData = useCallback(() => {
     // If we have active filters, use filteredResults instead of regular data
@@ -292,7 +308,7 @@ const GalleryScreen = ({ navigation, route }) => {
   // Determine loading state
   const isContentLoading = (isSearchMode 
     ? search.isLoading && !isRefreshing 
-    : isLoading && !isRefreshing) || (hasActiveFilters && useFilters().isLoading && !isRefreshing);
+    : isLoading && !isRefreshing) || (hasActiveFilters && isFilterLoading && !isRefreshing);
 
   // Render loading state
   if (isContentLoading) {
@@ -324,13 +340,13 @@ const GalleryScreen = ({ navigation, route }) => {
   const shouldShowError = isSearchMode 
     ? search.isError 
     : hasActiveFilters 
-      ? useFilters().error !== null 
+      ? filterError !== null 
       : error !== null;
   
   const errorMessage = isSearchMode 
     ? search.errorMessage 
     : hasActiveFilters 
-      ? useFilters().error 
+      ? filterError 
       : error;
 
   return (
@@ -464,18 +480,14 @@ const GalleryScreen = ({ navigation, route }) => {
         }
       />
       
+      {/* Debug component (only in development mode) */}
+      {__DEV__ && <FilterDebugger />}
+      
       {/* Advanced Filter Modal */}
       <AdvancedFilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        onApplyFilters={() => {
-          // When filters are applied, we want to exit search mode
-          if (isSearchMode) {
-            setIsSearchMode(false);
-            search.clearSearch();
-          }
-          handleRefresh();
-        }}
+        onApplyFilters={handleApplyFilters}
         resultCount={photoData.length}
         hasMoreResults={isSearchMode ? search.hasMore : hasMore}
       />

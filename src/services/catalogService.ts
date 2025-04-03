@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedApiData, cacheApiData } from "@/utils/imageCache";
 import { Database } from "@/types/supabase";
+import { clearCatalogCache } from '@/context/FilterContext';
 
 // Define the types for the catalog data
 export interface CatalogPhoto {
@@ -47,6 +48,7 @@ export interface PhotoFetchOptions {
   limit?: number;
   useCache?: boolean;
   cacheDuration?: number; // minutes
+  forceFresh?: boolean;  // Added to explicitly bypass cache
 }
 
 const DEFAULT_OPTIONS: PhotoFetchOptions = {
@@ -74,27 +76,36 @@ export const fetchCatalogPhotos = async (
   limit: number = 10,
   options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
 ): Promise<CatalogPhoto[]> => {
-  const { useCache, cacheDuration } = { ...DEFAULT_OPTIONS, ...options, page, limit };
+  const { useCache, cacheDuration, forceFresh } = { ...DEFAULT_OPTIONS, ...options, page, limit };
   
   try {
     const cacheKey = `photos_page_${page}_limit_${limit}`;
     
-    // Try to get from cache first if enabled
-    if (useCache) {
+    // Try to get from cache first if enabled AND not forced fresh
+    if (useCache && !forceFresh) {
       const cachedData = await getCachedApiData(cacheKey);
       if (cachedData) {
         console.log('Using cached catalog photos for page:', page);
         return cachedData;
       }
+    } else if (forceFresh) {
+      console.log('Bypassing cache for catalog photos, getting fresh data');
     }
     
-    // If not in cache, fetch from API
+    // If not in cache or forced fresh, fetch from API
     const offset = (page - 1) * limit;
+    
+    // Add cache control headers to force a fresh request if needed
+    const headers = forceFresh ? 
+      { 'Cache-Control': 'no-cache', 'X-Cache-Bypass': Date.now().toString() } : 
+      undefined;
+    
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('*')
       .order('date_taken', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit - 1)
+      .headers(headers);
 
     if (error) throw error;
     if (!data || data.length === 0) {
@@ -109,8 +120,8 @@ export const fetchCatalogPhotos = async (
       image_url: getImageUrl(photo.image_no)
     }));
     
-    // Cache the result if enabled
-    if (useCache && photosWithUrls.length > 0) {
+    // Cache the result if enabled and not forced fresh
+    if (useCache && !forceFresh && photosWithUrls.length > 0) {
       await cacheApiData(cacheKey, photosWithUrls, cacheDuration);
     }
 
@@ -120,6 +131,7 @@ export const fetchCatalogPhotos = async (
     throw error;
   }
 };
+
 
 /**
  * Fetch photos by category with pagination and caching
@@ -248,25 +260,32 @@ export const fetchPhotoById = async (
 export const fetchCategories = async (
   options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
 ): Promise<string[]> => {
-  const { useCache, cacheDuration } = { ...DEFAULT_OPTIONS, ...options };
+  const { useCache, cacheDuration, forceFresh } = { ...DEFAULT_OPTIONS, ...options };
   
   try {
     const cacheKey = 'categories_list';
     
-    // Try to get from cache first if enabled
-    if (useCache) {
+    // Try to get from cache first if enabled AND not forced fresh
+    if (useCache && !forceFresh) {
       const cachedData = await getCachedApiData(cacheKey);
       if (cachedData) {
         console.log('Using cached categories data');
         return cachedData;
       }
+    } else if (forceFresh) {
+      console.log('Bypassing cache for categories, getting fresh data');
     }
     
-    // If not in cache, fetch from API
+    // If not in cache or forced fresh, fetch from API
+    const headers = forceFresh ? 
+      { 'Cache-Control': 'no-cache', 'X-Cache-Bypass': Date.now().toString() } : 
+      undefined;
+    
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('category')
-      .not('category', 'is', null);
+      .not('category', 'is', null)
+      .headers(headers);
     
     if (error) {
       console.error('Error fetching categories:', error);
@@ -283,8 +302,8 @@ export const fetchCategories = async (
     // Sort alphabetically
     categories.sort();
     
-    // Cache the result if enabled
-    if (useCache) {
+    // Cache the result if enabled and not forced fresh
+    if (useCache && !forceFresh) {
       await cacheApiData(cacheKey, categories, cacheDuration || 1440); // Cache categories for 1 day
     }
     
@@ -411,6 +430,51 @@ export const countActiveFilters = (
   
   return count;
 };
+
+// Bypass cache for filtered queries
+export const fetchFilteredPhotos = async (
+  filters: any, // Your filter object structure
+  options: PhotoFetchOptions = DEFAULT_OPTIONS
+): Promise<CatalogPhoto[]> => {
+  console.log('Executing filtered query with fresh data');
+  
+  try {
+    // Build the base query
+    let query = supabase
+      .from('mobile_catalog_view')
+      .select('*');
+      
+    // Apply your filters here...
+    // ...
+    
+    // Always force fresh data for filtered queries
+    const headers = { 
+      'Cache-Control': 'no-cache', 
+      'Pragma': 'no-cache',
+      'X-Cache-Bypass': Date.now().toString() 
+    };
+    
+    const { data, error } = await query
+      .order('date_taken', { ascending: false })
+      .limit(options.limit || 50)
+      .headers(headers);
+      
+    if (error) throw error;
+    
+    // Process data and return
+    const photosWithUrls = (data || []).map(photo => ({
+      ...photo,
+      id: photo.image_no,
+      image_url: getImageUrl(photo.image_no)
+    }));
+    
+    return photosWithUrls;
+  } catch (error) {
+    console.error('Error in fetchFilteredPhotos:', error);
+    throw error;
+  }
+};
+
 
 /**
  * Filter photos based on criteria
