@@ -96,16 +96,16 @@ export const fetchCatalogPhotos = async (
     const offset = (page - 1) * limit;
     
     // Add cache control headers to force a fresh request if needed
-    const headers = forceFresh ? 
-      { 'Cache-Control': 'no-cache', 'X-Cache-Bypass': Date.now().toString() } : 
-      undefined;
+    // const headers = forceFresh ? 
+    //   { 'Cache-Control': 'no-cache', 'X-Cache-Bypass': Date.now().toString() } : 
+    //   undefined;
     
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('*')
       .order('date_taken', { ascending: false })
-      .range(offset, offset + limit - 1)
-      .headers(headers);
+      .range(offset, offset + limit - 1);
+      //.headers(headers);
 
     if (error) throw error;
     if (!data || data.length === 0) {
@@ -277,15 +277,15 @@ export const fetchCategories = async (
     }
     
     // If not in cache or forced fresh, fetch from API
-    const headers = forceFresh ? 
-      { 'Cache-Control': 'no-cache', 'X-Cache-Bypass': Date.now().toString() } : 
-      undefined;
+    // const headers = forceFresh ? 
+    //   { 'Cache-Control': 'no-cache', 'X-Cache-Bypass': Date.now().toString() } : 
+    //   undefined;
     
     const { data, error } = await supabase
       .from('mobile_catalog_view')
       .select('category')
-      .not('category', 'is', null)
-      .headers(headers);
+      .not('category', 'is', null);
+      //.headers(headers);
     
     if (error) {
       console.error('Error fetching categories:', error);
@@ -448,16 +448,16 @@ export const fetchFilteredPhotos = async (
     // ...
     
     // Always force fresh data for filtered queries
-    const headers = { 
-      'Cache-Control': 'no-cache', 
-      'Pragma': 'no-cache',
-      'X-Cache-Bypass': Date.now().toString() 
-    };
+    // const headers = { 
+    //   'Cache-Control': 'no-cache', 
+    //   'Pragma': 'no-cache',
+    //   'X-Cache-Bypass': Date.now().toString() 
+    // };
     
     const { data, error } = await query
       .order('date_taken', { ascending: false })
-      .limit(options.limit || 50)
-      .headers(headers);
+      .limit(options.limit || 50);
+      //.headers(headers);
       
     if (error) throw error;
     
