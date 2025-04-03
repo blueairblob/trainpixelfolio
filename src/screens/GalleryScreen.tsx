@@ -14,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 // Import components
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
-import FilterModal from '../components/FilterModal';
+import AdvancedFilterModal from '../components/AdvancedFilterModal';
 import PhotoList from '../components/PhotoList';
 import SearchBar from '../components/SearchBar';
 
@@ -27,6 +27,7 @@ import {
 } from '../services/catalogService';
 import { useSearch } from '../hooks/useSearch';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { FilterProvider, useFilters } from '../context/FilterContext';
 
 const GalleryScreen = ({ navigation, route }) => {
   // Extract params from route
@@ -49,6 +50,13 @@ const GalleryScreen = ({ navigation, route }) => {
   
   // Network status
   const { isOffline } = useNetworkStatus();
+  
+  // Filter context
+  const { 
+    filteredResults, 
+    hasActiveFilters,
+    clearAllFilters 
+  } = useFilters();
   
   // Search hook
   const search = useSearch({
@@ -138,7 +146,7 @@ const GalleryScreen = ({ navigation, route }) => {
   // Load more photos (pagination)
   const loadMore = useCallback(async () => {
     // Skip if we're in search mode, loading, or have no more items
-    if (isSearchMode || isLoadingMore || !hasMore) return;
+    if (isSearchMode || isLoadingMore || !hasMore || hasActiveFilters) return;
     
     try {
       setIsLoadingMore(true);
@@ -165,7 +173,7 @@ const GalleryScreen = ({ navigation, route }) => {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isSearchMode, isLoadingMore, hasMore, page, activeCategory]);
+  }, [isSearchMode, isLoadingMore, hasMore, page, activeCategory, hasActiveFilters]);
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
@@ -175,8 +183,13 @@ const GalleryScreen = ({ navigation, route }) => {
       if (isSearchMode) {
         // Refresh search results
         search.setSearchQuery(search.query);
+      } else if (hasActiveFilters) {
+        // Keep filters but refresh the data
+        // This will trigger a new filtered query in the FilterContext
+        console.log('Refreshing with active filters');
+        // The FilterContext will handle the refresh
       } else {
-        // Refresh category photos
+        // Regular refresh without filters
         let refreshedPhotos: CatalogPhoto[];
         if (activeCategory === 'all') {
           refreshedPhotos = await fetchCatalogPhotos(1, 10, { useCache: false });
@@ -195,7 +208,7 @@ const GalleryScreen = ({ navigation, route }) => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [isSearchMode, activeCategory, search]);
+  }, [isSearchMode, activeCategory, search, hasActiveFilters]);
 
   // Handle search
   const handleSearch = useCallback((text: string) => {
@@ -224,7 +237,12 @@ const GalleryScreen = ({ navigation, route }) => {
     setIsSearchMode(false); // Exit search mode when changing category
     setPage(1);
     search.clearSearch();
-  }, [activeCategory, search]);
+    
+    // Also clear any active filters when changing category
+    if (hasActiveFilters) {
+      clearAllFilters();
+    }
+  }, [activeCategory, search, hasActiveFilters, clearAllFilters]);
 
   // Handle photo press
   const handlePhotoPress = useCallback((id: string) => {
@@ -235,13 +253,29 @@ const GalleryScreen = ({ navigation, route }) => {
   const handleEndReached = useCallback(() => {
     if (isSearchMode) {
       search.loadMore();
-    } else {
+    } else if (!hasActiveFilters) {
       loadMore();
     }
-  }, [isSearchMode, search, loadMore]);
+    // We don't load more for filtered results yet
+  }, [isSearchMode, search, loadMore, hasActiveFilters]);
 
   // Create photo display data
   const getPhotoDisplayData = useCallback(() => {
+    // If we have active filters, use filteredResults instead of regular data
+    if (hasActiveFilters && !isSearchMode) {
+      console.log(`Using ${filteredResults.length} filtered results instead of regular data`);
+      return filteredResults.map(photo => ({
+        id: photo.image_no,
+        title: photo.description || 'Untitled',
+        photographer: photo.photographer || 'Unknown',
+        price: 49.99, // Default price (in a real app this would come from the API)
+        imageUrl: photo.image_url || '',
+        location: photo.location || '',
+        description: photo.description || ''
+      }));
+    }
+    
+    // Otherwise use the original logic
     const sourcePhotos = isSearchMode ? search.results : photos;
     
     return sourcePhotos.map(photo => ({
@@ -253,12 +287,12 @@ const GalleryScreen = ({ navigation, route }) => {
       location: photo.location || '',
       description: photo.description || ''
     }));
-  }, [isSearchMode, search.results, photos]);
+  }, [isSearchMode, search.results, photos, hasActiveFilters, filteredResults]);
 
   // Determine loading state
-  const isContentLoading = isSearchMode 
+  const isContentLoading = (isSearchMode 
     ? search.isLoading && !isRefreshing 
-    : isLoading && !isRefreshing;
+    : isLoading && !isRefreshing) || (hasActiveFilters && useFilters().isLoading && !isRefreshing);
 
   // Render loading state
   if (isContentLoading) {
@@ -273,6 +307,7 @@ const GalleryScreen = ({ navigation, route }) => {
           onSearch={handleSearch}
           onClear={handleClearSearch}
           initialValue={isSearchMode ? search.query : ''}
+          executeOnChange={false}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4f46e5" />
@@ -286,8 +321,17 @@ const GalleryScreen = ({ navigation, route }) => {
   const photoData = getPhotoDisplayData();
   
   // Determine if we should show error state
-  const shouldShowError = isSearchMode ? search.isError : error !== null;
-  const errorMessage = isSearchMode ? search.errorMessage : error;
+  const shouldShowError = isSearchMode 
+    ? search.isError 
+    : hasActiveFilters 
+      ? useFilters().error !== null 
+      : error !== null;
+  
+  const errorMessage = isSearchMode 
+    ? search.errorMessage 
+    : hasActiveFilters 
+      ? useFilters().error 
+      : error;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -301,11 +345,11 @@ const GalleryScreen = ({ navigation, route }) => {
         onSearch={handleSearch}
         onClear={handleClearSearch}
         initialValue={isSearchMode ? search.query : ''}
-        executeOnChange={false} // Only search when submitted
+        executeOnChange={false}
       />
       
       {/* Category filter */}
-      {!isSearchMode && (
+      {!isSearchMode && !hasActiveFilters && (
         <View style={styles.categoryContainer}>
           {categories.length > 0 && (
             <CategoryFilter
@@ -316,17 +360,22 @@ const GalleryScreen = ({ navigation, route }) => {
           )}
         </View>
       )}
-
-      {!isSearchMode && photos.length > 0 && (
-        <View style={styles.resultCountContainer}>
-          <Text style={styles.resultCountText}>
-            {photos.length} {photos.length === 1 ? 'photo' : 'photos'}
-            {hasMore ? '+' : ''}
-            {activeCategory !== 'all' && ` in "${categories.find(c => c.id === activeCategory)?.title || activeCategory}"`}
+      
+      {/* Filter active indicator */}
+      {hasActiveFilters && !isSearchMode && (
+        <View style={styles.filtersActiveContainer}>
+          <Text style={styles.filtersActiveText}>
+            Filters applied
           </Text>
+          <TouchableOpacity 
+            onPress={clearAllFilters}
+            style={styles.clearFiltersButton}
+          >
+            <Text style={styles.clearFiltersText}>Clear Filters</Text>
+          </TouchableOpacity>
         </View>
       )}
-            
+      
       {/* Search active indicator */}
       {isSearchMode && search.query && (
         <View style={styles.searchActiveContainer}>
@@ -345,6 +394,17 @@ const GalleryScreen = ({ navigation, route }) => {
           >
             <Text style={styles.clearSearchText}>Clear</Text>
           </TouchableOpacity>
+        </View>
+      )}
+      
+      {/* Result count for regular browsing */}
+      {!isSearchMode && !hasActiveFilters && photos.length > 0 && (
+        <View style={styles.resultCountContainer}>
+          <Text style={styles.resultCountText}>
+            {photos.length} {photos.length === 1 ? 'photo' : 'photos'}
+            {hasMore ? '+' : ''}
+            {activeCategory !== 'all' && ` in "${categories.find(c => c.id === activeCategory)?.title || activeCategory}"`}
+          </Text>
         </View>
       )}
       
@@ -380,7 +440,9 @@ const GalleryScreen = ({ navigation, route }) => {
           ) : null
         }
         ListFooterComponent={
-          (isSearchMode ? search.isLoading && !search.isError : isLoadingMore) ? (
+          (isSearchMode 
+            ? search.isLoading && !search.isError 
+            : !hasActiveFilters && isLoadingMore) ? (
             <View style={styles.loadingMore}>
               <ActivityIndicator size="small" color="#4f46e5" />
             </View>
@@ -392,7 +454,9 @@ const GalleryScreen = ({ navigation, route }) => {
               <Text style={styles.emptyText}>
                 {isSearchMode 
                   ? `No results found for "${search.query}"` 
-                  : 'No photos available'
+                  : hasActiveFilters
+                    ? 'No photos match the applied filters'
+                    : 'No photos available'
                 }
               </Text>
             </View>
@@ -400,22 +464,22 @@ const GalleryScreen = ({ navigation, route }) => {
         }
       />
       
-      {/* Filter modal */}
-      <FilterModal
+      {/* Advanced Filter Modal */}
+      <AdvancedFilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        categories={categories}
-        activeCategory={activeCategory}
-        onCategoryPress={handleCategoryChange}
-        onClearFilters={() => {
-          setActiveCategory('all');
-          setIsSearchMode(false);
-          search.clearSearch();
+        onApplyFilters={() => {
+          // When filters are applied, we want to exit search mode
+          if (isSearchMode) {
+            setIsSearchMode(false);
+            search.clearSearch();
+          }
+          handleRefresh();
         }}
         resultCount={photoData.length}
         hasMoreResults={isSearchMode ? search.hasMore : hasMore}
       />
-      </SafeAreaView>
+    </SafeAreaView>
   );
 };
 
@@ -474,7 +538,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0f2fe',
   },
+  filtersActiveContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f0f8ff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0f2fe',
+  },
+  searchInfoContainer: {
+    flex: 1,
+  },
   searchActiveText: {
+    fontSize: 14,
+    color: '#0369a1',
+  },
+  filtersActiveText: {
     fontSize: 14,
     color: '#0369a1',
   },
@@ -482,7 +563,16 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
+  clearFiltersButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8, 
+  },
   clearSearchText: {
+    fontSize: 14,
+    color: '#0ea5e9',
+    fontWeight: '500',
+  },
+  clearFiltersText: {
     fontSize: 14,
     color: '#0ea5e9',
     fontWeight: '500',
@@ -495,9 +585,6 @@ const styles = StyleSheet.create({
   offlineText: {
     fontSize: 14,
     color: '#dc2626',
-  },
-  searchInfoContainer: {
-    flex: 1,
   },
   resultCountText: {
     fontSize: 12,
@@ -513,4 +600,11 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GalleryScreen;
+// Wrap the main GalleryScreen component with FilterProvider
+const GalleryScreenWithFilters = ({ navigation, route }) => (
+  <FilterProvider>
+    <GalleryScreen navigation={navigation} route={route} />
+  </FilterProvider>
+);
+
+export default GalleryScreenWithFilters;
