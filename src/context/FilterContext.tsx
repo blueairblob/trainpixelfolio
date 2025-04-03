@@ -265,17 +265,9 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       // Limit results for performance
       query = query.limit(50);
-
-      // Add cache control headers to force a fresh request
-      const timestamp = Date.now();
-      // const headers = { 
-      //   'Cache-Control': 'no-cache', 
-      //   'Pragma': 'no-cache',
-      //   'X-Cache-Bypass': timestamp.toString() 
-      // };
       
-      console.log('Executing Supabase query with NO CACHE...');
-      const { data, error: queryError } = await query; //.headers(headers);
+      console.log('Executing Supabase query');
+      const { data, error: queryError } = await query;
 
       if (queryError) {
         console.error('Supabase query error:', queryError);
