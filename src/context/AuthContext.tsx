@@ -1,3 +1,4 @@
+
 // AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +12,9 @@ type AuthContextType = {
   isLoading: boolean;
   isAdmin: boolean;
   userProfile: UserProfile | null;
+  isGuest: boolean;
+  enableGuestMode: () => void;
+  disableGuestMode: () => void;
   login: (email: string, password: string) => Promise<any>;
   register: (name: string, email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
@@ -38,6 +42,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isGuest, setIsGuest] = useState<boolean>(false);
 
   // Fetch user profile from database
   const fetchUserProfile = async (userId: string) => {
@@ -80,6 +85,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (currentSession?.user) {
           fetchUserProfile(currentSession.user.id);
+          // If user logs in, disable guest mode
+          setIsGuest(false);
         } else {
           setUserProfile(null);
           setIsAdmin(false);
@@ -114,6 +121,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
 
       console.log("Login successful:", data);
+      
+      // Disable guest mode when user logs in
+      setIsGuest(false);
+      
       return data;
     } catch (error: any) {
       console.error('Error during login:', error);
@@ -137,6 +148,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
 
       console.log("Registration successful:", data);
+
+      // Disable guest mode when user registers
+      setIsGuest(false);
 
       // If email confirmation is required
       if (data?.user && !data.user.confirmed_at) {
@@ -221,11 +235,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
 
       console.log("Logout successful");
+      
+      // Reset guest mode when logging out
+      setIsGuest(false);
     } catch (error: any) {
       console.error('Error during logout:', error);
       Alert.alert("Logout Error", error.message);
       throw error;
     }
+  };
+  
+  const enableGuestMode = () => {
+    setIsGuest(true);
+    console.log("Guest mode enabled");
+    
+    // Create a guest user profile with limited access
+    setUserProfile({
+      id: 'guest',
+      name: 'Guest User',
+      avatar_url: null,
+      created_at: null,
+      updated_at: null,
+      orders: [],
+      favorites: []
+    });
+  };
+  
+  const disableGuestMode = () => {
+    setIsGuest(false);
+    setUserProfile(null);
+    console.log("Guest mode disabled");
   };
 
   return (
@@ -237,6 +276,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isLoading,
         isAdmin,
         userProfile,
+        isGuest,
+        enableGuestMode,
+        disableGuestMode,
         login,
         register,
         logout,
