@@ -1,0 +1,7 @@
+tree -a -I "node_modules|.git|.expo|.vscode|assets|package-lock.json|expo|.gitignore"
+
+
+for file in $(find . -type f -not -path "./node_modules/*" -not -path "./package-lock.json" -not -path "./.git/*" -not -path "*.lock" -not -path "*.log" -not -path "*.png" -not -path "*.jpg" -not -path "*.jpeg" -not -path "*.gif"); do echo "===== $file ====="; cat "$file"; echo ""; done > code.log
+
+
+git add .;git commit -m "12.3 - Tidy package.json"; git push origin main

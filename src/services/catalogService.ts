@@ -58,6 +58,11 @@ const DEFAULT_OPTIONS: PhotoFetchOptions = {
   cacheDuration: 60 // 1 hour
 };
 
+
+// export const getPhotoById = (id: string): Photo | undefined => {
+//   return allPhotos.find(photo => photo.id === id);
+// };
+
 /**
  * Generate Supabase storage URL for an image
  */
@@ -101,7 +106,11 @@ export const fetchCatalogPhotos = async (
       .order('date_taken', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching photos:', error);
+      throw error;
+    }
+    
     if (!data || data.length === 0) {
       console.warn('No photos found');
       return [];

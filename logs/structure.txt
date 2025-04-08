@@ -1,0 +1,81 @@
+.
+├── .env
+├── App.tsx
+├── README.md
+├── app.json
+├── babel.config.js
+├── components.json
+├── database
+│   └── dev_target_schema.sql
+├── eslint.config.js
+├── expo-start.js
+├── logs
+│   ├── code.log
+│   ├── dev.log
+│   └── structure.txt
+├── package.json
+├── postcss.config.js
+├── src
+│   ├── components
+│   │   ├── AdvancedFilterModal.tsx
+│   │   ├── CategoriesSection.tsx
+│   │   ├── CategoryFilter.tsx
+│   │   ├── FeaturedPhotoSection.tsx
+│   │   ├── FilterDebugger.tsx
+│   │   ├── FilterModal.tsx
+│   │   ├── GalleryHeader.tsx
+│   │   ├── HeaderSection.tsx
+│   │   ├── PhotoItem.tsx
+│   │   ├── PhotoList.tsx
+│   │   ├── SearchBar.tsx
+│   │   ├── WelcomeSection.tsx
+│   │   └── filters
+│   │       ├── DateRangeFilter.tsx
+│   │       └── OrganisationFilter.tsx
+│   ├── context
+│   │   ├── AuthContext.tsx
+│   │   ├── CartContext.tsx
+│   │   └── FilterContext.tsx
+│   ├── hooks
+│   │   ├── use-mobile.tsx
+│   │   ├── use-toast.ts
+│   │   ├── useDebounce.ts
+│   │   ├── useNetworkStatus.ts
+│   │   ├── usePhotoFilters.ts
+│   │   └── useSearch.ts
+│   ├── integrations
+│   │   └── supabase
+│   │       ├── client.ts
+│   │       └── types.ts
+│   ├── lib
+│   │   └── utils.ts
+│   ├── screens
+│   │   ├── AdminScreen.tsx
+│   │   ├── AuthScreen.tsx
+│   │   ├── CartScreen.tsx
+│   │   ├── GalleryScreen.tsx
+│   │   ├── HomeScreen.tsx
+│   │   ├── PhotoDetailScreen.tsx
+│   │   └── ProfileScreen.tsx
+│   ├── services
+│   │   ├── authService.js
+│   │   ├── cartService.js
+│   │   ├── catalogService.ts
+│   │   ├── photoService.ts
+│   │   ├── supabase.ts
+│   │   └── userService.js
+│   ├── types
+│   │   └── supabase.ts
+│   └── utils
+│       ├── animations.tsx
+│       ├── cache.ts
+│       └── imageCache.ts
+├── supabase
+│   └── config.toml
+├── tailwind.config.js
+├── tailwind.config.ts
+├── tsconfig.app.json
+├── tsconfig.json
+└── tsconfig.node.json
+
+15 directories, 63 files

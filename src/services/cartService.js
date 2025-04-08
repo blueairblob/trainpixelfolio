@@ -1,6 +1,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getPhotoById } from './photoService';
+import { getPhotoById } from './catalogService';
 
 const CART_STORAGE_KEY = 'user_cart';
 

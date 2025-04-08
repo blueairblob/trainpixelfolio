@@ -3,6 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "main": "node_modules/expo/AppEntry.js",
+  "doctor": {
+    "reactNativeDirectoryCheck": {
+      "listUnknownPackages": false
+    }
+  },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -16,14 +21,13 @@
     "@expo/vector-icons": "^14.0.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
+    "@react-native-community/netinfo": "11.4.1",
     "@react-navigation/bottom-tabs": "^6.5.8",
     "@react-navigation/native": "^6.1.7",
     "@react-navigation/native-stack": "^6.9.13",
     "@supabase/supabase-js": "^2.49.1",
-    "@types/react-router-dom": "^5.3.3",
-    "check": "^1.0.0",
     "class-variance-authority": "^0.7.1",
-    "expo": "^52.0.40",
+    "expo": "~52.0.42",
     "expo-font": "~13.0.4",
     "expo-image": "~2.0.7",
     "expo-splash-screen": "^0.29.22",
@@ -31,7 +35,7 @@
     "lottie-react-native": "7.1.0",
     "lucide-react": "^0.483.0",
     "react": "18.3.1",
-    "react-native": "0.76.7",
+    "react-native": "0.76.9",
     "react-native-device-info": "10.13.2",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-haptic-feedback": "2.3.3",
@@ -41,15 +45,12 @@
     "react-native-screens": "~4.4.0",
     "react-native-svg": "15.8.0",
     "react-native-webview": "13.12.5",
-    "tailwind-merge": "^3.0.2",
-    "@react-native-community/netinfo": "11.4.1"
+    "tailwind-merge": "^3.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "18.3.1",
-    "@vitejs/plugin-react-swc": "^3.8.1",
-    "lovable-tagger": "^1.1.7",
     "typescript": "^5.1.3"
   }
 }
