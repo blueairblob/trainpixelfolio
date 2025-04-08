@@ -14,6 +14,10 @@ const ProfileScreen = ({ navigation }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+<<<<<<< HEAD
+=======
+  const [favorites, setFavorites] = useState<string[]>([]);
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
   
   // Form states
   const [name, setName] = useState('');
@@ -30,6 +34,10 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => {
     if (userProfile) {
       setName(userProfile.name || '');
+<<<<<<< HEAD
+=======
+      setFavorites(userProfile.favorites || []);
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
     }
   }, [userProfile]);
 
@@ -219,7 +227,11 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.infoLabel}>Name:</Text>
               <Text style={styles.infoValue}>{userProfile?.name || 'Not Set'}</Text>
             </View>
+<<<<<<< HEAD
             {isAuthenticated && (
+=======
+            {isAuthenticated && userProfile?.email && (
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
               <>
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Email:</Text>
@@ -231,6 +243,15 @@ const ProfileScreen = ({ navigation }) => {
                 </View>
               </>
             )}
+<<<<<<< HEAD
+=======
+            {isGuest && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Account Type:</Text>
+                <Text style={styles.infoValue}>Guest User</Text>
+              </View>
+            )}
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
           </View>
         )}
 
@@ -242,7 +263,11 @@ const ProfileScreen = ({ navigation }) => {
                 <Ionicons name="cart-outline" size={64} color="#d1d5db" />
                 <Text style={styles.emptyStateTitle}>No Order History</Text>
                 <Text style={styles.emptyStateText}>
+<<<<<<< HEAD
                   Please sign in to view your orders.
+=======
+                  Please sign in to place orders and view your history.
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
                 </Text>
               </View>
             ) : userProfile?.orders?.length ? (
@@ -279,6 +304,7 @@ const ProfileScreen = ({ navigation }) => {
         {activeTab === 'favorites' && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Favorite Photos</Text>
+<<<<<<< HEAD
             {isGuest ? (
               <View style={styles.emptyState}>
                 <Ionicons name="heart-outline" size={64} color="#d1d5db" />
@@ -302,12 +328,43 @@ const ProfileScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 </View>
               ))
+=======
+            {userProfile?.favorites?.length ? (
+              <View>
+                <Text style={styles.favoritesCount}>
+                  {userProfile.favorites.length} {userProfile.favorites.length === 1 ? 'photo' : 'photos'} saved
+                </Text>
+                {userProfile.favorites.map((favoriteId, index) => (
+                  <View key={index} style={styles.favoriteCard}>
+                    <View style={styles.favoritePreview}>
+                      {/* Placeholder for photo preview */}
+                      <View style={styles.favoritePlaceholder}>
+                        <Ionicons name="image-outline" size={24} color="#d1d5db" />
+                      </View>
+                    </View>
+                    <View style={styles.favoriteDetails}>
+                      <Text style={styles.favoriteName}>Photo {favoriteId}</Text>
+                      <Text style={styles.favoriteCategory}>Saved {isGuest ? 'locally' : 'to your account'}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.favoriteAction}>
+                      <Ionicons name="heart" size={24} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="heart-outline" size={64} color="#d1d5db" />
                 <Text style={styles.emptyStateTitle}>No favorites yet</Text>
                 <Text style={styles.emptyStateText}>
+<<<<<<< HEAD
                   Photos you mark as favorites will appear here.
+=======
+                  {isGuest 
+                    ? "As a guest, photos you mark as favorites will be saved locally on this device."
+                    : "Photos you mark as favorites will appear here."}
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
                 </Text>
               </View>
             )}
@@ -716,6 +773,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1f2937',
   },
+<<<<<<< HEAD
   favoriteCard: {
     flexDirection: 'row',
     borderWidth: 1,
@@ -725,12 +783,41 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     alignItems: 'center',
   },
+=======
+  favoritesCount: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  favoriteCard: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
   favoritePreview: {
     width: 60,
     height: 60,
     borderRadius: 4,
     backgroundColor: '#f3f4f6',
     marginRight: 12,
+<<<<<<< HEAD
+=======
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  favoritePlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
   },
   favoriteDetails: {
     flex: 1,

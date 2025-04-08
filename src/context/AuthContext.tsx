@@ -1,3 +1,4 @@
+
 // AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -207,10 +208,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // Update authenticated user profile in Supabase
+<<<<<<< HEAD
       const { error } = await supabase
         .from('profiles')
         .update(profileData)
         .eq('id', user!.id);
+=======
+      // Use type assertion to make TypeScript happy with our schema
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileData as any)
+        .eq('id', user!.id as any);
+>>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
       
       if (error) throw error;
 
