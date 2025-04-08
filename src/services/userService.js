@@ -1,22 +1,30 @@
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Get user profile
 export const getUserProfile = async () => {
   try {
-    // In a real app, you would fetch this from an API based on the authenticated user
+    // In the final app, you would fetch this from an API based on the authenticated user
     // For now, we'll use a mock profile
+
+    // Check if user is in guest mode
+    const isGuestMode = await AsyncStorage.getItem('guestMode');
     
-    // Get sample order history
-    const orders = [
-      { id: "ORD-1234", date: "2023-05-15", total: 129.97, status: "Completed" },
-      { id: "ORD-2345", date: "2023-06-22", total: 79.99, status: "Processing" }
-    ];
+    if (isGuestMode === 'true') {
+      // Return guest profile
+      const favorites = await getFavorites();
+      return {
+        name: "Guest User",
+        email: null,
+        avatar: null,
+        isAdmin: false,
+        isGuest: true,
+        memberSince: new Date().toLocaleDateString(),
+        orders: [],
+        favorites
+      };
+    }
     
-    // Get sample favorites
-    const favorites = await getFavorites();
-    
-    // Get token and check if user is admin
+    // For authenticated users, get their profile
     const userToken = await AsyncStorage.getItem('userToken');
     const userRole = await AsyncStorage.getItem('userRole');
     
@@ -24,11 +32,21 @@ export const getUserProfile = async () => {
       throw new Error('Not authenticated');
     }
     
+    // Get sample order history
+    const orders = [
+      { id: "ORD-1234", date: "2023-05-15", total: 129.97, status: "Completed" },
+      { id: "ORD-2345", date: "2023-06-22", total: 79.99, status: "Processing" }
+    ];
+    
+    // Get favorites
+    const favorites = await getFavorites();
+    
     return {
       name: "John Doe",
       email: "john.doe@example.com",
       avatar: "https://randomuser.me/api/portraits/men/32.jpg",
       isAdmin: userRole === 'admin',
+      isGuest: false,
       memberSince: "January 2023",
       orders,
       favorites
@@ -42,6 +60,16 @@ export const getUserProfile = async () => {
 // Get user favorites
 export const getFavorites = async () => {
   try {
+    // Check if user is in guest mode
+    const isGuestMode = await AsyncStorage.getItem('guestMode');
+    
+    if (isGuestMode === 'true') {
+      // Get guest favorites
+      const guestFavoritesJson = await AsyncStorage.getItem('guest-favorites');
+      return guestFavoritesJson ? JSON.parse(guestFavoritesJson) : [];
+    }
+    
+    // If not in guest mode, get authenticated user favorites
     const favoritesJson = await AsyncStorage.getItem('favorites');
     return favoritesJson ? JSON.parse(favoritesJson) : [];
   } catch (error) {
@@ -53,12 +81,16 @@ export const getFavorites = async () => {
 // Add to favorites
 export const addToFavorites = async (photoId) => {
   try {
-    const favoritesJson = await AsyncStorage.getItem('favorites');
+    // Check if user is in guest mode
+    const isGuestMode = await AsyncStorage.getItem('guestMode');
+    const storageKey = isGuestMode === 'true' ? 'guest-favorites' : 'favorites';
+    
+    const favoritesJson = await AsyncStorage.getItem(storageKey);
     const favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
     
     if (!favorites.includes(photoId)) {
       const updatedFavorites = [...favorites, photoId];
-      await AsyncStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+      await AsyncStorage.setItem(storageKey, JSON.stringify(updatedFavorites));
     }
     
     return { success: true };
@@ -71,11 +103,15 @@ export const addToFavorites = async (photoId) => {
 // Remove from favorites
 export const removeFromFavorites = async (photoId) => {
   try {
-    const favoritesJson = await AsyncStorage.getItem('favorites');
+    // Check if user is in guest mode
+    const isGuestMode = await AsyncStorage.getItem('guestMode');
+    const storageKey = isGuestMode === 'true' ? 'guest-favorites' : 'favorites';
+    
+    const favoritesJson = await AsyncStorage.getItem(storageKey);
     const favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
     
     const updatedFavorites = favorites.filter(id => id !== photoId);
-    await AsyncStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+    await AsyncStorage.setItem(storageKey, JSON.stringify(updatedFavorites));
     
     return { success: true };
   } catch (error) {

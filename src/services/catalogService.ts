@@ -1,8 +1,6 @@
 // src/services/catalogService.ts
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedApiData, cacheApiData } from "@/utils/imageCache";
-import { Database } from "@/types/supabase";
-import { clearCatalogCache } from '@/context/FilterContext';
 
 // Define the types for the catalog data
 export interface CatalogPhoto {
@@ -58,11 +56,6 @@ const DEFAULT_OPTIONS: PhotoFetchOptions = {
   cacheDuration: 60 // 1 hour
 };
 
-
-// export const getPhotoById = (id: string): Photo | undefined => {
-//   return allPhotos.find(photo => photo.id === id);
-// };
-
 /**
  * Generate Supabase storage URL for an image
  */
@@ -88,7 +81,7 @@ export const fetchCatalogPhotos = async (
     
     // Try to get from cache first if enabled AND not forced fresh
     if (useCache && !forceFresh) {
-      const cachedData = await getCachedApiData(cacheKey);
+      const cachedData = await getCachedApiData<CatalogPhoto[]>(cacheKey);
       if (cachedData) {
         console.log('Using cached catalog photos for page:', page);
         return cachedData;
@@ -121,7 +114,7 @@ export const fetchCatalogPhotos = async (
       ...photo,
       id: photo.image_no, // Ensure id is set for compatibility
       image_url: getImageUrl(photo.image_no)
-    }));
+    })) as CatalogPhoto[];
     
     // Cache the result if enabled and not forced fresh
     if (useCache && !forceFresh && photosWithUrls.length > 0) {
@@ -156,7 +149,7 @@ export const fetchPhotosByCategory = async (
     
     // Try to get from cache first if enabled
     if (useCache) {
-      const cachedData = await getCachedApiData(cacheKey);
+      const cachedData = await getCachedApiData<CatalogPhoto[]>(cacheKey);
       if (cachedData) {
         console.log('Using cached category photos for:', category, 'page:', page);
         return cachedData;
@@ -215,7 +208,7 @@ export const fetchPhotoById = async (
     
     // Try to get from cache first if enabled
     if (useCache) {
-      const cachedData = await getCachedApiData(cacheKey);
+      const cachedData = await getCachedApiData<CatalogPhoto | null>(cacheKey);
       if (cachedData) {
         console.log('Using cached photo data for:', imageNo);
         return cachedData;
@@ -270,7 +263,7 @@ export const fetchCategories = async (
     
     // Try to get from cache first if enabled AND not forced fresh
     if (useCache && !forceFresh) {
-      const cachedData = await getCachedApiData(cacheKey);
+      const cachedData = await getCachedApiData<string[]>(cacheKey);
       if (cachedData) {
         console.log('Using cached categories data');
         return cachedData;
@@ -292,7 +285,7 @@ export const fetchCategories = async (
     
     // Extract unique categories
     const categories = data
-      .map(item => item.category)
+      .map(item => item.category as string)
       .filter((value, index, self) => 
         value && self.indexOf(value) === index
       ) as string[];
@@ -367,7 +360,7 @@ export const searchPhotos = async (
       ...photo,
       id: photo.image_no, // Ensure id is set for compatibility
       image_url: getImageUrl(photo.image_no)
-    }));
+    })) as CatalogPhoto[];
     
     // Cache the search results if enabled
     if (useCache && photosWithUrls.length > 0) {

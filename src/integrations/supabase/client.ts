@@ -1,3 +1,4 @@
+import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
 
@@ -12,7 +13,11 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
-  db: { schema: 'dev' } // Set default schema to dev
+  db: { schema: 'dev' }, // Set default schema to dev
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+  }
 });
 
 //export const supabase = createClient<Database>(supabaseUrl, supabaseKey); // No schema specified

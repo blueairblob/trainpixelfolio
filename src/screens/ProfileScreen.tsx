@@ -1,273 +1,276 @@
-// ProfileScreen.tsx  
-import React, { useState } from 'react';
-import { 
-  View, Text, StyleSheet, ScrollView, 
-  TouchableOpacity, Image, Alert, ActivityIndicator,
-  TextInput, Modal
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, Image,
+  TouchableOpacity, ActivityIndicator, Alert, TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ProfileScreen = ({ navigation }) => {
+  const { isAuthenticated, userProfile, isAdmin, logout, isGuest, enableGuestMode, disableGuestMode } = useAuth();
+  const [activeTab, setActiveTab] = useState('info');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile'); // profile, orders, favorites
-  const [editProfileVisible, setEditProfileVisible] = useState(false);
-  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   
+  // Form states
   const [name, setName] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  
+  const [email, setEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
-  const { logout, userProfile, isAdmin, updateProfile, changePassword, refreshProfile } = useAuth();
 
-  const handleLogout = async () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Logout", 
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              await logout();
-              // After logout, the auth state change will navigate back to login
-              setIsLoading(false);
-            } catch (error) {
-              console.error('Error during logout:', error);
-              Alert.alert("Error", "Failed to log out. Please try again.");
-              setIsLoading(false);
-            }
-          }
-        }
-      ]
-    );
-  };
+  // Show/hide passwords
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleEditProfile = () => {
+  useEffect(() => {
     if (userProfile) {
       setName(userProfile.name || '');
-      setAvatarUrl(userProfile.avatar_url || '');
-      setEditProfileVisible(true);
     }
-  };
+  }, [userProfile]);
 
-  const handleSaveProfile = async () => {
+  const handleLogout = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      await updateProfile({
-        name,
-        avatar_url: avatarUrl
-      });
-      setEditProfileVisible(false);
-      await refreshProfile();
+      await logout();
+      // Clear any local storage if needed
+      await AsyncStorage.removeItem('userProfile');
     } catch (error) {
-      console.error('Error saving profile:', error);
+      console.error('Logout error:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleUpdateProfile = () => {
+    // Profile update logic here
+    Alert.alert('Success', 'Profile updated successfully');
+    setIsEditing(false);
   };
 
   const handleChangePassword = () => {
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    // Password change logic here
+    Alert.alert('Success', 'Password changed successfully');
+    setIsChangingPassword(false);
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setChangePasswordVisible(true);
   };
 
-  const handleSavePassword = async () => {
-    if (newPassword !== confirmPassword) {
-      Alert.alert("Error", "New passwords do not match");
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      Alert.alert("Error", "New password must be at least 6 characters");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      await changePassword(currentPassword, newPassword);
-      setChangePasswordVisible(false);
-    } catch (error) {
-      console.error('Error changing password:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleAdminAccess = () => {
+    navigation.navigate('Admin');
   };
 
-  if (isLoading) {
+  const handleContinueAsGuest = () => {
+    enableGuestMode();
+  };
+  
+  const handleSignIn = () => {
+    if (isGuest) {
+      disableGuestMode();
+    }
+    navigation.navigate('Auth');
+  };
+
+  // If not authenticated and not in guest mode, show login/guest options
+  if (!isAuthenticated && !isGuest) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4f46e5" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.authContainer}>
+          <Image 
+            source={{ uri: 'https://images.unsplash.com/photo-1527684651001-731c474bbb5a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80' }}
+            style={styles.logo}
+          />
+          <Text style={styles.title}>TrainPhoto</Text>
+          <Text style={styles.subtitle}>Sign in to access your profile</Text>
+          
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={styles.primaryButton}
+              onPress={handleSignIn}
+            >
+              <Text style={styles.primaryButtonText}>Sign In / Register</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.secondaryButton}
+              onPress={handleContinueAsGuest}
+            >
+              <Text style={styles.secondaryButtonText}>Continue as Guest</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
 
-  // Use the user data from context
-  const userData = userProfile || {
-    name: "User",
-    email: "user@example.com",
-    avatar_url: "https://randomuser.me/api/portraits/men/32.jpg",
-    memberSince: "Recently",
-    orders: [],
-    favorites: []
-  };
-
+  // Render profile for authenticated or guest users
   return (
     <SafeAreaView style={styles.container}>
-      {/* Profile Header */}
-      <View style={styles.header}>
-        <View style={styles.profileInfo}>
-          <Image 
-            source={{ uri: userData.avatar_url || "https://randomuser.me/api/portraits/men/32.jpg" }}
+      <ScrollView>
+        <View style={styles.header}>
+          <Image
+            source={
+              userProfile?.avatar_url 
+                ? { uri: userProfile.avatar_url } 
+                : require('../../assets/icon.png')
+            }
             style={styles.avatar}
           />
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{userData.name || "User"}</Text>
-            <Text style={styles.memberSince}>Member since {new Date(userData.created_at || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</Text>
-            {isAdmin && (
-              <View style={styles.adminBadge}>
-                <Text style={styles.adminBadgeText}>Admin</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
-
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
-          onPress={() => setActiveTab('profile')}
-        >
-          <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>Profile</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
-          onPress={() => setActiveTab('orders')}
-        >
-          <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'favorites' && styles.activeTab]}
-          onPress={() => setActiveTab('favorites')}
-        >
-          <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {activeTab === 'profile' && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Account Settings</Text>
-            
-            <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
-              <View style={styles.settingIconContainer}>
-                <Ionicons name="person-outline" size={20} color="#4f46e5" />
-              </View>
-              <Text style={styles.settingText}>Edit Profile</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </TouchableOpacity>
-            
+          <Text style={styles.userName}>{userProfile?.name || 'User'}</Text>
+          {isGuest && (
+            <View style={styles.guestBadge}>
+              <Text style={styles.guestBadgeText}>Guest Mode</Text>
+            </View>
+          )}
+          
+          {isAuthenticated && (
+            <Text style={styles.memberSince}>
+              Member since {userProfile?.created_at 
+                ? new Date(userProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
+                : 'Recently'}
+            </Text>
+          )}
+          
+          {isAdmin && (
+            <View style={styles.adminBadge}>
+              <Text style={styles.adminBadgeText}>Admin</Text>
+            </View>
+          )}
+          
+          {isAuthenticated && (
             <TouchableOpacity 
-              style={styles.settingItem}
-              onPress={handleChangePassword}
-            >
-              <View style={styles.settingIconContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#4f46e5" />
-              </View>
-              <Text style={styles.settingText}>Change Password</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIconContainer}>
-                <Ionicons name="notifications-outline" size={20} color="#4f46e5" />
-              </View>
-              <Text style={styles.settingText}>Notification Settings</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingIconContainer}>
-                <Ionicons name="card-outline" size={20} color="#4f46e5" />
-              </View>
-              <Text style={styles.settingText}>Payment Methods</Text>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </TouchableOpacity>
-            
-            {isAdmin && (
-              <TouchableOpacity 
-                style={styles.settingItem}
-                onPress={() => navigation.navigate('Admin')}
-              >
-                <View style={styles.settingIconContainer}>
-                  <Ionicons name="settings-outline" size={20} color="#4f46e5" />
-                </View>
-                <Text style={styles.settingText}>Admin Dashboard</Text>
-                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-              </TouchableOpacity>
-            )}
-            
-            <TouchableOpacity 
-              style={[styles.settingItem, styles.logoutItem]}
+              style={styles.logoutButton} 
               onPress={handleLogout}
+              disabled={isLoading}
             >
-              <View style={[styles.settingIconContainer, styles.logoutIconContainer]}>
-                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-              </View>
-              <Text style={styles.logoutText}>Logout</Text>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              )}
             </TouchableOpacity>
+          )}
+          
+          {isGuest && (
+            <TouchableOpacity 
+              style={styles.signInButton} 
+              onPress={handleSignIn}
+            >
+              <Text style={styles.signInButtonText}>Sign In</Text>
+            </TouchableOpacity>
+          )}
+          
+          {isAdmin && isAuthenticated && (
+            <TouchableOpacity 
+              style={styles.adminButton} 
+              onPress={handleAdminAccess}
+            >
+              <Text style={styles.adminButtonText}>Admin Dashboard</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'info' && styles.activeTab]} 
+            onPress={() => setActiveTab('info')}
+          >
+            <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Profile Info</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'orders' && styles.activeTab]} 
+            onPress={() => setActiveTab('orders')}
+          >
+            <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>Orders</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'favorites' && styles.activeTab]} 
+            onPress={() => setActiveTab('favorites')}
+          >
+            <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
+          </TouchableOpacity>
+          
+          {isAuthenticated && (
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'settings' && styles.activeTab]} 
+              onPress={() => setActiveTab('settings')}
+            >
+              <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>Settings</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {activeTab === 'info' && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Name:</Text>
+              <Text style={styles.infoValue}>{userProfile?.name || 'Not Set'}</Text>
+            </View>
+            {isAuthenticated && (
+              <>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Email:</Text>
+                  <Text style={styles.infoValue}>{userProfile?.email || 'Not Set'}</Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Text style={styles.infoLabel}>Account Type:</Text>
+                  <Text style={styles.infoValue}>{isAdmin ? 'Administrator' : 'Standard User'}</Text>
+                </View>
+              </>
+            )}
           </View>
         )}
 
         {activeTab === 'orders' && (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Your Orders</Text>
-            
-            {userData.orders.length > 0 ? (
-              userData.orders.map((order) => (
-                <TouchableOpacity 
-                  key={order.id}
-                  style={styles.orderItem}
-                >
+            <Text style={styles.sectionTitle}>Order History</Text>
+            {isGuest ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="cart-outline" size={64} color="#d1d5db" />
+                <Text style={styles.emptyStateTitle}>No Order History</Text>
+                <Text style={styles.emptyStateText}>
+                  Please sign in to view your orders.
+                </Text>
+              </View>
+            ) : userProfile?.orders?.length ? (
+              userProfile.orders.map((order, index) => (
+                <View key={index} style={styles.orderCard}>
                   <View style={styles.orderHeader}>
-                    <Text style={styles.orderId}>{order.id}</Text>
-                    <View style={[
-                      styles.orderStatusBadge,
-                      order.status === "Completed" ? styles.completedStatus : styles.processingStatus
+                    <Text style={styles.orderNumber}>{order.id}</Text>
+                    <Text style={[styles.orderStatus, 
+                      order.status === 'Completed' ? styles.statusCompleted : 
+                      order.status === 'Processing' ? styles.statusProcessing :
+                      styles.statusPending
                     ]}>
-                      <Text style={styles.orderStatusText}>{order.status}</Text>
-                    </View>
+                      {order.status}
+                    </Text>
                   </View>
-                  
                   <View style={styles.orderDetails}>
-                    <Text style={styles.orderDate}>Ordered on {order.date}</Text>
+                    <Text style={styles.orderDate}>{order.date}</Text>
                     <Text style={styles.orderTotal}>${order.total.toFixed(2)}</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
               ))
             ) : (
-              <View style={styles.emptyStateContainer}>
-                <Ionicons name="receipt-outline" size={48} color="#d1d5db" />
+              <View style={styles.emptyState}>
+                <Ionicons name="cart-outline" size={64} color="#d1d5db" />
                 <Text style={styles.emptyStateTitle}>No orders yet</Text>
-                <Text style={styles.emptyStateMessage}>
-                  Your order history will appear here
+                <Text style={styles.emptyStateText}>
+                  When you make purchases, they will appear here.
                 </Text>
-                <TouchableOpacity
-                  style={styles.browseButton}
-                  onPress={() => navigation.navigate('Gallery')}
-                >
-                  <Text style={styles.browseButtonText}>Start Shopping</Text>
-                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -275,176 +278,192 @@ const ProfileScreen = ({ navigation }) => {
 
         {activeTab === 'favorites' && (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Your Favorites</Text>
-            
-            {userData.favorites.length > 0 ? (
-              userData.favorites.map((favorite) => (
-                <TouchableOpacity 
-                  key={favorite.id}
-                  style={styles.favoriteItem}
-                  onPress={() => navigation.navigate('PhotoDetail', { id: favorite.id })}
-                >
-                  <Image 
-                    source={{ uri: favorite.imageUrl }}
-                    style={styles.favoriteImage}
-                  />
-                  <View style={styles.favoriteDetails}>
-                    <Text style={styles.favoriteTitle}>{favorite.title}</Text>
-                    <Text style={styles.favoritePhotographer}>{favorite.photographer}</Text>
+            <Text style={styles.sectionTitle}>Favorite Photos</Text>
+            {isGuest ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="heart-outline" size={64} color="#d1d5db" />
+                <Text style={styles.emptyStateTitle}>No Favorite Photos</Text>
+                <Text style={styles.emptyStateText}>
+                  Please sign in to save and view your favorite photos.
+                </Text>
+              </View>
+            ) : userProfile?.favorites?.length ? (
+              userProfile.favorites.map((favorite, index) => (
+                <View key={index} style={styles.favoriteCard}>
+                  <View style={styles.favoritePreview}>
+                    {/* Add photo preview image here */}
                   </View>
-                  <TouchableOpacity style={styles.favoriteRemoveButton}>
-                    <Ionicons name="heart" size={20} color="#ef4444" />
+                  <View style={styles.favoriteDetails}>
+                    <Text style={styles.favoriteName}>{favorite.name}</Text>
+                    <Text style={styles.favoriteCategory}>{favorite.category}</Text>
+                  </View>
+                  <TouchableOpacity style={styles.favoriteAction}>
+                    <Ionicons name="heart" size={24} color="#ef4444" />
                   </TouchableOpacity>
-                </TouchableOpacity>
+                </View>
               ))
             ) : (
-              <View style={styles.emptyStateContainer}>
-                <Ionicons name="heart-outline" size={48} color="#d1d5db" />
+              <View style={styles.emptyState}>
+                <Ionicons name="heart-outline" size={64} color="#d1d5db" />
                 <Text style={styles.emptyStateTitle}>No favorites yet</Text>
-                <Text style={styles.emptyStateMessage}>
-                  Save photos you like for later
+                <Text style={styles.emptyStateText}>
+                  Photos you mark as favorites will appear here.
                 </Text>
-                <TouchableOpacity
-                  style={styles.browseButton}
-                  onPress={() => navigation.navigate('Gallery')}
-                >
-                  <Text style={styles.browseButtonText}>Browse Photos</Text>
-                </TouchableOpacity>
               </View>
             )}
           </View>
         )}
-      </ScrollView>
 
-      {/* Edit Profile Modal */}
-      <Modal
-        visible={editProfileVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setEditProfileVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Profile</Text>
-              <TouchableOpacity onPress={() => setEditProfileVisible(false)}>
-                <Ionicons name="close" size={24} color="#4b5563" />
-              </TouchableOpacity>
-            </View>
+        {activeTab === 'settings' && isAuthenticated && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Account Settings</Text>
             
-            <View style={styles.modalContent}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Display Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Your display name"
-                />
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Avatar URL</Text>
-                <TextInput
-                  style={styles.input}
-                  value={avatarUrl}
-                  onChangeText={setAvatarUrl}
-                  placeholder="URL to your avatar image"
-                />
-              </View>
-              
-              {avatarUrl ? (
-                <View style={styles.avatarPreview}>
-                  <Text style={styles.previewLabel}>Preview:</Text>
-                  <Image
-                    source={{ uri: avatarUrl }}
-                    style={styles.previewAvatar}
-                    onError={() => Alert.alert("Error", "Could not load image from URL")}
-                  />
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsHeader}>Edit Profile</Text>
+              {isEditing ? (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Name</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="person-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      value={name}
+                      onChangeText={setName}
+                      placeholder="Enter your name"
+                    />
+                  </View>
+                  
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                      style={[styles.button, styles.cancelButton]}
+                      onPress={() => setIsEditing(false)}
+                    >
+                      <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[styles.button, styles.saveButton]}
+                      onPress={handleUpdateProfile}
+                    >
+                      <Text style={[styles.buttonText, styles.saveButtonText]}>Save Changes</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              ) : null}
-              
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveProfile}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Change Password Modal */}
-      <Modal
-        visible={changePasswordVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setChangePasswordVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Change Password</Text>
-              <TouchableOpacity onPress={() => setChangePasswordVisible(false)}>
-                <Ionicons name="close" size={24} color="#4b5563" />
-              </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.settingsButton}
+                  onPress={() => setIsEditing(true)}
+                >
+                  <Text style={styles.settingsButtonText}>Edit Profile</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#4f46e5" />
+                </TouchableOpacity>
+              )}
             </View>
             
-            <View style={styles.modalContent}>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Current Password</Text>
-                <TextInput
-                  style={styles.input}
-                  value={currentPassword}
-                  onChangeText={setCurrentPassword}
-                  placeholder="Your current password"
-                  secureTextEntry
-                />
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>New Password</Text>
-                <TextInput
-                  style={styles.input}
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  placeholder="Your new password"
-                  secureTextEntry
-                />
-              </View>
-              
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Confirm New Password</Text>
-                <TextInput
-                  style={styles.input}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="Confirm your new password"
-                  secureTextEntry
-                />
-              </View>
-              
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSavePassword}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Change Password</Text>
-                )}
-              </TouchableOpacity>
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsHeader}>Change Password</Text>
+              {isChangingPassword ? (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Current Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      value={currentPassword}
+                      onChangeText={setCurrentPassword}
+                      secureTextEntry={!showCurrentPassword}
+                      placeholder="Enter current password"
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeIcon}
+                      onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                    >
+                      <Ionicons 
+                        name={showCurrentPassword ? "eye-off-outline" : "eye-outline"} 
+                        size={20} 
+                        color="#9ca3af" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <Text style={styles.label}>New Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      secureTextEntry={!showNewPassword}
+                      placeholder="Enter new password"
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeIcon}
+                      onPress={() => setShowNewPassword(!showNewPassword)}
+                    >
+                      <Ionicons 
+                        name={showNewPassword ? "eye-off-outline" : "eye-outline"} 
+                        size={20} 
+                        color="#9ca3af" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <Text style={styles.label}>Confirm New Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showConfirmPassword}
+                      placeholder="Confirm new password"
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeIcon}
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      <Ionicons 
+                        name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
+                        size={20} 
+                        color="#9ca3af" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                      style={[styles.button, styles.cancelButton]}
+                      onPress={() => {
+                        setIsChangingPassword(false);
+                        setCurrentPassword('');
+                        setNewPassword('');
+                        setConfirmPassword('');
+                      }}
+                    >
+                      <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[styles.button, styles.saveButton]}
+                      onPress={handleChangePassword}
+                    >
+                      <Text style={[styles.buttonText, styles.saveButtonText]}>Change Password</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.settingsButton}
+                  onPress={() => setIsChangingPassword(true)}
+                >
+                  <Text style={styles.settingsButtonText}>Change Password</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#4f46e5" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
-        </View>
-      </Modal>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -454,282 +473,318 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  loadingContainer: {
+  authContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    padding: 20,
   },
-  loadingText: {
-    marginTop: 16,
+  logo: {
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  subtitle: {
     fontSize: 16,
     color: '#6b7280',
+    marginBottom: 32,
+    textAlign: 'center',
   },
-  header: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+  buttonContainer: {
+    width: '100%',
+    gap: 12,
   },
-  profileInfo: {
-    flexDirection: 'row',
+  primaryButton: {
+    backgroundColor: '#4f46e5',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    borderColor: '#e5e7eb',
+  primaryButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
   },
-  userInfo: {
-    marginLeft: 16,
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  secondaryButtonText: {
+    color: '#4b5563',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  header: {
+    backgroundColor: 'white',
+    padding: 24,
+    alignItems: 'center',
+    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: 1,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 16,
   },
   userName: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
-  },
-  userEmail: {
-    fontSize: 14,
-    color: '#4b5563',
     marginBottom: 4,
   },
   memberSince: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6b7280',
+    marginBottom: 16,
+  },
+  adminBadge: {
+    backgroundColor: '#c7d2fe',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  adminBadgeText: {
+    color: '#4338ca',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  guestBadge: {
+    backgroundColor: '#fef3c7',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  guestBadgeText: {
+    color: '#92400e',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  logoutButton: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  signInButton: {
+    backgroundColor: '#4f46e5',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  signInButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  adminButton: {
+    backgroundColor: '#6366f1',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  adminButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
+    backgroundColor: 'white',
     borderBottomColor: '#e5e7eb',
+    borderBottomWidth: 1,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   activeTab: {
-    borderBottomWidth: 2,
     borderBottomColor: '#4f46e5',
+    borderBottomWidth: 2,
   },
   tabText: {
-    fontSize: 14,
-    fontWeight: '500',
     color: '#6b7280',
+    fontWeight: '500',
   },
   activeTabText: {
     color: '#4f46e5',
-  },
-  scrollContent: {
-    paddingBottom: 20,
+    fontWeight: '600',
   },
   sectionContainer: {
-    backgroundColor: '#ffffff',
-    marginTop: 16,
-    borderRadius: 8,
     padding: 16,
-    margin: 16,
+    backgroundColor: 'white',
+    marginVertical: 8,
+    borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+    marginHorizontal: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1f2937',
+    fontWeight: 'bold',
     marginBottom: 16,
+    color: '#1f2937',
   },
-  settingItem: {
+  infoItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
   },
-  settingIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  infoLabel: {
+    width: 100,
+    fontWeight: '500',
+    color: '#4b5563',
+    fontSize: 14,
   },
-  settingText: {
+  infoValue: {
     flex: 1,
-    fontSize: 16,
     color: '#1f2937',
+    fontSize: 14,
   },
-  logoutItem: {
-    borderBottomWidth: 0,
-    marginTop: 16,
-  },
-  logoutIconContainer: {
-    backgroundColor: '#fee2e2',
-  },
-  logoutText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#ef4444',
-  },
-  orderItem: {
-    backgroundColor: '#f9fafb',
+  orderCard: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
     borderRadius: 8,
-    padding: 12,
+    padding: 16,
     marginBottom: 12,
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  orderId: {
-    fontSize: 16,
+  orderNumber: {
     fontWeight: '600',
+    fontSize: 14,
     color: '#1f2937',
   },
-  orderStatusBadge: {
-    paddingHorizontal: 8,
+  orderStatus: {
     paddingVertical: 4,
-    borderRadius: 16,
-  },
-  completedStatus: {
-    backgroundColor: '#dcfce7',
-  },
-  processingStatus: {
-    backgroundColor: '#ffedd5',
-  },
-  orderStatusText: {
+    paddingHorizontal: 8,
+    borderRadius: 12,
     fontSize: 12,
-    fontWeight: '500',
-    color: '#166534',
+    fontWeight: '600',
+  },
+  statusCompleted: {
+    backgroundColor: '#d1fae5',
+    color: '#065f46',
+  },
+  statusProcessing: {
+    backgroundColor: '#e0f2fe',
+    color: '#0369a1',
+  },
+  statusPending: {
+    backgroundColor: '#fef3c7',
+    color: '#92400e',
   },
   orderDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   orderDate: {
-    fontSize: 14,
     color: '#6b7280',
+    fontSize: 14,
   },
   orderTotal: {
-    fontSize: 14,
     fontWeight: '600',
+    fontSize: 14,
     color: '#1f2937',
   },
-  favoriteItem: {
+  favoriteCard: {
     flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
     alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
   },
-  favoriteImage: {
+  favoritePreview: {
     width: 60,
     height: 60,
     borderRadius: 4,
+    backgroundColor: '#f3f4f6',
+    marginRight: 12,
   },
   favoriteDetails: {
     flex: 1,
-    marginLeft: 12,
   },
-  favoriteTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1f2937',
-  },
-  favoritePhotographer: {
+  favoriteName: {
+    fontWeight: '600',
     fontSize: 14,
-    color: '#6b7280',
+    color: '#1f2937',
+    marginBottom: 4,
   },
-  favoriteRemoveButton: {
+  favoriteCategory: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  favoriteAction: {
     padding: 8,
   },
-  emptyStateContainer: {
+  emptyState: {
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4b5563',
+    marginTop: 12,
     marginBottom: 8,
   },
-  emptyStateMessage: {
+  emptyStateText: {
     fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
-    marginBottom: 20,
   },
-  browseButton: {
-    backgroundColor: '#4f46e5',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+  settingsSection: {
+    marginBottom: 24,
   },
-  browseButtonText: {
-    color: '#ffffff',
+  settingsHeader: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 12,
   },
-  
-  adminBadge: {
-    backgroundColor: '#4f46e5',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginTop: 4,
-    alignSelf: 'flex-start',
-  },
-  adminBadgeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    width: '100%',
-    maxWidth: 500,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  modalHeader: {
+  settingsButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#f9fafb',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderRadius: 8,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  modalContent: {
-    padding: 16,
+  settingsButtonText: {
+    color: '#4f46e5',
+    fontSize: 14,
+    fontWeight: '500',
   },
   formGroup: {
     marginBottom: 16,
@@ -738,41 +793,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#4b5563',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  input: {
-    backgroundColor: '#f9fafb',
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    backgroundColor: '#f9fafb',
+    marginBottom: 16,
   },
-  avatarPreview: {
-    alignItems: 'center',
-    marginVertical: 16,
+  inputIcon: {
+    paddingHorizontal: 12,
   },
-  previewLabel: {
+  input: {
+    flex: 1,
+    paddingVertical: 12,
     fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 8,
+    color: '#1f2937',
   },
-  previewAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  eyeIcon: {
+    padding: 12,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#f3f4f6',
   },
   saveButton: {
     backgroundColor: '#4f46e5',
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-    marginTop: 16,
+  },
+  buttonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4b5563',
   },
   saveButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

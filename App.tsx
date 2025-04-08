@@ -1,10 +1,10 @@
 // App.tsx
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 // Import screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -15,15 +15,28 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import AuthScreen from './src/screens/AuthScreen';
 
-// Import icons
-import { Ionicons } from '@expo/vector-icons';
 
-// Import auth provider
+// Context Providers
+import { FilterProvider } from './src/context/FilterContext';
+import { CartProvider } from './src/context/CartContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
+
+
 // Create the navigators
-const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+// Icon mapping for tab navigation
+const getTabIcon = (route: string, focused: boolean): string => {
+  switch (route) {
+    case 'Home': return focused ? 'home' : 'home-outline';
+    case 'Gallery': return focused ? 'grid' : 'grid-outline';
+    case 'Cart': return focused ? 'cart' : 'cart-outline';
+    case 'Profile': return focused ? 'person' : 'person-outline';
+    default: return 'help-outline';
+  }
+};
 
 // Main tab navigator
 const TabNavigator = () => {
@@ -31,22 +44,12 @@ const TabNavigator = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Gallery') {
-            iconName = focused ? 'images' : 'images-outline';
-          } else if (route.name === 'Cart') {
-            iconName = focused ? 'cart' : 'cart-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
+          const iconName = getTabIcon(route.name, focused);
+          return <Ionicons name={iconName as any} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#4f46e5',
         tabBarInactiveTintColor: 'gray',
+        headerShown: false
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
@@ -94,14 +97,37 @@ const App = () => {
   console.log("Running App.tsx");
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" />
-      <AuthProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <AuthProvider>
+      <CartProvider>
+        <FilterProvider>
+          <NavigationContainer>
+            <Stack.Navigator initialRouteName="Main">
+              <Stack.Screen 
+                name="Main" 
+                component={TabNavigator} 
+                options={{ headerShown: false }} 
+              />
+              <Stack.Screen 
+                name="PhotoDetailScreen" 
+                component={PhotoDetailScreen}
+                options={{ headerShown: false, title: 'Photo Details' }} 
+              />
+              <Stack.Screen 
+                name="AdminScreen" 
+                component={AdminScreen}
+                options={{ title: 'Admin Dashboard' }} 
+              />
+              <Stack.Screen 
+                name="AuthScreen" 
+                component={AuthScreen}
+                options={{ headerShown: false, title: 'Login / Register' }} 
+              />
+            </Stack.Navigator>
+            <StatusBar style="auto" />
+          </NavigationContainer>
+        </FilterProvider>
+      </CartProvider>
+    </AuthProvider>
   );
 };
 

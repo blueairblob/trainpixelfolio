@@ -1,0 +1,74 @@
+trevour@DESKTOP-GPJJD6L:/mnt/c/dev/work/photo-daisy-browser$ tree -L 3 -I 'node_modules|git|expo'
+.
+├── App.tsx
+├── README.md
+├── app.json
+├── assets
+│   ├── adaptive-icon.png
+│   ├── icon.png
+│   └── splash.png
+├── babel.config.js
+├── bun.lockb
+├── components.json
+├── index.html
+├── package.json
+├── postcss.config.js
+├── public
+│   ├── favicon.ico
+│   ├── og-image.png
+│   └── placeholder.svg
+├── src
+│   ├── App.css
+│   ├── components
+│   │   ├── Header.tsx
+│   │   ├── Loading.tsx
+│   │   ├── PhotoGrid.tsx
+│   │   ├── PhotoThumbnail.tsx
+│   │   └── ui
+│   ├── hooks
+│   │   ├── use-mobile.tsx
+│   │   ├── use-toast.ts
+│   │   ├── usePhotos.ts
+│   │   └── usePhotos.tsx
+│   ├── index.css
+│   ├── lib
+│   │   ├── supabase.ts
+│   │   ├── types.ts
+│   │   └── utils.ts
+│   ├── main.tsx
+│   ├── pages
+│   │   └── NotFound.tsx
+│   └── vite-env.d.ts
+├── tailwind.config.ts
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+└── vite.config.ts
+
+cd /mnt/c/dev/work/photo-daisy-browser
+
+find . -type f -not -path '*/node_modules/*' -not -path '*/expo/*' -not -path '*/assets/*' -not -path '*/logs/*' -not -path '*/scripts/*' -not -path '*/.git/*' -not -path '*lock*' -not -path '*public*' | while read -r f; do
+  echo -e "*************\n $f :\n"
+  cat "$f"
+  echo -e "\n"
+done > ./logs/all_code.out
+
+
+git:  
+
+git add .; git commit -m "11. Search fixes. Added count and Search from Home screen"; git push origin main
+
+
+-- 
+SHOW statement_timeout;
+
+SELECT rolname, rolconfig FROM  pg_roles;
+
+-- Default 3s
+alter role anon set statement_timeout = '1min';
+
+-- Default 8s
+alter role authenticated set statement_timeout = '1min';
+
+
+NOTIFY pgrst, 'reload config';

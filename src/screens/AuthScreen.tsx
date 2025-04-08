@@ -19,7 +19,7 @@ const AuthScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login, register } = useAuth();
+  const { login, register, enterGuestMode } = useAuth();
   
   const handleAuth = async () => {
     if (!email || !password) {
@@ -53,6 +53,17 @@ const AuthScreen = () => {
       }
     } catch (error: any) {
       Alert.alert("Authentication Error", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleGuestLogin = async () => {
+    setIsLoading(true);
+    try {
+      await enterGuestMode();
+    } catch (error: any) {
+      Alert.alert("Error", "Failed to enter guest mode. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -201,6 +212,16 @@ const AuthScreen = () => {
               )}
             </TouchableOpacity>
             
+            {/* Guest Login Button */}
+            <TouchableOpacity
+              style={styles.guestButton}
+              onPress={handleGuestLogin}
+              disabled={isLoading}
+            >
+              <Ionicons name="person-outline" size={20} color="#4b5563" />
+              <Text style={styles.guestButtonText}>Continue as Guest</Text>
+            </TouchableOpacity>
+            
             <View style={styles.dividerContainer}>
               <View style={styles.divider} />
               <Text style={styles.dividerText}>or</Text>
@@ -239,6 +260,7 @@ const AuthScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  // ... keep existing code
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
@@ -336,6 +358,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  guestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 16,
+    backgroundColor: '#f3f4f6',
+  },
+  guestButtonText: {
+    fontSize: 16,
+    color: '#4b5563',
+    marginLeft: 8,
   },
   dividerContainer: {
     flexDirection: 'row',
