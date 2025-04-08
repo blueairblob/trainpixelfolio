@@ -1,6 +1,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const GUEST_FAVORITES_KEY = 'guest_favorites';
+
 // Get user profile
 export const getUserProfile = async () => {
   try {
@@ -42,6 +44,16 @@ export const getUserProfile = async () => {
 // Get user favorites
 export const getFavorites = async () => {
   try {
+    // Check if we're in guest mode
+    const isGuest = await AsyncStorage.getItem('guestMode') === 'true';
+    
+    if (isGuest) {
+      // Get guest favorites
+      const guestFavoritesJson = await AsyncStorage.getItem(GUEST_FAVORITES_KEY);
+      return guestFavoritesJson ? JSON.parse(guestFavoritesJson) : [];
+    }
+    
+    // For authenticated users, get from regular storage
     const favoritesJson = await AsyncStorage.getItem('favorites');
     return favoritesJson ? JSON.parse(favoritesJson) : [];
   } catch (error) {
@@ -53,12 +65,16 @@ export const getFavorites = async () => {
 // Add to favorites
 export const addToFavorites = async (photoId) => {
   try {
-    const favoritesJson = await AsyncStorage.getItem('favorites');
+    // Check if we're in guest mode
+    const isGuest = await AsyncStorage.getItem('guestMode') === 'true';
+    const storageKey = isGuest ? GUEST_FAVORITES_KEY : 'favorites';
+    
+    const favoritesJson = await AsyncStorage.getItem(storageKey);
     const favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
     
     if (!favorites.includes(photoId)) {
       const updatedFavorites = [...favorites, photoId];
-      await AsyncStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+      await AsyncStorage.setItem(storageKey, JSON.stringify(updatedFavorites));
     }
     
     return { success: true };
@@ -71,11 +87,15 @@ export const addToFavorites = async (photoId) => {
 // Remove from favorites
 export const removeFromFavorites = async (photoId) => {
   try {
-    const favoritesJson = await AsyncStorage.getItem('favorites');
+    // Check if we're in guest mode
+    const isGuest = await AsyncStorage.getItem('guestMode') === 'true';
+    const storageKey = isGuest ? GUEST_FAVORITES_KEY : 'favorites';
+    
+    const favoritesJson = await AsyncStorage.getItem(storageKey);
     const favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
     
     const updatedFavorites = favorites.filter(id => id !== photoId);
-    await AsyncStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+    await AsyncStorage.setItem(storageKey, JSON.stringify(updatedFavorites));
     
     return { success: true };
   } catch (error) {

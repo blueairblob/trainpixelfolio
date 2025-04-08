@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useAuth } from '../context/AuthContext';
 
 interface Photo {
   id: string;
@@ -25,6 +26,15 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const { userProfile, isGuest, addFavorite, removeFavorite } = useAuth();
+
+  // Check if photo is in favorites
+  React.useEffect(() => {
+    if (userProfile && userProfile.favorites) {
+      setIsFavorite(userProfile.favorites.includes(photo.id));
+    }
+  }, [userProfile, photo.id]);
 
   // Memoize the onPress handler to prevent unnecessary re-renders
   const handlePress = useCallback(() => {
@@ -36,6 +46,21 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
     setIsLoading(true);
     setRetryCount(prev => prev + 1);
   }, []);
+
+  // Handle favorite toggle
+  const handleFavoriteToggle = useCallback(async () => {
+    try {
+      if (isFavorite) {
+        await removeFavorite(photo.id);
+        setIsFavorite(false);
+      } else {
+        await addFavorite(photo.id);
+        setIsFavorite(true);
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  }, [isFavorite, photo.id, addFavorite, removeFavorite]);
 
   // Generate a placeholder blurhash-like color based on the photo id
   const placeholderColor = `#${(parseInt(photo.id.replace(/\D/g, ''), 10) % 0xffffff).toString(16).padStart(6, '0')}`;
@@ -71,8 +96,6 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
           setIsLoading(false);
           setHasError(true);
         }}
-        // Add placeholder background color when loading
-        //backgroundColor={placeholderColor}
       />
     </View>
   );
@@ -125,6 +148,20 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
           <View style={styles.singleFooter}>
             <Text style={styles.singlePrice}>${photo.price.toFixed(2)}</Text>
             <View style={styles.singleButtons}>
+              <TouchableOpacity
+                style={styles.favoriteButton}
+                onPress={handleFavoriteToggle}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name={isFavorite ? "heart" : "heart-outline"} 
+                  size={16} 
+                  color={isFavorite ? "#ef4444" : "#4b5563"} 
+                />
+                <Text style={styles.favoriteButtonText}>
+                  {isFavorite ? "Saved" : "Save"}
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.detailButton}
                 onPress={handlePress}
@@ -285,6 +322,21 @@ const styles = StyleSheet.create({
   singleButtons: {
     flexDirection: 'row',
   },
+  favoriteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+    marginRight: 8,
+  },
+  favoriteButtonText: {
+    fontSize: 14,
+    color: '#4b5563',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   detailButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -311,12 +363,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
-  // New styles for loading and error states
+  // Styles for loading and error states
   loader: {
     position: 'absolute',
     top: '50%',
     left: '50%',
     transform: [{ translateX: -12 }, { translateY: -12 }],
+    zIndex: 10,
   },
   retryButton: {
     position: 'absolute',
@@ -328,6 +381,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     flexDirection: 'row',
     alignItems: 'center',
+    zIndex: 10,
   },
   retryText: {
     color: '#fff',

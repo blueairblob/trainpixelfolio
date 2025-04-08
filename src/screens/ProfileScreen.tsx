@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
@@ -15,6 +14,7 @@ const ProfileScreen = ({ navigation }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>([]);
   
   // Form states
   const [name, setName] = useState('');
@@ -31,6 +31,7 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => {
     if (userProfile) {
       setName(userProfile.name || '');
+      setFavorites(userProfile.favorites || []);
     }
   }, [userProfile]);
 
@@ -220,7 +221,7 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.infoLabel}>Name:</Text>
               <Text style={styles.infoValue}>{userProfile?.name || 'Not Set'}</Text>
             </View>
-            {isAuthenticated && (
+            {isAuthenticated && userProfile?.email && (
               <>
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Email:</Text>
@@ -231,6 +232,12 @@ const ProfileScreen = ({ navigation }) => {
                   <Text style={styles.infoValue}>{isAdmin ? 'Administrator' : 'Standard User'}</Text>
                 </View>
               </>
+            )}
+            {isGuest && (
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Account Type:</Text>
+                <Text style={styles.infoValue}>Guest User</Text>
+              </View>
             )}
           </View>
         )}
@@ -243,7 +250,7 @@ const ProfileScreen = ({ navigation }) => {
                 <Ionicons name="cart-outline" size={64} color="#d1d5db" />
                 <Text style={styles.emptyStateTitle}>No Order History</Text>
                 <Text style={styles.emptyStateText}>
-                  Please sign in to view your orders.
+                  Please sign in to place orders and view your history.
                 </Text>
               </View>
             ) : userProfile?.orders?.length ? (
@@ -280,35 +287,37 @@ const ProfileScreen = ({ navigation }) => {
         {activeTab === 'favorites' && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Favorite Photos</Text>
-            {isGuest ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="heart-outline" size={64} color="#d1d5db" />
-                <Text style={styles.emptyStateTitle}>No Favorite Photos</Text>
-                <Text style={styles.emptyStateText}>
-                  Please sign in to save and view your favorite photos.
+            {userProfile?.favorites?.length ? (
+              <View>
+                <Text style={styles.favoritesCount}>
+                  {userProfile.favorites.length} {userProfile.favorites.length === 1 ? 'photo' : 'photos'} saved
                 </Text>
+                {userProfile.favorites.map((favoriteId, index) => (
+                  <View key={index} style={styles.favoriteCard}>
+                    <View style={styles.favoritePreview}>
+                      {/* Placeholder for photo preview */}
+                      <View style={styles.favoritePlaceholder}>
+                        <Ionicons name="image-outline" size={24} color="#d1d5db" />
+                      </View>
+                    </View>
+                    <View style={styles.favoriteDetails}>
+                      <Text style={styles.favoriteName}>Photo {favoriteId}</Text>
+                      <Text style={styles.favoriteCategory}>Saved {isGuest ? 'locally' : 'to your account'}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.favoriteAction}>
+                      <Ionicons name="heart" size={24} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </View>
-            ) : userProfile?.favorites?.length ? (
-              userProfile.favorites.map((favorite, index) => (
-                <View key={index} style={styles.favoriteCard}>
-                  <View style={styles.favoritePreview}>
-                    {/* Add photo preview image here */}
-                  </View>
-                  <View style={styles.favoriteDetails}>
-                    <Text style={styles.favoriteName}>{favorite.name}</Text>
-                    <Text style={styles.favoriteCategory}>{favorite.category}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.favoriteAction}>
-                    <Ionicons name="heart" size={24} color="#ef4444" />
-                  </TouchableOpacity>
-                </View>
-              ))
             ) : (
               <View style={styles.emptyState}>
                 <Ionicons name="heart-outline" size={64} color="#d1d5db" />
                 <Text style={styles.emptyStateTitle}>No favorites yet</Text>
                 <Text style={styles.emptyStateText}>
-                  Photos you mark as favorites will appear here.
+                  {isGuest 
+                    ? "As a guest, photos you mark as favorites will be saved locally on this device."
+                    : "Photos you mark as favorites will appear here."}
                 </Text>
               </View>
             )}
@@ -717,6 +726,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1f2937',
   },
+  favoritesCount: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
   favoriteCard: {
     flexDirection: 'row',
     borderWidth: 1,
@@ -732,6 +746,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#f3f4f6',
     marginRight: 12,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  favoritePlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
   },
   favoriteDetails: {
     flex: 1,

@@ -4,6 +4,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type AuthContextType = {
   user: User | null;
@@ -21,6 +22,9 @@ type AuthContextType = {
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  addFavorite: (photoId: string) => Promise<void>;
+  removeFavorite: (photoId: string) => Promise<void>;
+  getFavorites: () => Promise<string[]>;
 };
 
 export type UserProfile = {
@@ -29,9 +33,12 @@ export type UserProfile = {
   avatar_url: string | null;
   created_at: string | null;
   updated_at: string | null;
+  email?: string | null;
   orders: any[];
-  favorites: any[];
+  favorites: string[];
 };
+
+const GUEST_FAVORITES_KEY = 'guest_favorites';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -48,7 +55,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .schema('public')
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -62,7 +68,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Check if user is admin
       const { data: roleData, error: roleError } = await supabase
-        .schema('public')
         .rpc('is_admin', { user_id: userId });
 
       if (roleError) throw roleError;
@@ -71,6 +76,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     } catch (error: any) {
       console.error('Error fetching user profile:', error);
+    }
+  };
+
+  // Load guest favorites from AsyncStorage
+  const loadGuestFavorites = async () => {
+    try {
+      const favoritesJson = await AsyncStorage.getItem(GUEST_FAVORITES_KEY);
+      return favoritesJson ? JSON.parse(favoritesJson) : [];
+    } catch (error) {
+      console.error('Error loading guest favorites:', error);
+      return [];
     }
   };
 
@@ -108,6 +124,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(false);
     });
 
+    // Check if guest mode was previously enabled
+    AsyncStorage.getItem('guestMode').then((value) => {
+      if (value === 'true' && !isAuthenticated) {
+        enableGuestMode();
+      }
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -124,6 +147,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Disable guest mode when user logs in
       setIsGuest(false);
+      await AsyncStorage.removeItem('guestMode');
       
       return data;
     } catch (error: any) {
@@ -151,6 +175,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Disable guest mode when user registers
       setIsGuest(false);
+      await AsyncStorage.removeItem('guestMode');
 
       // If email confirmation is required
       if (data?.user && !data.user.confirmed_at) {
@@ -169,16 +194,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const updateProfile = async (profileData: Partial<UserProfile>) => {
-    if (!user) {
+    if (!user && !isGuest) {
       Alert.alert("Error", "You must be logged in to update your profile");
       return;
     }
 
     try {
+      if (isGuest) {
+        // Update local guest profile
+        setUserProfile(prev => prev ? { ...prev, ...profileData } : null);
+        Alert.alert("Success", "Profile updated successfully");
+        return;
+      }
+
+      // Update authenticated user profile in Supabase
+      // Use type assertion to make TypeScript happy with our schema
       const { error } = await supabase
         .from('profiles')
-        .update(profileData)
-        .eq('id', user.id);
+        .update(profileData as any)
+        .eq('id', user!.id as any);
       
       if (error) throw error;
 
@@ -238,6 +272,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Reset guest mode when logging out
       setIsGuest(false);
+      await AsyncStorage.removeItem('guestMode');
     } catch (error: any) {
       console.error('Error during logout:', error);
       Alert.alert("Logout Error", error.message);
@@ -245,9 +280,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
   
-  const enableGuestMode = () => {
+  const enableGuestMode = async () => {
     setIsGuest(true);
     console.log("Guest mode enabled");
+    
+    // Save guest mode state
+    await AsyncStorage.setItem('guestMode', 'true');
+    
+    // Load any previously stored favorites
+    const guestFavorites = await loadGuestFavorites();
     
     // Create a guest user profile with limited access
     setUserProfile({
@@ -257,14 +298,108 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       created_at: null,
       updated_at: null,
       orders: [],
-      favorites: []
+      favorites: guestFavorites
     });
   };
   
-  const disableGuestMode = () => {
+  const disableGuestMode = async () => {
     setIsGuest(false);
     setUserProfile(null);
     console.log("Guest mode disabled");
+    
+    // Clear guest mode state
+    await AsyncStorage.removeItem('guestMode');
+  };
+
+  // Add a photo to favorites
+  const addFavorite = async (photoId: string) => {
+    try {
+      if (isGuest) {
+        // Handle guest favorites with AsyncStorage
+        const favorites = await loadGuestFavorites();
+        if (!favorites.includes(photoId)) {
+          const updatedFavorites = [...favorites, photoId];
+          await AsyncStorage.setItem(GUEST_FAVORITES_KEY, JSON.stringify(updatedFavorites));
+          
+          // Update local state
+          setUserProfile(prev => 
+            prev ? { ...prev, favorites: updatedFavorites } : null
+          );
+        }
+        return;
+      }
+      
+      if (!user) {
+        Alert.alert("Error", "You must be logged in to add favorites");
+        return;
+      }
+      
+      // Handle authenticated user favorites in database
+      // Implementation depends on your database schema
+      // This is a placeholder - you'll need to implement based on your DB structure
+      
+      // Refresh profile after adding favorite
+      await refreshProfile();
+      
+    } catch (error: any) {
+      console.error('Error adding favorite:', error);
+      Alert.alert("Error", "Failed to add to favorites");
+      throw error;
+    }
+  };
+  
+  // Remove a photo from favorites
+  const removeFavorite = async (photoId: string) => {
+    try {
+      if (isGuest) {
+        // Handle guest favorites with AsyncStorage
+        const favorites = await loadGuestFavorites();
+        const updatedFavorites = favorites.filter((id: string) => id !== photoId);
+        await AsyncStorage.setItem(GUEST_FAVORITES_KEY, JSON.stringify(updatedFavorites));
+        
+        // Update local state
+        setUserProfile(prev => 
+          prev ? { ...prev, favorites: updatedFavorites } : null
+        );
+        return;
+      }
+      
+      if (!user) {
+        Alert.alert("Error", "You must be logged in to remove favorites");
+        return;
+      }
+      
+      // Handle authenticated user favorites in database
+      // Implementation depends on your database schema
+      // This is a placeholder - you'll need to implement based on your DB structure
+      
+      // Refresh profile after removing favorite
+      await refreshProfile();
+      
+    } catch (error: any) {
+      console.error('Error removing favorite:', error);
+      Alert.alert("Error", "Failed to remove from favorites");
+      throw error;
+    }
+  };
+  
+  // Get user favorites
+  const getFavorites = async (): Promise<string[]> => {
+    try {
+      if (isGuest) {
+        return await loadGuestFavorites();
+      }
+      
+      if (!user || !userProfile) {
+        return [];
+      }
+      
+      return userProfile.favorites || [];
+      
+    } catch (error: any) {
+      console.error('Error getting favorites:', error);
+      return [];
+    }
   };
 
   return (
@@ -284,7 +419,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         logout,
         updateProfile,
         changePassword,
-        refreshProfile
+        refreshProfile,
+        addFavorite,
+        removeFavorite,
+        getFavorites
       }}
     >
       {children}
