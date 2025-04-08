@@ -62,7 +62,6 @@ export const getUserProfile = async () => {
 // Get user favorites
 export const getFavorites = async () => {
   try {
-<<<<<<< HEAD
     // Check if user is in guest mode
     const isGuestMode = await AsyncStorage.getItem('guestMode');
     
@@ -73,18 +72,6 @@ export const getFavorites = async () => {
     }
     
     // If not in guest mode, get authenticated user favorites
-=======
-    // Check if we're in guest mode
-    const isGuest = await AsyncStorage.getItem('guestMode') === 'true';
-    
-    if (isGuest) {
-      // Get guest favorites
-      const guestFavoritesJson = await AsyncStorage.getItem(GUEST_FAVORITES_KEY);
-      return guestFavoritesJson ? JSON.parse(guestFavoritesJson) : [];
-    }
-    
-    // For authenticated users, get from regular storage
->>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
     const favoritesJson = await AsyncStorage.getItem('favorites');
     return favoritesJson ? JSON.parse(favoritesJson) : [];
   } catch (error) {
@@ -96,15 +83,9 @@ export const getFavorites = async () => {
 // Add to favorites
 export const addToFavorites = async (photoId) => {
   try {
-<<<<<<< HEAD
     // Check if user is in guest mode
     const isGuestMode = await AsyncStorage.getItem('guestMode');
     const storageKey = isGuestMode === 'true' ? 'guest-favorites' : 'favorites';
-=======
-    // Check if we're in guest mode
-    const isGuest = await AsyncStorage.getItem('guestMode') === 'true';
-    const storageKey = isGuest ? GUEST_FAVORITES_KEY : 'favorites';
->>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
     
     const favoritesJson = await AsyncStorage.getItem(storageKey);
     const favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
@@ -124,15 +105,9 @@ export const addToFavorites = async (photoId) => {
 // Remove from favorites
 export const removeFromFavorites = async (photoId) => {
   try {
-<<<<<<< HEAD
     // Check if user is in guest mode
     const isGuestMode = await AsyncStorage.getItem('guestMode');
     const storageKey = isGuestMode === 'true' ? 'guest-favorites' : 'favorites';
-=======
-    // Check if we're in guest mode
-    const isGuest = await AsyncStorage.getItem('guestMode') === 'true';
-    const storageKey = isGuest ? GUEST_FAVORITES_KEY : 'favorites';
->>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
     
     const favoritesJson = await AsyncStorage.getItem(storageKey);
     const favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
