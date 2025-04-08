@@ -63,7 +63,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
 
       if (data) {
-        setUserProfile(data as UserProfile);
+        // Fetch favorites for the user
+        const favorites = await fetchFavorites(userId);
+
+        setUserProfile({
+          ...(data as UserProfile),
+          favorites,
+          orders: [] // Initialize with empty orders for now
+        });
       }
 
       // Check if user is admin
@@ -78,6 +85,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Error fetching user profile:', error);
     }
   };
+
+  // Fetch user favorites
+  const fetchFavorites = async (userId: string): Promise<string[]> => {
+    try {
+      // Get favorites from local storage first for quicker loading
+      const localFavorites = await AsyncStorage.getItem(`favorites-${userId}`);
+      
+      return localFavorites ? JSON.parse(localFavorites) : [];
+    } catch (error: any) {
+      console.error('Error fetching favorites:', error);
+      return [];
+    }
+  };
+
+
 
   // Load guest favorites from AsyncStorage
   const loadGuestFavorites = async () => {
@@ -132,6 +154,86 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Set up guest profile
+  const setupGuestProfile = async () => {
+    try {
+      // Get guest favorites from storage
+      const guestFavoritesJson = await AsyncStorage.getItem('guest-favorites');
+      const favorites = guestFavoritesJson ? JSON.parse(guestFavoritesJson) : [];
+
+      // Create a guest profile
+      const guestProfile: UserProfile = {
+        id: 'guest',
+        name: 'Guest User',
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        favorites,
+        orders: []
+      };
+
+      setUserProfile(guestProfile);
+      setIsGuest(true);
+      setIsAuthenticated(true);
+      setIsAdmin(false);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error setting up guest profile:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Check if user is in guest mode
+    const checkGuestMode = async () => {
+      const isGuestMode = await AsyncStorage.getItem('guestMode');
+      if (isGuestMode === 'true') {
+        await setupGuestProfile();
+        return true;
+      }
+      return false;
+    };
+
+    const initAuth = async () => {
+      // First check if user is in guest mode
+      const guestMode = await checkGuestMode();
+      if (guestMode) return;
+      
+      // Set up auth state listener FIRST
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, currentSession) => {
+          console.log("Auth state changed:", event);
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          setIsAuthenticated(!!currentSession);
+
+          if (currentSession?.user) {
+            fetchUserProfile(currentSession.user.id);
+          } else {
+            setUserProfile(null);
+            setIsAdmin(false);
+          }
+        }
+      );
+
+      // THEN check for existing session
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      console.log("Initial session check:", !!currentSession);
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setIsAuthenticated(!!currentSession);
+
+      if (currentSession?.user) {
+        await fetchUserProfile(currentSession.user.id);
+      }
+
+      setIsLoading(false);
+
+      return () => subscription.unsubscribe();
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {

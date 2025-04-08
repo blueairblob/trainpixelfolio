@@ -78,7 +78,7 @@ const ProfileScreen = ({ navigation }) => {
     if (isGuest) {
       disableGuestMode();
     }
-    navigation.navigate('Auth');
+    navigation.navigate('AuthScreen');
   };
 
   // If not authenticated and not in guest mode, show login/guest options

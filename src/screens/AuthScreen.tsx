@@ -3,14 +3,15 @@ import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, 
   TouchableOpacity, Image, Alert, KeyboardAvoidingView, 
-  Platform, ScrollView, ActivityIndicator 
+  Platform, ScrollView, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
-const AuthScreen = () => {
+
+const AuthScreen = ({ navigation }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +20,7 @@ const AuthScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login, register, enterGuestMode } = useAuth();
+  const { login, register, enableGuestMode } = useAuth();
   
   const handleAuth = async () => {
     if (!email || !password) {
@@ -41,7 +42,14 @@ const AuthScreen = () => {
     
     try {
       if (isLogin) {
-        await login(email, password);
+        const result = await login(email, password);
+        if (result) {
+          // Navigate to the main app flow after successful login
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        }
       } else {
         await register(name, email, password);
         // Registration was successful, but might require email verification
