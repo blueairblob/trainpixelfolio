@@ -14,10 +14,6 @@ const ProfileScreen = ({ navigation }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-<<<<<<< HEAD
-=======
-  const [favorites, setFavorites] = useState<string[]>([]);
->>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
   
   // Form states
   const [name, setName] = useState('');
@@ -34,10 +30,6 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => {
     if (userProfile) {
       setName(userProfile.name || '');
-<<<<<<< HEAD
-=======
-      setFavorites(userProfile.favorites || []);
->>>>>>> 431124e9425235e7b95ba64af9a8d24be2c4e09e
     }
   }, [userProfile]);
 
