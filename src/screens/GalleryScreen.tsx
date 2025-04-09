@@ -249,7 +249,7 @@ const GalleryScreen = ({ navigation, route }) => {
 
   // Handle photo press
   const handlePhotoPress = useCallback((id: string) => {
-    navigation.navigate('PhotoDetail', { id });
+    navigation.navigate('PhotoDetailScreen', { id });
   }, [navigation]);
 
   // Handle end reached (for pagination)

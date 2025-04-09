@@ -69,7 +69,12 @@ const AuthScreen = ({ navigation }) => {
   const handleGuestLogin = async () => {
     setIsLoading(true);
     try {
-      await enterGuestMode();
+      await enableGuestMode();
+      // Navigate to the main app flow after successful login
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
     } catch (error: any) {
       Alert.alert("Error", "Failed to enter guest mode. Please try again.");
     } finally {
