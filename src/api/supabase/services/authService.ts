@@ -1,6 +1,12 @@
 // src/api/supabase/services/authService.ts
 import { supabaseClient } from '../client';
-import { AuthResponse, ApiResponse, UserProfile } from '../types';
+import { 
+  AuthResponse, 
+  ApiResponse, 
+  UserProfile,
+  UserProfileInsert,
+  UserProfileUpdate 
+} from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GUEST_MODE_KEY = 'guestMode';
@@ -65,13 +71,15 @@ export const authService = {
       // we need to create a profile for the user
       if (data.user && !data.session) {
         // Create profile in the profiles table
+        const profileData: UserProfileInsert = {
+          id: data.user.id,
+          name,
+          email
+        };
+
         const { error: profileError } = await supabaseClient
           .from('profiles')
-          .insert({
-            id: data.user.id,
-            name,
-            email
-          });
+          .insert(profileData);
 
         if (profileError) {
           console.error('Error creating profile:', profileError);
@@ -194,7 +202,7 @@ export const authService = {
   /**
    * Update user profile in database
    */
-  updateUserProfile: async (userId: string, updates: Partial<UserProfile>): Promise<ApiResponse<null>> => {
+  updateUserProfile: async (userId: string, updates: UserProfileUpdate): Promise<ApiResponse<null>> => {
     try {
       const { error, status } = await supabaseClient
         .from('profiles')

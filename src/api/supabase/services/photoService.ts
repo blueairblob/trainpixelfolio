@@ -1,6 +1,12 @@
 // src/api/supabase/services/photoService.ts
 import { supabaseClient } from '../client';
-import { ApiResponse, Photo, PhotoFilter, PaginationOptions, CacheOptions } from '../types';
+import { 
+  ApiResponse, 
+  Photo, 
+  PhotoFilter, 
+  PaginationOptions, 
+  CacheOptions 
+} from '../types';
 import { getCachedApiData, cacheApiData } from '@/utils/imageCache';
 
 /**

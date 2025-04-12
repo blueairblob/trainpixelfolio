@@ -1,3 +1,4 @@
+// src/services/userService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GUEST_FAVORITES_KEY = 'guest_favorites';

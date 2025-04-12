@@ -8,8 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-
+import { authService } from '@/api/supabase';
 
 const AuthScreen = ({ navigation }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -42,17 +41,15 @@ const AuthScreen = ({ navigation }) => {
     
     try {
       if (isLogin) {
-        const result = await login(email, password);
-        if (result) {
-          // Navigate to the main app flow after successful login
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Main' }],
-          });
-        }
+        await login(email, password);
+        // Navigate to the main app flow after successful login
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Main' }],
+        });
       } else {
         await register(name, email, password);
-        // Registration was successful, but might require email verification
+        // Registration was successful, might require email verification
         Alert.alert(
           "Registration Successful", 
           "Your account has been created. You may need to verify your email before logging in."
@@ -60,7 +57,8 @@ const AuthScreen = ({ navigation }) => {
         setIsLogin(true);
       }
     } catch (error: any) {
-      Alert.alert("Authentication Error", error.message);
+      // Error handling is done within the login/register functions
+      // No need for additional alert here
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +92,7 @@ const AuthScreen = ({ navigation }) => {
     
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await authService.resetPassword(email);
       
       if (error) throw error;
       
@@ -273,7 +271,6 @@ const AuthScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  // ... keep existing code
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',

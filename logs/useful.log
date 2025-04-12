@@ -56,7 +56,7 @@ done > ./logs/all_code.out
 
 git:  
 
-git add .; git commit -m "11. Search fixes. Added count and Search from Home screen"; git push origin main
+git add .; git commit -m "14 Favourites update"; git push origin main
 
 
 -- 
@@ -72,3 +72,76 @@ alter role authenticated set statement_timeout = '1min';
 
 
 NOTIFY pgrst, 'reload config';
+
+Can we put a search record count on the GalleryScreen. Can we improve and expand the filters on the filter screen  as they do not seem to work. On the Profile can we update and provide a Edit Profile  screen. Update Notification Settings.  
+Update and provide for a supabase derived Orders and Favourites data for the Orders and Favourites tab.de
+
+
+# Generating Supabase Types
+
+To keep your TypeScript types in sync with your Supabase database schema, follow these steps:
+
+## Prerequisites
+
+1. Install the Supabase CLI:
+```bash
+npm install -g supabase
+```
+
+2. Log in to your Supabase account:
+```bash
+supabase login
+```
+
+## Generating Types
+
+1. Generate the TypeScript types for your database schema:
+```bash
+supabase gen types typescript --project-id tvucfqzldbcghtxddtmq --schema dev,public > database.types.ts
+```
+
+Replace `tvucfqzldbcghtxddtmq` with your actual Supabase project ID.
+
+2. Alternatively, if you have linked your project locally, you can simply run:
+```bash
+supabase gen types typescript --local > src/types/supabase.ts
+```
+
+## Automating Type Generation
+
+You can add this as a script in your `package.json`:
+
+```json
+"scripts": {
+  "update-types": "supabase gen types typescript --project-id tvucfqzldbcghtxddtmq > src/types/supabase.ts"
+}
+```
+
+Then run it whenever you update your database schema:
+
+```bash
+npm run update-types
+```
+
+## Using the Generated Types
+
+Now you can import the types from your Supabase client:
+
+```typescript
+import { Database } from '@/types/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+```
+
+And use them in your application for type-safe database access.
+
+## Keeping Types Updated
+
+It's important to regenerate the types whenever:
+
+1. You add or modify tables in your database
+2. You change column types or constraints
+3. You add new views or functions
+
+This ensures your TypeScript code remains type-safe as your database schema evolves.
