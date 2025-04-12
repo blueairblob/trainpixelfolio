@@ -1,5 +1,5 @@
 
-// AuthContext.tsx
+// src/context/AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
@@ -25,6 +25,7 @@ type AuthContextType = {
   addFavorite: (photoId: string) => Promise<void>;
   removeFavorite: (photoId: string) => Promise<void>;
   getFavorites: () => Promise<string[]>;
+  isFavorite: (photoId: string) => boolean;
 };
 
 export type UserProfile = {
@@ -39,6 +40,7 @@ export type UserProfile = {
 };
 
 const GUEST_FAVORITES_KEY = 'guest_favorites';
+const USER_FAVORITES_PREFIX = 'user_favorites_';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -89,8 +91,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Fetch user favorites
   const fetchFavorites = async (userId: string): Promise<string[]> => {
     try {
-      // Get favorites from local storage first for quicker loading
-      const localFavorites = await AsyncStorage.getItem(`favorites-${userId}`);
+      // Get favorites from local storage for quicker loading
+      const localFavorites = await AsyncStorage.getItem(`${USER_FAVORITES_PREFIX}${userId}`);
+      
+      // In a real app, you'd synchronize with the database here
+      // const { data, error } = await supabase
+      //   .from('favorites')
+      //   .select('photo_id')
+      //   .eq('user_id', userId);
+      
+      // if (error) throw error;
+      
+      // const favoriteIds = data?.map(item => item.photo_id) || [];
+      
+      // // Update local cache for next time
+      // await AsyncStorage.setItem(`${USER_FAVORITES_PREFIX}${userId}`, JSON.stringify(favoriteIds));
+      
+      // return favoriteIds;
       
       return localFavorites ? JSON.parse(localFavorites) : [];
     } catch (error: any) {
@@ -156,33 +173,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Set up guest profile
-  const setupGuestProfile = async () => {
-    try {
-      // Get guest favorites from storage
-      const guestFavoritesJson = await AsyncStorage.getItem('guest-favorites');
-      const favorites = guestFavoritesJson ? JSON.parse(guestFavoritesJson) : [];
 
-      // Create a guest profile
-      const guestProfile: UserProfile = {
-        id: 'guest',
-        name: 'Guest User',
-        avatar_url: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        favorites,
-        orders: []
-      };
-
-      setUserProfile(guestProfile);
-      setIsGuest(true);
-      setIsAuthenticated(true);
-      setIsAdmin(false);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error setting up guest profile:', error);
-    }
-  };
 
   useEffect(() => {
     // Check if user is in guest mode
@@ -195,21 +186,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return false;
     };
 
+    // Initial auth setup
     const initAuth = async () => {
       // First check if user is in guest mode
       const guestMode = await checkGuestMode();
       if (guestMode) return;
       
-      // Set up auth state listener FIRST
+      // Set up auth state listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        (event, currentSession) => {
+        async (event, currentSession) => {
           console.log("Auth state changed:", event);
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
           setIsAuthenticated(!!currentSession);
 
           if (currentSession?.user) {
-            fetchUserProfile(currentSession.user.id);
+            await fetchUserProfile(currentSession.user.id);
+            // If user logs in, disable guest mode
+            setIsGuest(false);
           } else {
             setUserProfile(null);
             setIsAdmin(false);
@@ -217,8 +211,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       );
 
-      // THEN check for existing session
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      // Check for existing session
+      const { data } = await supabase.auth.getSession();
+      const currentSession = data.session;
+
       console.log("Initial session check:", !!currentSession);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
@@ -226,15 +222,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (currentSession?.user) {
         await fetchUserProfile(currentSession.user.id);
+      } else {
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
 
       return () => subscription.unsubscribe();
     };
 
     initAuth();
   }, []);
+
+  // Set up guest profile
+  const setupGuestProfile = async () => {
+    try {
+      // Get guest favorites from storage
+      const guestFavorites = await loadGuestFavorites();
+
+      // Create a guest profile
+      const guestProfile: UserProfile = {
+        id: 'guest',
+        name: 'Guest User',
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        favorites: guestFavorites,
+        orders: []
+      };
+
+      setUserProfile(guestProfile);
+      setIsGuest(true);
+      setIsAuthenticated(true);
+      setIsAdmin(false);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error setting up guest profile:', error);
+    }
+  };
 
   const login = async (email: string, password: string) => {
     try {
@@ -401,11 +424,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       orders: [],
       favorites: guestFavorites
     });
+
+    setIsAuthenticated(true);
+    setIsLoading(false);
   };
   
   const disableGuestMode = async () => {
     setIsGuest(false);
     setUserProfile(null);
+    setIsAuthenticated(false);
     console.log("Guest mode disabled");
     
     // Clear guest mode state
@@ -435,13 +462,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       
-      // Handle authenticated user favorites in database
-      // Implementation depends on your database schema
-      // This is a placeholder - you'll need to implement based on your DB structure
-      
-      // Refresh profile after adding favorite
-      await refreshProfile();
-      
+      // For authenticated users
+      const favorites = userProfile?.favorites || [];
+      if (!favorites.includes(photoId)) {
+        const updatedFavorites = [...favorites, photoId];
+        
+        // In a real app, you'd save to the database here
+        // const { error } = await supabase
+        //   .from('favorites')
+        //   .insert({ user_id: user.id, photo_id: photoId });
+        // if (error) throw error;
+        
+        // For now, just update local storage
+        await AsyncStorage.setItem(
+          `${USER_FAVORITES_PREFIX}${user.id}`, 
+          JSON.stringify(updatedFavorites)
+        );
+        
+        // Update local state
+        setUserProfile(prev => 
+          prev ? { ...prev, favorites: updatedFavorites } : null
+        );
+      }
     } catch (error: any) {
       console.error('Error adding favorite:', error);
       Alert.alert("Error", "Failed to add to favorites");
@@ -470,12 +512,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       
-      // Handle authenticated user favorites in database
-      // Implementation depends on your database schema
-      // This is a placeholder - you'll need to implement based on your DB structure
+      // For authenticated users
+      const favorites = userProfile?.favorites || [];
+      const updatedFavorites = favorites.filter(id => id !== photoId);
       
-      // Refresh profile after removing favorite
-      await refreshProfile();
+      // In a real app, you'd remove from the database here
+      // const { error } = await supabase
+      //   .from('favorites')
+      //   .delete()
+      //   .eq('user_id', user.id)
+      //   .eq('photo_id', photoId);
+      // if (error) throw error;
+      
+      // For now, just update local storage
+      await AsyncStorage.setItem(
+        `${USER_FAVORITES_PREFIX}${user.id}`, 
+        JSON.stringify(updatedFavorites)
+      );
+      
+      // Update local state
+      setUserProfile(prev => 
+        prev ? { ...prev, favorites: updatedFavorites } : null
+      );
       
     } catch (error: any) {
       console.error('Error removing favorite:', error);
@@ -503,6 +561,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Check if a photo is in favorites
+  const isFavorite = (photoId: string): boolean => {
+    if (!userProfile) return false;
+    return userProfile.favorites.includes(photoId);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -523,7 +587,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         refreshProfile,
         addFavorite,
         removeFavorite,
-        getFavorites
+        getFavorites,
+        isFavorite
       }}
     >
       {children}

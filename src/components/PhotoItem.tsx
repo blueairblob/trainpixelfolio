@@ -1,9 +1,9 @@
 // src/components/PhotoItem.tsx
-import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface Photo {
   id: string;
@@ -22,19 +22,17 @@ interface PhotoItemProps {
   onPress: (id: string) => void;
 }
 
-const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
+const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const { userProfile, isGuest, addFavorite, removeFavorite } = useAuth();
+  const { addFavorite, removeFavorite, isFavorite } = useAuth();
+  const [isFavoriteState, setIsFavoriteState] = useState(false);
 
   // Check if photo is in favorites
-  React.useEffect(() => {
-    if (userProfile && userProfile.favorites) {
-      setIsFavorite(userProfile.favorites.includes(photo.id));
-    }
-  }, [userProfile, photo.id]);
+  useEffect(() => {
+    setIsFavoriteState(isFavorite(photo.id));
+  }, [photo.id, isFavorite]);
 
   // Memoize the onPress handler to prevent unnecessary re-renders
   const handlePress = useCallback(() => {
@@ -48,19 +46,22 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
   }, []);
 
   // Handle favorite toggle
-  const handleFavoriteToggle = useCallback(async () => {
+  const handleFavoriteToggle = useCallback(async (e) => {
+    e.stopPropagation(); // Prevent triggering the parent onPress
+    
     try {
-      if (isFavorite) {
+      if (isFavoriteState) {
         await removeFavorite(photo.id);
-        setIsFavorite(false);
+        setIsFavoriteState(false);
       } else {
         await addFavorite(photo.id);
-        setIsFavorite(true);
+        setIsFavoriteState(true);
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
+      Alert.alert('Error', 'Could not update favorites');
     }
-  }, [isFavorite, photo.id, addFavorite, removeFavorite]);
+  }, [isFavoriteState, photo.id, addFavorite, removeFavorite]);
 
   // Generate a placeholder blurhash-like color based on the photo id
   const placeholderColor = `#${(parseInt(photo.id.replace(/\D/g, ''), 10) % 0xffffff).toString(16).padStart(6, '0')}`;
@@ -97,6 +98,18 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
           setHasError(true);
         }}
       />
+      
+      {/* Favorite button overlay */}
+      <TouchableOpacity 
+        style={styles.favoriteOverlay}
+        onPress={handleFavoriteToggle}
+      >
+        <Ionicons 
+          name={isFavoriteState ? "heart" : "heart-outline"} 
+          size={viewMode === 'grid' ? 18 : 22} 
+          color={isFavoriteState ? "#ef4444" : "#ffffff"} 
+        />
+      </TouchableOpacity>
     </View>
   );
 
@@ -127,9 +140,21 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
           <Text style={styles.compactPhotographer}>{photo.photographer}</Text>
           <View style={styles.compactFooter}>
             <Text style={styles.compactPrice}>${photo.price.toFixed(2)}</Text>
-            <TouchableOpacity style={styles.compactButton} activeOpacity={0.6}>
-              <Ionicons name="add-circle-outline" size={20} color="#4f46e5" />
-            </TouchableOpacity>
+            <View style={styles.compactButtonGroup}>
+              <TouchableOpacity 
+                style={styles.compactButton} 
+                onPress={handleFavoriteToggle}
+              >
+                <Ionicons 
+                  name={isFavoriteState ? "heart" : "heart-outline"} 
+                  size={20} 
+                  color={isFavoriteState ? "#ef4444" : "#4b5563"} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.compactButton} activeOpacity={0.6}>
+                <Ionicons name="add-circle-outline" size={20} color="#4f46e5" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -149,17 +174,20 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
             <Text style={styles.singlePrice}>${photo.price.toFixed(2)}</Text>
             <View style={styles.singleButtons}>
               <TouchableOpacity
-                style={styles.favoriteButton}
+                style={[styles.favoriteButton, isFavoriteState && styles.favoriteButtonActive]}
                 onPress={handleFavoriteToggle}
                 activeOpacity={0.7}
               >
                 <Ionicons 
-                  name={isFavorite ? "heart" : "heart-outline"} 
+                  name={isFavoriteState ? "heart" : "heart-outline"} 
                   size={16} 
-                  color={isFavorite ? "#ef4444" : "#4b5563"} 
+                  color={isFavoriteState ? "#ef4444" : "#4b5563"} 
                 />
-                <Text style={styles.favoriteButtonText}>
-                  {isFavorite ? "Saved" : "Save"}
+                <Text style={[
+                  styles.favoriteButtonText,
+                  isFavoriteState && styles.favoriteButtonTextActive
+                ]}>
+                  {isFavoriteState ? "Saved" : "Save"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -185,7 +213,6 @@ const PhotoItem = ({ photo, viewMode, onPress }: PhotoItemProps) => {
 };
 
 const styles = StyleSheet.create({
-  // Existing styles...
   gridItem: {
     flex: 1,
     margin: 4,
@@ -263,8 +290,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#4f46e5',
   },
+  compactButtonGroup: {
+    flexDirection: 'row',
+  },
   compactButton: {
     padding: 4,
+    marginLeft: 8,
   },
   singleItem: {
     backgroundColor: '#ffffff',
@@ -331,11 +362,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     marginRight: 8,
   },
+  favoriteButtonActive: {
+    backgroundColor: '#fef2f2',
+  },
   favoriteButtonText: {
     fontSize: 14,
     color: '#4b5563',
     fontWeight: '600',
     marginLeft: 4,
+  },
+  favoriteButtonTextActive: {
+    color: '#ef4444',
   },
   detailButton: {
     paddingVertical: 8,
@@ -392,6 +429,19 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     backgroundColor: '#f0f0f0',
   },
+  // Favorite overlay for grid and compact views
+  favoriteOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 20,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
 });
 
-export default React.memo(PhotoItem); // Add memo to prevent unnecessary re-renders
+export default PhotoItem;

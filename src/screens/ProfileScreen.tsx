@@ -1,3 +1,4 @@
+// src/screens/ProfileScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
@@ -5,11 +6,21 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import FavoritesTab from '@/components/FavoritesTab'; // Import the FavoritesTab component
 
 const ProfileScreen = ({ navigation }) => {
-  const { isAuthenticated, userProfile, isAdmin, logout, isGuest, enableGuestMode, disableGuestMode } = useAuth();
+  const { 
+    isAuthenticated, 
+    userProfile, 
+    isAdmin, 
+    logout, 
+    isGuest, 
+    enableGuestMode, 
+    disableGuestMode 
+  } = useAuth();
+  
   const [activeTab, setActiveTab] = useState('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -30,6 +41,7 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => {
     if (userProfile) {
       setName(userProfile.name || '');
+      setEmail(userProfile.email || '');
     }
   }, [userProfile]);
 
@@ -116,102 +128,107 @@ const ProfileScreen = ({ navigation }) => {
   // Render profile for authenticated or guest users
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        <View style={styles.header}>
-          <Image
-            source={
-              userProfile?.avatar_url 
-                ? { uri: userProfile.avatar_url } 
-                : require('../../assets/icon.png')
-            }
-            style={styles.avatar}
-          />
-          <Text style={styles.userName}>{userProfile?.name || 'User'}</Text>
-          {isGuest && (
-            <View style={styles.guestBadge}>
-              <Text style={styles.guestBadgeText}>Guest Mode</Text>
-            </View>
-          )}
-          
-          {isAuthenticated && (
-            <Text style={styles.memberSince}>
-              Member since {userProfile?.created_at 
-                ? new Date(userProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
-                : 'Recently'}
-            </Text>
-          )}
-          
-          {isAdmin && (
-            <View style={styles.adminBadge}>
-              <Text style={styles.adminBadgeText}>Admin</Text>
-            </View>
-          )}
-          
-          {isAuthenticated && (
-            <TouchableOpacity 
-              style={styles.logoutButton} 
-              onPress={handleLogout}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.logoutButtonText}>Logout</Text>
-              )}
-            </TouchableOpacity>
-          )}
-          
-          {isGuest && (
-            <TouchableOpacity 
-              style={styles.signInButton} 
-              onPress={handleSignIn}
-            >
-              <Text style={styles.signInButtonText}>Sign In</Text>
-            </TouchableOpacity>
-          )}
-          
-          {isAdmin && isAuthenticated && (
-            <TouchableOpacity 
-              style={styles.adminButton} 
-              onPress={handleAdminAccess}
-            >
-              <Text style={styles.adminButtonText}>Admin Dashboard</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+      <View style={styles.header}>
+        <Image
+          source={
+            userProfile?.avatar_url 
+              ? { uri: userProfile.avatar_url } 
+              : require('../../assets/icon.png')
+          }
+          style={styles.avatar}
+        />
+        <Text style={styles.userName}>{userProfile?.name || 'User'}</Text>
+        {isGuest && (
+          <View style={styles.guestBadge}>
+            <Text style={styles.guestBadgeText}>Guest Mode</Text>
+          </View>
+        )}
+        
+        {isAuthenticated && !isGuest && (
+          <Text style={styles.memberSince}>
+            Member since {userProfile?.created_at 
+              ? new Date(userProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
+              : 'Recently'}
+          </Text>
+        )}
+        
+        {isAdmin && (
+          <View style={styles.adminBadge}>
+            <Text style={styles.adminBadgeText}>Admin</Text>
+          </View>
+        )}
+        
+        {isAuthenticated && !isGuest && (
+          <TouchableOpacity 
+            style={styles.logoutButton} 
+            onPress={handleLogout}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            )}
+          </TouchableOpacity>
+        )}
+        
+        {isGuest && (
+          <TouchableOpacity 
+            style={styles.signInButton} 
+            onPress={handleSignIn}
+          >
+            <Text style={styles.signInButtonText}>Sign In</Text>
+          </TouchableOpacity>
+        )}
+        
+        {isAdmin && isAuthenticated && !isGuest && (
+          <TouchableOpacity 
+            style={styles.adminButton} 
+            onPress={handleAdminAccess}
+          >
+            <Text style={styles.adminButtonText}>Admin Dashboard</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
-        <View style={styles.tabContainer}>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'info' && styles.activeTab]} 
+          onPress={() => setActiveTab('info')}
+        >
+          <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Profile Info</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'orders' && styles.activeTab]} 
+          onPress={() => setActiveTab('orders')}
+        >
+          <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>Orders</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'favorites' && styles.activeTab]} 
+          onPress={() => setActiveTab('favorites')}
+        >
+          <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
+        </TouchableOpacity>
+        
+        {isAuthenticated && !isGuest && (
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'info' && styles.activeTab]} 
-            onPress={() => setActiveTab('info')}
+            style={[styles.tab, activeTab === 'settings' && styles.activeTab]} 
+            onPress={() => setActiveTab('settings')}
           >
-            <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Profile Info</Text>
+            <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>Settings</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'orders' && styles.activeTab]} 
-            onPress={() => setActiveTab('orders')}
-          >
-            <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>Orders</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'favorites' && styles.activeTab]} 
-            onPress={() => setActiveTab('favorites')}
-          >
-            <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
-          </TouchableOpacity>
-          
-          {isAuthenticated && (
-            <TouchableOpacity 
-              style={[styles.tab, activeTab === 'settings' && styles.activeTab]} 
-              onPress={() => setActiveTab('settings')}
-            >
-              <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>Settings</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        )}
+      </View>
 
+      {/* Content area based on selected tab */}
+      <ScrollView contentContainerStyle={
+        activeTab === 'favorites' 
+          ? styles.scrollContentFavorites 
+          : styles.scrollContent
+      }>
         {activeTab === 'info' && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -219,7 +236,7 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.infoLabel}>Name:</Text>
               <Text style={styles.infoValue}>{userProfile?.name || 'Not Set'}</Text>
             </View>
-            {isAuthenticated && (
+            {isAuthenticated && !isGuest && (
               <>
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Email:</Text>
@@ -277,44 +294,12 @@ const ProfileScreen = ({ navigation }) => {
         )}
 
         {activeTab === 'favorites' && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Favorite Photos</Text>
-            {isGuest ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="heart-outline" size={64} color="#d1d5db" />
-                <Text style={styles.emptyStateTitle}>No Favorite Photos</Text>
-                <Text style={styles.emptyStateText}>
-                  Please sign in to save and view your favorite photos.
-                </Text>
-              </View>
-            ) : userProfile?.favorites?.length ? (
-              userProfile.favorites.map((favorite, index) => (
-                <View key={index} style={styles.favoriteCard}>
-                  <View style={styles.favoritePreview}>
-                    {/* Add photo preview image here */}
-                  </View>
-                  <View style={styles.favoriteDetails}>
-                    <Text style={styles.favoriteName}>{favorite.name}</Text>
-                    <Text style={styles.favoriteCategory}>{favorite.category}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.favoriteAction}>
-                    <Ionicons name="heart" size={24} color="#ef4444" />
-                  </TouchableOpacity>
-                </View>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="heart-outline" size={64} color="#d1d5db" />
-                <Text style={styles.emptyStateTitle}>No favorites yet</Text>
-                <Text style={styles.emptyStateText}>
-                  Photos you mark as favorites will appear here.
-                </Text>
-              </View>
-            )}
+          <View style={[styles.sectionContainer, styles.favoritesContainer]}>
+            <FavoritesTab navigation={navigation} />
           </View>
         )}
 
-        {activeTab === 'settings' && isAuthenticated && (
+        {activeTab === 'settings' && isAuthenticated && !isGuest && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Account Settings</Text>
             
@@ -631,6 +616,12 @@ const styles = StyleSheet.create({
     color: '#4f46e5',
     fontWeight: '600',
   },
+  scrollContent: {
+    paddingBottom: 24,
+  },
+  scrollContentFavorites: {
+    flexGrow: 1,
+  },
   sectionContainer: {
     padding: 16,
     backgroundColor: 'white',
@@ -642,6 +633,14 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
     marginHorizontal: 16,
+  },
+  favoritesContainer: {
+    flex: 1,
+    padding: 0,
+    margin: 0,
+    borderRadius: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   sectionTitle: {
     fontSize: 18,
@@ -715,38 +714,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     color: '#1f2937',
-  },
-  favoriteCard: {
-    flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  favoritePreview: {
-    width: 60,
-    height: 60,
-    borderRadius: 4,
-    backgroundColor: '#f3f4f6',
-    marginRight: 12,
-  },
-  favoriteDetails: {
-    flex: 1,
-  },
-  favoriteName: {
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  favoriteCategory: {
-    color: '#6b7280',
-    fontSize: 12,
-  },
-  favoriteAction: {
-    padding: 8,
   },
   emptyState: {
     alignItems: 'center',

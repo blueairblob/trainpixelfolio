@@ -1,22 +1,32 @@
 // src/screens/PhotoDetailScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView,   TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  View, Text, StyleSheet, Image, ScrollView,
+  TouchableOpacity, ActivityIndicator, Alert 
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { addToCart } from '@/services/cartService';
-import { fetchPhotoById, getImageUrl, CatalogPhoto } from '../services/catalogService';
-import { addToFavorites, removeFromFavorites } from '@/services/userService';
+import { fetchPhotoById, getImageUrl, CatalogPhoto } from '@/services/catalogService';
 import { useAuth } from '@/context/AuthContext';
 
-const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any }) => {
+const PhotoDetailScreen = ({ route, navigation }) => {
   const { id } = route.params;
-  const [photo, setPhoto] = useState(null);
+  const [photo, setPhoto] = useState<CatalogPhoto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [isInCart, setIsInCart] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const { isGuest } = useAuth();
   
+  const { 
+    isGuest, 
+    addFavorite, 
+    removeFavorite, 
+    isFavorite
+  } = useAuth();
+  
+  const [isFavoriteState, setIsFavoriteState] = useState(false);
+  
+  // Load photo and check if it's in favorites
   useEffect(() => {
     const loadPhoto = async () => {
       try {
@@ -29,6 +39,9 @@ const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any
         }
         
         setPhoto(photoData);
+        
+        // Check if this photo is in favorites
+        setIsFavoriteState(isFavorite(id));
       } catch (err) {
         console.error('Error loading photo details:', err);
         setError('Failed to load photo details. Please try again later.');
@@ -38,7 +51,7 @@ const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any
     };
     
     loadPhoto();
-  }, [id]);
+  }, [id, isFavorite]);
   
   // Handle add to cart
   const handleAddToCart = async () => {
@@ -52,27 +65,31 @@ const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any
         return;
       }
       
-      await addToCart(photo);
+      if (!photo) return;
+      
+      await addToCart(id);
+      setIsInCart(true);
       Alert.alert('Success', 'Added to cart');
     } catch (err) {
       Alert.alert('Error', 'Failed to add to cart');
     }
   };
   
-
   // Handle toggle favorite
-  const handleToggleFavorite = async () => {
+  const handleToggleFavorite = useCallback(async () => {
     try {
-      if (isFavorite) {
-        await removeFromFavorites(id);
+      if (isFavoriteState) {
+        await removeFavorite(id);
+        setIsFavoriteState(false);
       } else {
-        await addToFavorites(id);
+        await addFavorite(id);
+        setIsFavoriteState(true);
       }
-      setIsFavorite(!isFavorite);
     } catch (err) {
+      console.error('Error toggling favorite:', err);
       Alert.alert('Error', 'Failed to update favorites');
     }
-  };
+  }, [id, isFavoriteState, addFavorite, removeFavorite]);
 
   if (isLoading) {
     return (
@@ -91,7 +108,7 @@ const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButton}>Go Back</Text>
+          <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -107,15 +124,15 @@ const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any
         >
           <Ionicons name="arrow-back" size={24} color="#374151" />
         </TouchableOpacity>
-        <View style={{ flex: 1 }} />
+        <Text style={styles.headerTitle}>Photo Details</Text>
         <TouchableOpacity 
           onPress={handleToggleFavorite} 
           style={styles.favoriteButton}
         >
           <Ionicons 
-            name={isFavorite ? 'heart' : 'heart-outline'} 
+            name={isFavoriteState ? 'heart' : 'heart-outline'} 
             size={24} 
-            color={isFavorite ? '#ef4444' : '#374151'} 
+            color={isFavoriteState ? '#ef4444' : '#374151'} 
           />
         </TouchableOpacity>
       </View>
@@ -123,7 +140,7 @@ const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any
       <ScrollView contentContainerStyle={styles.content}>
         {/* Photo Image */}
         <Image 
-          source={{ uri: getImageUrl(photo.image_no) }}
+          source={{ uri: photo.image_url }}
           style={styles.photoImage}
           resizeMode="contain"
         />
@@ -286,12 +303,21 @@ const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any
         </View>
         
         <TouchableOpacity 
-          style={[styles.purchaseButton, isInCart && styles.inCartButton]}
+          style={[
+            styles.purchaseButton, 
+            isInCart && styles.inCartButton,
+            isGuest && styles.disabledButton
+          ]}
           onPress={handleAddToCart}
-          disabled={isInCart}
+          disabled={isInCart || isGuest}
         >
           <Text style={styles.purchaseButtonText}>
-            {isInCart ? 'Added to Cart' : 'Add to Cart'}
+            {isInCart 
+              ? 'Added to Cart' 
+              : isGuest 
+                ? 'Sign In to Purchase' 
+                : 'Add to Cart'
+            }
           </Text>
           <Ionicons 
             name={isInCart ? 'checkmark-circle' : 'cart-outline'} 
@@ -301,26 +327,6 @@ const PhotoDetailScreen = ({ route, navigation } : { route: any; navigation: any
           />
         </TouchableOpacity>
       </View>
-
-
-      {/* Purchase Button */}
-      <View style={styles.purchaseContainer}>
-        <TouchableOpacity 
-          style={[styles.purchaseButton, isGuest && styles.purchaseButtonDisabled]}
-          onPress={handleAddToCart}
-          disabled={isGuest}
-        >
-          <Text style={styles.purchaseButtonText}>
-            {isGuest ? 'Sign In to Purchase' : 'Add to Cart'}
-          </Text>
-          
-          {!isGuest && (
-            <Ionicons name="cart" size={20} color="#ffffff" style={styles.purchaseButtonIcon} />
-          )}
-        </TouchableOpacity>
-      </View>
-
-
     </SafeAreaView>
   );
 };
@@ -363,18 +369,21 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e7eb',
     backgroundColor: '#ffffff',
   },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    textAlign: 'center',
+  },
   backButton: {
     padding: 8,
   },
   favoriteButton: {
     padding: 8,
   },
-  shareButton: {
-    padding: 8,
-    marginRight: 8,
-  },
   content: {
-    paddingBottom: 90,
+    paddingBottom: 90, // Add padding for footer
   },
   photoImage: {
     width: '100%',
@@ -575,6 +584,9 @@ const styles = StyleSheet.create({
   inCartButton: {
     backgroundColor: '#10b981',
   },
+  disabledButton: {
+    backgroundColor: '#9ca3af',
+  },
   purchaseButtonText: {
     color: '#ffffff',
     fontSize: 16,
@@ -583,15 +595,10 @@ const styles = StyleSheet.create({
   purchaseButtonIcon: {
     marginLeft: 8,
   },
-  purchaseContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    padding: 16,
+  backButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
