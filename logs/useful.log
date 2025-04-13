@@ -58,6 +58,8 @@ git:
 
 git add .; git commit -m "14 Favourites update"; git push origin main
 
+git add . ; git commit -m "15.2 AuthService updated"; git push origin main
+
 
 -- 
 SHOW statement_timeout;

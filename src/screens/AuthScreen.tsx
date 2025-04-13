@@ -41,12 +41,14 @@ const AuthScreen = ({ navigation }) => {
     
     try {
       if (isLogin) {
-        await login(email, password);
-        // Navigate to the main app flow after successful login
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
+        const result = await login(email, password);
+        if (result) {
+          // Navigate to the main app flow after successful login
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        }
       } else {
         await register(name, email, password);
         // Registration was successful, might require email verification
@@ -57,6 +59,7 @@ const AuthScreen = ({ navigation }) => {
         setIsLogin(true);
       }
     } catch (error: any) {
+      Alert.alert("Authentication Error", error.message);
       // Error handling is done within the login/register functions
       // No need for additional alert here
     } finally {

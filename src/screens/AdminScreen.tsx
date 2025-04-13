@@ -1,5 +1,4 @@
-
-// AdminScreen.tsx
+// src/screens/AdminScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
@@ -8,13 +7,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { fetchCategories } from '@/services/catalogService';
+import { adminService, photoService } from '@/api/supabase';
+//import { getCategories } from '@/services/catalogService';
 
 const AdminScreen = ({ navigation }) => {
   // Check if user is admin
-  const { isAdmin } = useAuth();
+  const { isAdmin, userProfile } = useAuth();
   
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
@@ -32,20 +31,66 @@ const AdminScreen = ({ navigation }) => {
   // User management
   const [users, setUsers] = useState<any[]>([]);
   
-  // Load categories
+  // Stats state
+  const [photoStats, setPhotoStats] = useState<any>(null);
+  const [storageStats, setStorageStats] = useState<any>(null);
+  
+  // Load data based on active tab
   useEffect(() => {
     if (activeTab === 'content') {
       loadCategories();
     } else if (activeTab === 'users') {
       loadUsers();
+    } else if (activeTab === 'settings') {
+      loadStats();
     }
   }, [activeTab]);
+  
+  const loadStats = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load photo statistics
+      const { data: stats, error: statsError } = await photoService.getPhotoStats();
+      if (statsError) throw statsError;
+      setPhotoStats(stats);
+      
+      // Load storage statistics
+      const { data: storageSize, error: storageError } = await adminService.getStorageSize('picaloco', '');
+      if (storageError) throw storageError;
+      setStorageStats({
+        totalSize: storageSize,
+        formattedSize: formatBytes(storageSize)
+      });
+    } catch (error) {
+      console.error('Error loading statistics:', error);
+      Alert.alert('Error', 'Failed to load statistics');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
   
   const loadCategories = async () => {
     try {
       setIsLoading(true);
-      const categories = await fetchCategories();
-      setCategories(categories);
+      
+      // Use the new API service to load categories
+      const { data, error } = await photoService.getCategories({ forceFresh: true });
+      
+      if (error) throw error;
+      setCategories(data || []);
     } catch (error) {
       console.error('Error loading categories:', error);
       Alert.alert('Error', 'Failed to load categories');
@@ -57,26 +102,12 @@ const AdminScreen = ({ navigation }) => {
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, name, created_at');
+      
+      // Use the admin service to get users
+      const { data, error } = await adminService.getUsers();
       
       if (error) throw error;
-      
-      // Get admin status for each user
-      const usersWithRoles = await Promise.all(
-        (data || []).map(async (user) => {
-          const { data: isAdminData } = await supabase
-            .rpc('is_admin', { user_id: user.id });
-          
-          return {
-            ...user,
-            isAdmin: isAdminData || false
-          };
-        })
-      );
-      
-      setUsers(usersWithRoles);
+      setUsers(data || []);
     } catch (error) {
       console.error('Error loading users:', error);
       Alert.alert('Error', 'Failed to load users');
@@ -89,30 +120,159 @@ const AdminScreen = ({ navigation }) => {
     try {
       setIsLoading(true);
       
-      if (currentStatus) {
-        // Remove admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId)
-          .eq('role', 'admin');
-        
-        if (error) throw error;
-      } else {
-        // Add admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({ user_id: userId, role: 'admin' });
-        
-        if (error) throw error;
-      }
+      // Use the admin service to toggle admin role
+      const { error } = await adminService.toggleAdminRole(userId, currentStatus);
+      
+      if (error) throw error;
       
       // Refresh user list
       await loadUsers();
       
+      Alert.alert('Success', `User admin status ${currentStatus ? 'removed' : 'granted'}`);
     } catch (error) {
       console.error('Error toggling admin status:', error);
       Alert.alert('Error', 'Failed to update user role');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) {
+      Alert.alert('Error', 'Category name cannot be empty');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // This feature requires direct database access, so we'll simulate it for now
+      Alert.alert(
+        "Add Category",
+        "This would add a new category. This feature requires direct database access.",
+        [{ text: "OK" }]
+      );
+      
+      // In a real implementation, you would call the appropriate adminService method
+      // const { error } = await adminService.categories.create({ name: newCategory, created_by: userProfile.id });
+      
+      setNewCategory('');
+      // After successful creation, refresh the list
+      // await loadCategories();
+    } catch (error) {
+      console.error('Error adding category:', error);
+      Alert.alert('Error', 'Failed to add category');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleEditCategory = async () => {
+    if (!editedCategory.trim()) {
+      Alert.alert('Error', 'Category name cannot be empty');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // This feature requires direct database access, so we'll simulate it for now
+      Alert.alert(
+        "Edit Category",
+        "This would edit the category. This feature requires direct database access.",
+        [{ 
+          text: "OK", 
+          onPress: () => {
+            setEditCategoryModal(false);
+            setSelectedCategory('');
+            setEditedCategory('');
+          } 
+        }]
+      );
+      
+      // In a real implementation, you would call the appropriate adminService method
+      // const { error } = await adminService.categories.update(selectedCategory, { name: editedCategory });
+      
+      // After successful update, refresh the list
+      // await loadCategories();
+    } catch (error) {
+      console.error('Error editing category:', error);
+      Alert.alert('Error', 'Failed to edit category');
+    } finally {
+      setIsLoading(false);
+      setEditCategoryModal(false);
+    }
+  };
+  
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      // Confirm deletion
+      Alert.alert(
+        "Delete Category",
+        "Are you sure you want to delete this category?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              setIsLoading(true);
+              
+              // This feature requires direct database access, so we'll simulate it for now
+              Alert.alert(
+                "Delete Category",
+                "This would delete the category. This feature requires direct database access.",
+                [{ text: "OK" }]
+              );
+              
+              // In a real implementation, you would call the appropriate adminService method
+              // const { error } = await adminService.categories.delete(categoryId);
+              
+              // After successful deletion, refresh the list
+              // await loadCategories();
+              
+              setIsLoading(false);
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      Alert.alert('Error', 'Failed to delete category');
+      setIsLoading(false);
+    }
+  };
+  
+  const handleReduceStorage = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Confirm storage reduction
+      Alert.alert(
+        "Reduce Storage",
+        "This will remove oldest files to reduce storage size. Are you sure?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Reduce",
+            style: "destructive",
+            onPress: async () => {
+              // Set target size to 1GB
+              const targetSize = 1073741824; // 1GB in bytes
+              
+              const { data, error } = await adminService.reduceStorage('picaloco', '', targetSize);
+              
+              if (error) throw error;
+              
+              Alert.alert('Success', `Storage reduced to ${formatBytes(data || 0)}`);
+              await loadStats();
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error reducing storage:', error);
+      Alert.alert('Error', 'Failed to reduce storage');
     } finally {
       setIsLoading(false);
     }
@@ -170,7 +330,7 @@ const AdminScreen = ({ navigation }) => {
               activeTab === 'settings' && styles.activeTabText
             ]}
           >
-            Settings
+            Dashboard
           </Text>
         </TouchableOpacity>
         
@@ -222,33 +382,77 @@ const AdminScreen = ({ navigation }) => {
         )}
         
         {!isLoading && activeTab === 'settings' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Supabase Configuration</Text>
-            <Text style={styles.infoText}>Manage application settings and configurations.</Text>
+          <View>
+            {/* Statistics Dashboard */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Statistics Overview</Text>
+              
+              {photoStats && (
+                <View>
+                  <View style={styles.statCard}>
+                    <Text style={styles.statTitle}>Photos</Text>
+                    <Text style={styles.statValue}>{photoStats.totalPhotos || 0}</Text>
+                  </View>
+                  
+                  <View style={styles.statRow}>
+                    <View style={[styles.statCard, styles.statCardHalf]}>
+                      <Text style={styles.statTitle}>Categories</Text>
+                      <Text style={styles.statValue}>{photoStats.categoryStats?.length || 0}</Text>
+                    </View>
+                    <View style={[styles.statCard, styles.statCardHalf]}>
+                      <Text style={styles.statTitle}>Photographers</Text>
+                      <Text style={styles.statValue}>{photoStats.photographerStats?.length || 0}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              
+              {/* Storage Statistics */}
+              {storageStats && (
+                <View style={styles.statCard}>
+                  <View style={styles.statHeader}>
+                    <Text style={styles.statTitle}>Storage Usage</Text>
+                    <TouchableOpacity 
+                      style={styles.actionButton}
+                      onPress={handleReduceStorage}
+                    >
+                      <Text style={styles.actionButtonText}>Reduce</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.statValue}>{storageStats.formattedSize}</Text>
+                </View>
+              )}
+            </View>
             
-            <TouchableOpacity style={styles.settingsItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>Storage Settings</Text>
-                <Text style={styles.settingDescription}>Manage storage buckets and permissions</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.settingsItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>API Keys</Text>
-                <Text style={styles.settingDescription}>View and manage API keys</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.settingsItem}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingTitle}>Database Settings</Text>
-                <Text style={styles.settingDescription}>Configure database settings</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-            </TouchableOpacity>
+            {/* System Settings */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Supabase Configuration</Text>
+              <Text style={styles.infoText}>Manage application settings and configurations.</Text>
+              
+              <TouchableOpacity style={styles.settingsItem}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingTitle}>Storage Settings</Text>
+                  <Text style={styles.settingDescription}>Manage storage buckets and permissions</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.settingsItem}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingTitle}>API Keys</Text>
+                  <Text style={styles.settingDescription}>View and manage API keys</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.settingsItem}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingTitle}>Database Settings</Text>
+                  <Text style={styles.settingDescription}>Configure database settings</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
         
@@ -302,13 +506,7 @@ const AdminScreen = ({ navigation }) => {
               />
               <TouchableOpacity
                 style={styles.addButton}
-                onPress={() => {
-                  Alert.alert(
-                    "Add Category",
-                    "This would add a new category. This feature requires direct database access.",
-                    [{ text: "OK" }]
-                  );
-                }}
+                onPress={handleAddCategory}
               >
                 <Text style={styles.addButtonText}>Add</Text>
               </TouchableOpacity>
@@ -334,26 +532,7 @@ const AdminScreen = ({ navigation }) => {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.deleteButton}
-                        onPress={() => {
-                          Alert.alert(
-                            "Delete Category",
-                            "Are you sure you want to delete this category?",
-                            [
-                              { text: "Cancel", style: "cancel" },
-                              {
-                                text: "Delete",
-                                style: "destructive",
-                                onPress: () => {
-                                  Alert.alert(
-                                    "Delete Category",
-                                    "This would delete the category. This feature requires direct database access.",
-                                    [{ text: "OK" }]
-                                  );
-                                }
-                              }
-                            ]
-                          );
-                        }}
+                        onPress={() => handleDeleteCategory(item)}
                       >
                         <Ionicons name="trash-outline" size={18} color="#ef4444" />
                       </TouchableOpacity>
@@ -398,15 +577,7 @@ const AdminScreen = ({ navigation }) => {
               
               <TouchableOpacity
                 style={styles.saveButton}
-                onPress={() => {
-                  Alert.alert(
-                    "Edit Category",
-                    "This would edit the category. This feature requires direct database access.",
-                    [
-                      { text: "OK", onPress: () => setEditCategoryModal(false) }
-                    ]
-                  );
-                }}
+                onPress={handleEditCategory}
               >
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </TouchableOpacity>
@@ -711,6 +882,49 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  
+  // Statistics styles
+  statCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+  },
+  statCardHalf: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  statRow: {
+    flexDirection: 'row',
+    marginHorizontal: -4,
+  },
+  statHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statTitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  actionButton: {
+    backgroundColor: '#4f46e5',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  actionButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

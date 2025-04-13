@@ -1,480 +1,430 @@
-// src/screens/PhotoDetailScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
+// AuthScreen.tsx
+import React, { useState } from 'react';
+import { 
+  View, Text, StyleSheet, TextInput, 
+  TouchableOpacity, Image, Alert, KeyboardAvoidingView, 
+  Platform, ScrollView, ActivityIndicator
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { fetchPhotoById } from '@/services/catalogService';
-import { addToCart } from '@/services/cartService';
-import { addToFavorites, removeFromFavorites } from '@/services/userService';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
-const PhotoDetailScreen = ({ route, navigation }) => {
-  const { id } = route.params;
-  const [photo, setPhoto] = useState(null);
-  const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const { isGuest } = useAuth();
 
-  // Fetch photo details
-  useEffect(() => {
-    const loadPhoto = async () => {
-      try {
-        setIsLoading(true);
-        const photoData = await fetchPhotoById(id);
-        setPhoto(photoData);
-      } catch (err) {
-        console.error('Error loading photo:', err);
-        setError('Failed to load photo details. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadPhoto();
-  }, [id]);
-
-  // Handle add to cart
-  const handleAddToCart = async () => {
-    try {
-      if (isGuest) {
-        Alert.alert(
-          "Guest Mode",
-          "Please sign in to purchase photos.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
-      
-      await addToCart(photo);
-      Alert.alert('Success', 'Added to cart');
-    } catch (err) {
-      Alert.alert('Error', 'Failed to add to cart');
+const AuthScreen = ({ navigation }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { login, register, enableGuestMode } = useAuth();
+  
+  const handleAuth = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all required fields");
+      return;
     }
-  };
+    
+    if (!isLogin && password !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+    
+    if (!isLogin && !name) {
+      Alert.alert("Error", "Please enter your name");
+      return;
+    }
 
-  // Handle toggle favorite
-  const handleToggleFavorite = async () => {
+    setIsLoading(true);
+    
     try {
-      if (isFavorite) {
-        await removeFromFavorites(id);
+      if (isLogin) {
+        const result = await login(email, password);
+        if (result) {
+          // Navigate to the main app flow after successful login
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Main' }],
+          });
+        }
       } else {
-        await addToFavorites(id);
+        await register(name, email, password);
+        // Registration was successful, but might require email verification
+        Alert.alert(
+          "Registration Successful", 
+          "Your account has been created. You may need to verify your email before logging in."
+        );
+        setIsLogin(true);
       }
-      setIsFavorite(!isFavorite);
-    } catch (err) {
-      Alert.alert('Error', 'Failed to update favorites');
+    } catch (error: any) {
+      Alert.alert("Authentication Error", error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4f46e5" />
-        <Text style={styles.loadingText}>Loading photo details...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#374151" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Photo Details</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color="#ef4444" />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
+  
+  const handleGuestLogin = async () => {
+    setIsLoading(true);
+    try {
+      await enableGuestMode();
+      // Navigate to the main app flow after successful login
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    } catch (error: any) {
+      Alert.alert("Error", "Failed to enter guest mode. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleGoogleAuth = () => {
+    Alert.alert("Coming Soon", "Google authentication will be available soon");
+  };
+  
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert("Error", "Please enter your email address");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      
+      if (error) throw error;
+      
+      Alert.alert(
+        "Password Reset",
+        `A password reset link has been sent to ${email}`
+      );
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#374151" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Photo #{photo?.image_no}</Text>
-        <TouchableOpacity onPress={handleToggleFavorite}>
-          <Ionicons 
-            name={isFavorite ? "heart" : "heart-outline"} 
-            size={24} 
-            color={isFavorite ? "#ef4444" : "#374151"} 
-          />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Main Image */}
-        <View style={styles.imageContainer}>
-          <Image 
-            source={{ uri: photo?.thumbnail_url || 'https://placehold.co/600x400?text=Image+Not+Available' }}
-            style={styles.image}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Photo Information */}
-        <View style={styles.infoSection}>
-          <Text style={styles.photoTitle}>{photo?.description || 'Untitled'}</Text>
-          
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Photographer:</Text>
-            <Text style={styles.infoValue}>{photo?.photographer || 'Unknown'}</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Logo and Header */}
+          <View style={styles.header}>
+            <Image 
+              source={{ uri: 'https://images.unsplash.com/photo-1527684651001-731c474bbb5a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80' }}
+              style={styles.logo}
+            />
+            <Text style={styles.appName}>TrainPhoto</Text>
+            <Text style={styles.tagline}>Premium Train Photography Platform</Text>
           </View>
           
-          <View style={styles.infoItem}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Location:</Text>
-              <Text style={styles.infoValue}>{photo?.location || 'Unknown'}</Text>
+          {/* Auth Form */}
+          <View style={styles.formContainer}>
+            <Text style={styles.formTitle}>
+              {isLogin ? 'Log in to your account' : 'Create your account'}
+            </Text>
+            
+            {!isLogin && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="person-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Your full name"
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
+              </View>
+            )}
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="mail-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="your.email@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Category:</Text>
-              <Text style={styles.infoValue}>{photo?.category || 'Uncategorized'}</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                    size={20} 
+                    color="#9ca3af" 
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-          
-          <View style={styles.infoItem}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Date:</Text>
-              <Text style={styles.infoValue}>
-                {photo?.date_taken 
-                  ? new Date(photo?.date_taken).toLocaleDateString()
-                  : 'Unknown'}
-                {photo?.circa ? ' (circa)' : ''}
+            
+            {!isLogin && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Confirm Password</Text>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                </View>
+              </View>
+            )}
+            
+            {isLogin && (
+              <TouchableOpacity
+                style={styles.forgotPassword}
+                onPress={handleForgotPassword}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity
+              style={[styles.authButton, isLoading && styles.authButtonDisabled]}
+              onPress={handleAuth}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.authButtonText}>
+                  {isLogin ? 'Log in' : 'Sign up'}
+                </Text>
+              )}
+            </TouchableOpacity>
+            
+            {/* Guest Login Button */}
+            <TouchableOpacity
+              style={styles.guestButton}
+              onPress={handleGuestLogin}
+              disabled={isLoading}
+            >
+              <Ionicons name="person-outline" size={20} color="#4b5563" />
+              <Text style={styles.guestButtonText}>Continue as Guest</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.dividerContainer}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.divider} />
+            </View>
+            
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={handleGoogleAuth}
+            >
+              <Ionicons name="logo-google" size={20} color="#4285F4" />
+              <Text style={styles.googleButtonText}>
+                {isLogin ? 'Log in with Google' : 'Sign up with Google'}
               </Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Collection:</Text>
-              <Text style={styles.infoValue}>{photo?.collection || 'N/A'}</Text>
-            </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.switchMode}
+              onPress={() => {
+                setIsLogin(!isLogin);
+                setPassword('');
+                setConfirmPassword('');
+              }}
+            >
+              <Text style={styles.switchModeText}>
+                {isLogin 
+                  ? "Don't have an account? Sign up" 
+                  : "Already have an account? Log in"}
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          {photo?.description && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Description:</Text>
-              <Text style={styles.descriptionText}>{photo?.description}</Text>
-            </View>
-          )}
-
-          <View style={styles.infoItem}>
-            <Text style={styles.sectionTitle}>Technical Details</Text>
-            
-            {photo?.width && photo?.height && (
-              <View style={styles.technicalItem}>
-                <Text style={styles.technicalLabel}>Dimensions:</Text>
-                <Text style={styles.technicalValue}>{photo?.width} × {photo?.height} px</Text>
-              </View>
-            )}
-            
-            {photo?.file_type && (
-              <View style={styles.technicalItem}>
-                <Text style={styles.technicalLabel}>File Type:</Text>
-                <Text style={styles.technicalValue}>{photo?.file_type}</Text>
-              </View>
-            )}
-            
-            {photo?.resolution && (
-              <View style={styles.technicalItem}>
-                <Text style={styles.technicalLabel}>Resolution:</Text>
-                <Text style={styles.technicalValue}>{photo?.resolution} dpi</Text>
-              </View>
-            )}
-            
-            {photo?.colour_space && (
-              <View style={styles.technicalItem}>
-                <Text style={styles.technicalLabel}>Color Space:</Text>
-                <Text style={styles.technicalValue}>{photo?.colour_space}</Text>
-              </View>
-            )}
-          </View>
-
-          {photo?.gauge && (
-            <View style={styles.infoItem}>
-              <Text style={styles.sectionTitle}>Train Details</Text>
-              
-              <View style={styles.technicalItem}>
-                <Text style={styles.technicalLabel}>Gauge:</Text>
-                <Text style={styles.technicalValue}>{photo?.gauge}</Text>
-              </View>
-              
-              {photo?.builders && photo?.builders.length > 0 && (
-                <View style={styles.technicalItem}>
-                  <Text style={styles.technicalLabel}>Builder:</Text>
-                  <Text style={styles.technicalValue}>
-                    {photo?.builders.length > 0 
-                      ? photo?.builders[0].builder_name 
-                      : 'Unknown'}
-                  </Text>
-                </View>
-              )}
-              
-              {photo?.builders && photo?.builders.length > 0 && photo?.builders[0].works_number && (
-                <View style={styles.technicalItem}>
-                  <Text style={styles.technicalLabel}>Works Number:</Text>
-                  <Text style={styles.technicalValue}>{photo?.builders[0].works_number}</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Usage Information */}
-          <View style={styles.infoItem}>
-            <Text style={styles.sectionTitle}>Usage Rights</Text>
-            
-            <View style={styles.usageContainer}>
-              <Text style={styles.usageLabel}>Prints allowed:</Text>
-              <View style={styles.usageValue}>
-                <Ionicons 
-                  name={photo?.prints_allowed ? "checkmark-circle" : "close-circle"} 
-                  size={20} 
-                  color={photo?.prints_allowed ? "#10b981" : "#ef4444"} 
-                />
-              </View>
-            </View>
-            
-            <View style={styles.usageContainer}>
-              <Text style={styles.usageLabel}>Internet use:</Text>
-              <View style={styles.usageValue}>
-                <Ionicons 
-                  name={photo?.internet_use ? "checkmark-circle" : "close-circle"} 
-                  size={20} 
-                  color={photo?.internet_use ? "#10b981" : "#ef4444"} 
-                />
-              </View>
-            </View>
-            
-            <View style={styles.usageContainer}>
-              <Text style={styles.usageLabel}>Publications use:</Text>
-              <View style={styles.usageValue}>
-                <Ionicons 
-                  name={photo?.publications_use ? "checkmark-circle" : "close-circle"} 
-                  size={20} 
-                  color={photo?.publications_use ? "#10b981" : "#ef4444"} 
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Purchase Button */}
-      <View style={styles.purchaseContainer}>
-        <TouchableOpacity 
-          style={[styles.purchaseButton, isGuest && styles.purchaseButtonDisabled]}
-          onPress={handleAddToCart}
-          disabled={isGuest}
-        >
-          <Text style={styles.purchaseButtonText}>
-            {isGuest ? 'Sign In to Purchase' : 'Add to Cart'}
-          </Text>
-          
-          {!isGuest && (
-            <Ionicons name="cart" size={20} color="#ffffff" style={styles.purchaseButtonIcon} />
-          )}
-        </TouchableOpacity>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  // ... keep existing code
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  loadingContainer: {
+  keyboardAvoidingView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6b7280',
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
+    paddingTop: 40,
+    paddingBottom: 24,
   },
-  headerTitle: {
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  tagline: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  formContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    flex: 1,
+  },
+  formTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
+    marginBottom: 24,
+    textAlign: 'center',
   },
-  content: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  imageContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 16,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  image: {
-    width: '100%',
-    height: 300,
-    backgroundColor: '#f3f4f6',
-  },
-  infoSection: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  photoTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
+  inputGroup: {
     marginBottom: 16,
   },
-  infoItem: {
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    paddingBottom: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  infoLabel: {
+  label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6b7280',
-    width: 100,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#1f2937',
-    flex: 1,
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#1f2937',
-    lineHeight: 20,
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 12,
-  },
-  technicalItem: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  technicalLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-    width: 100,
-  },
-  technicalValue: {
-    fontSize: 14,
-    color: '#1f2937',
-  },
-  usageContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingVertical: 4,
-  },
-  usageLabel: {
-    fontSize: 14,
     color: '#4b5563',
+    marginBottom: 6,
   },
-  usageValue: {
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  purchaseContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    padding: 16,
-  },
-  purchaseButton: {
-    backgroundColor: '#4f46e5',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
     borderRadius: 8,
+    backgroundColor: '#f9fafb',
   },
-  purchaseButtonDisabled: {
-    backgroundColor: '#9ca3af',
+  inputIcon: {
+    paddingHorizontal: 12,
   },
-  purchaseButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  purchaseButtonIcon: {
-    marginLeft: 8,
-  },
-  errorContainer: {
+  input: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#1f2937',
   },
-  errorText: {
-    fontSize: 16,
-    color: '#4b5563',
-    textAlign: 'center',
-    marginTop: 16,
+  eyeIcon: {
+    padding: 12,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
     marginBottom: 24,
   },
-  backButton: {
-    backgroundColor: '#4f46e5',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#4f46e5',
   },
-  backButtonText: {
-    color: '#ffffff',
+  authButton: {
+    backgroundColor: '#4f46e5',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  authButtonDisabled: {
+    backgroundColor: '#a5b4fc',
+  },
+  authButtonText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  guestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 16,
+    backgroundColor: '#f3f4f6',
+  },
+  guestButtonText: {
+    fontSize: 16,
+    color: '#4b5563',
+    marginLeft: 8,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    marginBottom: 24,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    color: '#4b5563',
+    marginLeft: 8,
+  },
+  switchMode: {
+    alignItems: 'center',
+  },
+  switchModeText: {
+    fontSize: 14,
+    color: '#4f46e5',
   },
 });
 
-export default PhotoDetailScreen;
+export default AuthScreen;
