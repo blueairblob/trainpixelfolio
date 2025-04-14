@@ -130,9 +130,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     // height: 40,
-    fontSize: 18,
+    fontSize: 16,
     color: '#1f2937',
-    paddingVertical: 10, // Adjust this to move text down slightly
+    //paddingVertical: 10, // Adjust this to move text down slightly
   },
   clearButton: {
     padding: 8,

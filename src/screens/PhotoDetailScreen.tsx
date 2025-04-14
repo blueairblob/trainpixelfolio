@@ -299,7 +299,7 @@ const PhotoDetailScreen = ({ route, navigation }) => {
       <View style={styles.footer}>
         <View style={styles.priceContainer}>
           <Text style={styles.priceLabel}>Price</Text>
-          <Text style={styles.price}>$49.99</Text>
+          <Text style={styles.price}>£0.50</Text>
         </View>
         
         <TouchableOpacity 

@@ -28,7 +28,7 @@ const HomeScreen = ({ navigation }) => {
     description: 'A beautifully restored steam locomotive passing through mountain scenery.',
     photographer: 'John Smith',
     location: 'Swiss Alps',
-    price: 49.99,
+    price: 0.50,
     imageUrl: 'https://images.unsplash.com/photo-1527684651001-731c474bbb5a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80',
   };
 

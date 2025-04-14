@@ -123,7 +123,8 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
         {renderImage(styles.gridImage)}
         <View style={styles.gridItemInfo}>
           <Text style={styles.gridItemTitle} numberOfLines={1}>{photo.title}</Text>
-          <Text style={styles.gridItemPrice}>${photo.price.toFixed(2)}</Text>
+          <Text style={styles.compactPhotographer}>{photo.photographer}</Text>
+          {/* <Text style={styles.gridItemPrice}>£{photo.price.toFixed(2)}</Text> */}
         </View>
       </TouchableOpacity>
     );
@@ -139,7 +140,7 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
           <Text style={styles.compactTitle} numberOfLines={1}>{photo.title}</Text>
           <Text style={styles.compactPhotographer}>{photo.photographer}</Text>
           <View style={styles.compactFooter}>
-            <Text style={styles.compactPrice}>${photo.price.toFixed(2)}</Text>
+            {/* <Text style={styles.compactPrice}>£{photo.price.toFixed(2)}</Text> */}
             <View style={styles.compactButtonGroup}>
               <TouchableOpacity 
                 style={styles.compactButton} 
@@ -171,7 +172,7 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
             <Text style={styles.singleDescription} numberOfLines={3}>{photo.description}</Text>
           )}
           <View style={styles.singleFooter}>
-            <Text style={styles.singlePrice}>${photo.price.toFixed(2)}</Text>
+            <Text style={styles.singlePrice}>£{photo.price.toFixed(2)}</Text>
             <View style={styles.singleButtons}>
               <TouchableOpacity
                 style={[styles.favoriteButton, isFavoriteState && styles.favoriteButtonActive]}

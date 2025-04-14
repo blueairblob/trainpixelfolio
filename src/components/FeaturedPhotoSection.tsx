@@ -40,7 +40,7 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
             <Text style={styles.locationText}>{featuredPhoto.location}</Text>
           </View>
           <View style={styles.featuredPrice}>
-            <Text style={styles.priceText}>${featuredPhoto.price.toFixed(2)}</Text>
+            {/* <Text style={styles.priceText}>${featuredPhoto.price.toFixed(2)}</Text> */}
             <Text style={styles.licenseText}>Standard license</Text>
           </View>
           <TouchableOpacity 

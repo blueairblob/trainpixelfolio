@@ -14,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 // Import components
 import GalleryHeader from '../components/GalleryHeader';
 import CategoryFilter from '../components/CategoryFilter';
-import AdvancedFilterModal from '../components/AdvancedFilterModal';
+import FilterModal from '../components/FilterModal';
 import PhotoList from '../components/PhotoList';
 import SearchBar from '../components/SearchBar';
 import FilterDebugger from '../components/FilterDebugger';
@@ -284,7 +284,7 @@ const GalleryScreen = ({ navigation, route }) => {
         id: photo.image_no,
         title: photo.description || 'Untitled',
         photographer: photo.photographer || 'Unknown',
-        price: 49.99, // Default price (in a real app this would come from the API)
+        price: 0.50, // Default price (in a real app this would come from the API)
         imageUrl: photo.image_url || '',
         location: photo.location || '',
         description: photo.description || ''
@@ -298,7 +298,7 @@ const GalleryScreen = ({ navigation, route }) => {
       id: photo.image_no,
       title: photo.description || 'Untitled',
       photographer: photo.photographer || 'Unknown',
-      price: 49.99, // Default price (in a real app this would come from the API)
+      price: 0.50, // Default price (in a real app this would come from the API)
       imageUrl: photo.image_url || '',
       location: photo.location || '',
       description: photo.description || ''
@@ -484,7 +484,7 @@ const GalleryScreen = ({ navigation, route }) => {
       {__DEV__ && <FilterDebugger />}
       
       {/* Advanced Filter Modal */}
-      <AdvancedFilterModal
+      <FilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
         onApplyFilters={handleApplyFilters}

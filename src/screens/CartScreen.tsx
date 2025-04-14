@@ -13,7 +13,7 @@ const cartItems = [
     id: 'photo1',
     title: 'Vintage Steam Locomotive',
     photographer: 'John Smith',
-    price: 49.99,
+    price: 0.50,
     quantity: 1,
     imageUrl: 'https://images.unsplash.com/photo-1527684651001-731c474bbb5a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80',
   },
@@ -21,7 +21,7 @@ const cartItems = [
     id: 'photo2',
     title: 'Modern High-Speed Train',
     photographer: 'Sarah Johnson',
-    price: 39.99,
+    price: 0.50,
     quantity: 2,
     imageUrl: 'https://images.unsplash.com/photo-1679679008383-6f778fe07382?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
   },
@@ -84,7 +84,7 @@ const CartScreen = ({ navigation }) => {
         <Text style={styles.itemPhotographer}>{item.photographer}</Text>
         
         <View style={styles.priceRow}>
-          <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+          <Text style={styles.itemPrice}>£{item.price.toFixed(2)}</Text>
           
           <View style={styles.quantityControls}>
             <TouchableOpacity
@@ -165,12 +165,12 @@ const CartScreen = ({ navigation }) => {
           <View style={styles.summaryContainer}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>${totalPrice.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>£{totalPrice.toFixed(2)}</Text>
             </View>
             
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Tax</Text>
-              <Text style={styles.summaryValue}>${(totalPrice * 0.08).toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>£{(totalPrice * 0.08).toFixed(2)}</Text>
             </View>
             
             <View style={styles.divider} />
@@ -178,7 +178,7 @@ const CartScreen = ({ navigation }) => {
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>
-                ${(totalPrice * 1.08).toFixed(2)}
+                £{(totalPrice * 1.08).toFixed(2)}
               </Text>
             </View>
             
