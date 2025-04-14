@@ -1,3 +1,4 @@
+// src/context/FilterContext.tsx
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { supabaseClient } from '@/api/supabase/client';
 import { CatalogPhoto } from '@/services/catalogService';
@@ -41,11 +42,24 @@ export interface FilterState {
   dateRange: DateRange | null;
   gauge: string | null;
   searchQuery: string;
+  // New filter fields matching FileMaker Pro
+  country: string | null;
+  organisationType: string | null;
+  industryType: string | null;
+  activeArea: string | null;
+  route: string | null;
+  corporateBody: string | null;
+  facility: string | null;
+  description: string | null;
+  builder: string | null;
+  worksNumber: string | null;
+  imageNo: string | null;
 }
 
 // Define the context interface
 interface FilterContextType {
   filters: FilterState;
+  setFilters: (filters: Partial<FilterState>) => void;
   setOrganisation: (org: Organisation | null) => void;
   setLocation: (location: Location | null) => void;
   setPhotographer: (photographer: Photographer | null) => void;
@@ -53,6 +67,18 @@ interface FilterContextType {
   setDateRange: (range: DateRange | null) => void;
   setGauge: (gauge: string | null) => void;
   setSearchQuery: (query: string) => void;
+  // New setters for FileMaker Pro filters
+  setCountry: (country: string | null) => void;
+  setOrganisationType: (type: string | null) => void;
+  setIndustryType: (type: string | null) => void;
+  setActiveArea: (area: string | null) => void;
+  setRoute: (route: string | null) => void;
+  setCorporateBody: (body: string | null) => void;
+  setFacility: (facility: string | null) => void;
+  setDescription: (description: string | null) => void;
+  setBuilder: (builder: string | null) => void;
+  setWorksNumber: (number: string | null) => void;
+  setImageNo: (number: string | null) => void;
   clearAllFilters: () => void;
   applyFilters: (baseQuery: any) => any; // Returns a modified query
   isLoading: boolean;
@@ -74,6 +100,18 @@ const initialFilterState: FilterState = {
   dateRange: null,
   gauge: null,
   searchQuery: '',
+  // Initialize new fields
+  country: null,
+  organisationType: null,
+  industryType: null,
+  activeArea: null,
+  route: null,
+  corporateBody: null,
+  facility: null,
+  description: null,
+  builder: null,
+  worksNumber: null,
+  imageNo: null
 };
 
 // Helper function to clear catalog cache
@@ -100,57 +138,103 @@ export const clearCatalogCache = async () => {
 
 // Provider component
 export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [filters, setFilters] = useState<FilterState>(initialFilterState);
+  const [filters, setFiltersState] = useState<FilterState>(initialFilterState);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filteredResults, setFilteredResults] = useState<CatalogPhoto[]>([]);
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
 
   // Check if any filters are active
-  const hasActiveFilters = Boolean(
-    filters.organisation ||
-    filters.location ||
-    filters.photographer ||
-    filters.collection ||
-    filters.dateRange ||
-    filters.gauge ||
-    filters.searchQuery
+  const hasActiveFilters = Object.values(filters).some(value => 
+    value !== null && 
+    value !== '' && 
+    (typeof value !== 'object' || Object.values(value).some(v => v !== null && v !== ''))
   );
 
   // Filter setters
+  const setFilters = (newFilters: Partial<FilterState>) => {
+    console.log('Setting multiple filters:', newFilters);
+    setFiltersState(prev => ({ ...prev, ...newFilters }));
+  };
+
   const setOrganisation = (org: Organisation | null) => {
     console.log('Setting organisation filter:', org);
-    setFilters((prev) => ({ ...prev, organisation: org }));
+    setFiltersState(prev => ({ ...prev, organisation: org }));
   };
 
   const setLocation = (location: Location | null) => {
-    setFilters((prev) => ({ ...prev, location }));
+    setFiltersState(prev => ({ ...prev, location }));
   };
 
   const setPhotographer = (photographer: Photographer | null) => {
-    setFilters((prev) => ({ ...prev, photographer }));
+    setFiltersState(prev => ({ ...prev, photographer }));
   };
 
   const setCollection = (collection: Collection | null) => {
-    setFilters((prev) => ({ ...prev, collection }));
+    setFiltersState(prev => ({ ...prev, collection }));
   };
 
   const setDateRange = (range: DateRange | null) => {
-    setFilters((prev) => ({ ...prev, dateRange: range }));
+    setFiltersState(prev => ({ ...prev, dateRange: range }));
   };
 
   const setGauge = (gauge: string | null) => {
-    setFilters((prev) => ({ ...prev, gauge }));
+    setFiltersState(prev => ({ ...prev, gauge }));
   };
 
   const setSearchQuery = (query: string) => {
-    setFilters((prev) => ({ ...prev, searchQuery: query }));
+    setFiltersState(prev => ({ ...prev, searchQuery: query }));
+  };
+
+  // New setters for FileMaker Pro filters
+  const setCountry = (country: string | null) => {
+    setFiltersState(prev => ({ ...prev, country }));
+  };
+
+  const setOrganisationType = (type: string | null) => {
+    setFiltersState(prev => ({ ...prev, organisationType: type }));
+  };
+
+  const setIndustryType = (type: string | null) => {
+    setFiltersState(prev => ({ ...prev, industryType: type }));
+  };
+
+  const setActiveArea = (area: string | null) => {
+    setFiltersState(prev => ({ ...prev, activeArea: area }));
+  };
+
+  const setRoute = (route: string | null) => {
+    setFiltersState(prev => ({ ...prev, route }));
+  };
+
+  const setCorporateBody = (body: string | null) => {
+    setFiltersState(prev => ({ ...prev, corporateBody: body }));
+  };
+
+  const setFacility = (facility: string | null) => {
+    setFiltersState(prev => ({ ...prev, facility }));
+  };
+
+  const setDescription = (description: string | null) => {
+    setFiltersState(prev => ({ ...prev, description }));
+  };
+
+  const setBuilder = (builder: string | null) => {
+    setFiltersState(prev => ({ ...prev, builder }));
+  };
+
+  const setWorksNumber = (number: string | null) => {
+    setFiltersState(prev => ({ ...prev, worksNumber: number }));
+  };
+
+  const setImageNo = (number: string | null) => {
+    setFiltersState(prev => ({ ...prev, imageNo: number }));
   };
 
   // Clear all filters
   const clearAllFilters = () => {
     console.log('Clearing all filters');
-    setFilters(initialFilterState);
+    setFiltersState(initialFilterState);
     setFilteredResults([]);
   };
 
@@ -176,15 +260,10 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     let query = baseQuery;
     console.log('Starting to apply filters to query');
 
-    // Apply organisation filter with better handling
+    // Apply organisation filter
     if (filters.organisation) {
       console.log(`Filtering by organisation: ${JSON.stringify(filters.organisation)}`);
-      
-      // Use partial matching with wildcards to catch substrings
       query = query.ilike('organisation', `%${filters.organisation.name}%`);
-      
-      // Log the SQL that would be generated (approximation)
-      console.log(`SQL (approx): WHERE organisation ILIKE '%${filters.organisation.name}%'`);
     }
 
     // Apply location filter
@@ -233,6 +312,64 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         `location.ilike.%${filters.searchQuery}%,` +
         `organisation.ilike.%${filters.searchQuery}%`
       );
+    }
+
+    // Apply new FileMaker Pro filters
+    if (filters.country) {
+      console.log(`Filtering by country: ${filters.country}`);
+      query = query.eq('country', filters.country);
+    }
+
+    if (filters.organisationType) {
+      console.log(`Filtering by organisation type: ${filters.organisationType}`);
+      query = query.eq('organisation_type', filters.organisationType);
+    }
+
+    if (filters.industryType) {
+      console.log(`Filtering by industry type: ${filters.industryType}`);
+      query = query.ilike('type_of_industry', `%${filters.industryType}%`);
+    }
+
+    if (filters.activeArea) {
+      console.log(`Filtering by active area: ${filters.activeArea}`);
+      query = query.ilike('active_area', `%${filters.activeArea}%`);
+    }
+
+    if (filters.route) {
+      console.log(`Filtering by route: ${filters.route}`);
+      query = query.eq('route', filters.route);
+    }
+
+    if (filters.corporateBody) {
+      console.log(`Filtering by corporate body: ${filters.corporateBody}`);
+      query = query.ilike('corporate_body', `%${filters.corporateBody}%`);
+    }
+
+    if (filters.facility) {
+      console.log(`Filtering by facility: ${filters.facility}`);
+      query = query.ilike('facility', `%${filters.facility}%`);
+    }
+
+    if (filters.description) {
+      console.log(`Filtering by description: ${filters.description}`);
+      query = query.ilike('description', `%${filters.description}%`);
+    }
+
+    if (filters.builder) {
+      console.log(`Filtering by builder: ${filters.builder}`);
+      // This is a bit complex since builders are in a JSON array field
+      query = query.or(`builders::jsonb @> '[{"builder_id": "${filters.builder}"}]'::jsonb,builders::jsonb @> '[{"builder_name": "${filters.builder}"}]'::jsonb`);
+    }
+
+    if (filters.worksNumber) {
+      console.log(`Filtering by works number: ${filters.worksNumber}`);
+      // This is also in the builders JSON array
+      query = query.or(`builders::jsonb @> '[{"works_number": "${filters.worksNumber}"}]'::jsonb`);
+    }
+
+    if (filters.imageNo) {
+      console.log(`Filtering by image number: ${filters.imageNo}`);
+      query = query.ilike('image_no', `%${filters.imageNo}%`);
     }
 
     console.log('Finished applying filters to query');
@@ -291,8 +428,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         console.log('Sample result (first item):', {
           id: processedResults[0].id,
           image_no: processedResults[0].image_no,
-          description: processedResults[0].description,
-          organisation: processedResults[0].organisation
+          description: processedResults[0].description
         });
       }
       
@@ -323,6 +459,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const value = {
     filters,
+    setFilters,
     setOrganisation,
     setLocation,
     setPhotographer,
@@ -330,6 +467,18 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setDateRange,
     setGauge,
     setSearchQuery,
+    // New FileMaker Pro filter setters
+    setCountry,
+    setOrganisationType,
+    setIndustryType,
+    setActiveArea,
+    setRoute,
+    setCorporateBody,
+    setFacility,
+    setDescription,
+    setBuilder,
+    setWorksNumber,
+    setImageNo,
     clearAllFilters,
     applyFilters,
     isLoading,
