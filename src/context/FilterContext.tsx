@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { supabase } from '@/api/supabase/client';
+import { supabaseClient } from '@/api/supabase/client';
 import { CatalogPhoto } from '@/services/catalogService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -254,7 +254,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     try {
       // Start with a base query
-      let query = supabase
+      let query = supabaseClient
         .from('mobile_catalog_view')
         .select('*')
         .order('date_taken', { ascending: false });
@@ -312,7 +312,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const getImageUrl = (imageNo: string): string => {
     // Normalize the image_no by removing spaces to match the file name format
     const normalizedImageNo = imageNo.replace(/\s/g, '');
-    const url = supabase.storage.from('picaloco').getPublicUrl(`images/${normalizedImageNo}.webp`).data.publicUrl;
+    const url = supabaseClient.storage.from('picaloco').getPublicUrl(`images/${normalizedImageNo}.webp`).data.publicUrl;
     return url;
   };
 
