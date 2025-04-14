@@ -1,6 +1,12 @@
 // src/api/supabase/services/userService.ts
-import { supabaseClient } from '../client';
-import { ApiResponse, UserProfile, ExtendedUserProfile } from '../types';
+import { supabaseClient, supabasePublicClient } from '../client';
+import { 
+  ApiResponse, 
+  UserProfile, 
+  ExtendedUserProfile,
+  UserProfileInsert,
+  UserProfileUpdate 
+} from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Keys for local storage
@@ -10,81 +16,14 @@ const USER_FAVORITES_PREFIX = 'user-favorites-';
 /**
  * Service for handling user-related operations
  */
-export const userService = {
-  /**
-   * Get full user profile with additional info like favorites
-   */
-  getExtendedUserProfile: async (userId: string): Promise<ApiResponse<ExtendedUserProfile>> => {
-    try {
-      // First get the basic profile
-      const { data: profile, error: profileError, status } = await supabaseClient
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (profileError) {
-        throw profileError;
-      }
-      
-      if (!profile) {
-        return { data: null, error: new Error('User profile not found'), status: 404 };
-      }
-      
-      // Check if user is admin
-      const { data: isAdmin, error: adminError } = await supabaseClient
-        .rpc('is_admin', { user_id: userId });
-      
-      if (adminError) {
-        console.error('Error checking admin status:', adminError);
-      }
-      
-      // Get favorites
-      const { data: favorites } = await this.getFavorites({ userId });
-      
-      // Return extended profile
-      const extendedProfile: ExtendedUserProfile = {
-        ...profile as UserProfile,
-        isAdmin: !!isAdmin,
-        favorites: favorites || [],
-        orders: [] // Could fetch orders here if you implement that feature
-      };
-      
-      return { data: extendedProfile, error: null, status };
-    } catch (error) {
-      console.error('Error getting extended user profile:', error);
-      return { data: null, error: error as Error, status: 500 };
-    }
-  },
-  
-  /**
-   * Update user profile 
-   */
-  updateProfile: async (userId: string, updates: Partial<UserProfile>): Promise<ApiResponse<null>> => {
-    try {
-      const { error, status } = await supabaseClient
-        .from('profiles')
-        .update(updates)
-        .eq('id', userId);
-      
-      if (error) {
-        throw error;
-      }
-      
-      return { data: null, error: null, status };
-    } catch (error) {
-      console.error('Error updating user profile:', error);
-      return { data: null, error: error as Error, status: 500 };
-    }
-  },
-  
+const userService = {
   /**
    * Get user favorites
    */
-  getFavorites: async (options: { 
+  getFavorites: async function(options: { 
     userId?: string; 
     isGuest?: boolean;
-  } = {}): Promise<ApiResponse<string[]>> => {
+  } = {}): Promise<ApiResponse<string[]>> {
     const { userId, isGuest = false } = options;
     
     try {
@@ -116,12 +55,159 @@ export const userService = {
   },
   
   /**
+   * Get full user profile with additional info like favorites
+   */
+  getExtendedUserProfile: async function(userId: string): Promise<ApiResponse<ExtendedUserProfile>> {
+    try {
+      // First try to get the basic profile from public schema
+      const { data: profile, error: profileError } = await supabasePublicClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle(); // Use maybeSingle instead of single
+      
+      console.log("Profile query result:", profile ? "found" : "not found", profileError ? "error" : "no error");
+      
+      // If no profile exists, create one
+      if (!profile && !profileError) {
+        console.log("Creating new profile for user:", userId);
+        // Get user data from auth
+        const { data: userData } = await supabaseClient.auth.getUser();
+        
+        if (userData?.user) {
+          // Create a basic profile
+          const newProfile: UserProfileInsert = {
+            id: userId,
+            name: userData.user.user_metadata?.name || 'User',
+            avatar_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          
+          console.log("Inserting new profile:", newProfile);
+          
+          // Insert the new profile using public schema client
+          const { data: insertedProfile, error: insertError } = await supabasePublicClient
+            .from('profiles')
+            .upsert(newProfile)
+            .select()
+            .single();
+          
+          if (insertError) {
+            console.error("Error inserting profile:", insertError);
+            throw insertError;
+          }
+          
+          // Use the newly created profile
+          if (insertedProfile) {
+            console.log("Profile inserted successfully");
+            // Check if user is admin - use public schema client
+            const { data: isAdmin, error: adminError } = await supabasePublicClient
+              .rpc('is_admin', { user_id: userId });
+            
+            if (adminError) {
+              console.error('Error checking admin status:', adminError);
+            }
+            
+            // Instead of calling this.getFavorites, call the function directly
+            console.log("About to get favorites for newly created profile");
+            const favorites = await AsyncStorage.getItem(`${USER_FAVORITES_PREFIX}${userId}`);
+            const parsedFavorites = favorites ? JSON.parse(favorites) : [];
+            
+            // Return extended profile
+            const extendedProfile: ExtendedUserProfile = {
+              ...insertedProfile as UserProfile,
+              isAdmin: !!isAdmin,
+              favorites: parsedFavorites,
+              orders: [] // Could fetch orders here if you implement that feature
+            };
+            
+            return { data: extendedProfile, error: null, status: 200 };
+          }
+        }
+        
+        return { data: null, error: new Error('Failed to create user profile'), status: 500 };
+      }
+      
+      if (profileError) {
+        console.error("Profile query error:", profileError);
+        throw profileError;
+      }
+      
+      if (!profile) {
+        console.log("No profile found for user:", userId);
+        return { data: null, error: new Error('User profile not found'), status: 404 };
+      }
+      
+      console.log("Found existing profile, checking admin status");
+      // Check if user is admin - use public schema client for rpc function
+      const { data: isAdmin, error: adminError } = await supabasePublicClient
+        .rpc('is_admin', { user_id: userId });
+      
+      if (adminError) {
+        console.error('Error checking admin status:', adminError);
+      }
+      
+      // Instead of calling this.getFavorites, get the favorites directly
+      console.log("Getting favorites for existing profile");
+      const favorites = await AsyncStorage.getItem(`${USER_FAVORITES_PREFIX}${userId}`);
+      const parsedFavorites = favorites ? JSON.parse(favorites) : [];
+      
+      // Return extended profile
+      const extendedProfile: ExtendedUserProfile = {
+        ...profile as UserProfile,
+        isAdmin: !!isAdmin,
+        favorites: parsedFavorites,
+        orders: [] // Could fetch orders here if you implement that feature
+      };
+      
+      return { data: extendedProfile, error: null, status: 200 };
+    } catch (error) {
+      console.error('Error getting extended user profile:', error);
+      return { data: null, error: error as Error, status: 500 };
+    }
+  },
+  
+  /**
+   * Update user profile 
+   */
+  updateProfile: async function(userId: string, updates: Partial<UserProfile>): Promise<ApiResponse<null>> {
+    try {
+      console.log("Updating profile for user:", userId, "with data:", updates);
+      
+      // Ensure the updated_at field is set
+      const updatesWithTimestamp = {
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Use public schema client for profiles table
+      const { error, status, data } = await supabasePublicClient
+        .from('profiles')
+        .update(updatesWithTimestamp)
+        .eq('id', userId)
+        .select();
+      
+      if (error) {
+        console.error("Profile update failed with error:", error);
+        throw error;
+      }
+      
+      console.log("Profile update successful, response:", data);
+      return { data: null, error: null, status };
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      return { data: null, error: error as Error, status: 500 };
+    }
+  },
+  
+  /**
    * Add to favorites
    */
-  addToFavorites: async (photoId: string, options: { 
+  addToFavorites: async function(photoId: string, options: { 
     userId?: string; 
     isGuest?: boolean;
-  } = {}): Promise<ApiResponse<null>> => {
+  } = {}): Promise<ApiResponse<null>> {
     const { userId, isGuest = false } = options;
     
     try {
@@ -166,10 +252,10 @@ export const userService = {
   /**
    * Remove from favorites
    */
-  removeFromFavorites: async (photoId: string, options: { 
+  removeFromFavorites: async function(photoId: string, options: { 
     userId?: string; 
     isGuest?: boolean;
-  } = {}): Promise<ApiResponse<null>> => {
+  } = {}): Promise<ApiResponse<null>> {
     const { userId, isGuest = false } = options;
     
     try {
@@ -210,11 +296,12 @@ export const userService = {
   /**
    * Check if a photo is in favorites
    */
-  isFavorite: async (photoId: string, options: { 
+  isFavorite: async function(photoId: string, options: { 
     userId?: string; 
     isGuest?: boolean;
-  } = {}): Promise<ApiResponse<boolean>> => {
+  } = {}): Promise<ApiResponse<boolean>> {
     try {
+      // Call getFavorites directly as a method on this object
       const { data: favorites } = await this.getFavorites(options);
       const isFavorite = favorites ? favorites.includes(photoId) : false;
       
@@ -228,7 +315,7 @@ export const userService = {
   /**
    * Transfer guest favorites to user account
    */
-  transferGuestFavorites: async (userId: string): Promise<ApiResponse<null>> => {
+  transferGuestFavorites: async function(userId: string): Promise<ApiResponse<null>> {
     try {
       // Get guest favorites
       const guestFavoritesJson = await AsyncStorage.getItem(GUEST_FAVORITES_KEY);
@@ -258,3 +345,6 @@ export const userService = {
     }
   }
 };
+
+// Export the service
+export { userService };

@@ -4,10 +4,12 @@ import { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 
+// Import the correct Supabase client
+import { supabaseClient } from '@/api/supabase/client';
+
 // Import the Supabase services
-import { authService, userService, supabaseClient } from '@/api/supabase';
+import { authService, userService } from '@/api/supabase';
 import { ExtendedUserProfile } from '@/api/supabase/types';
-import { supabase } from '@/services/supabase';
 
 type AuthContextType = {
   user: User | null;
@@ -31,7 +33,8 @@ type AuthContextType = {
   isFavorite: (photoId: string) => boolean;
 };
 
-const GUEST_FAVORITES_KEY = 'guest_favorites';
+const GUEST_MODE_KEY = 'guestMode';
+const GUEST_FAVORITES_KEY = 'guest-favorites';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -60,6 +63,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Set up guest profile
+  const setupGuestProfile = async () => {
+    try {
+      // Get guest favorites from storage
+      const guestFavorites = await loadGuestFavorites();
+
+      // Create a guest profile
+      const guestProfile: ExtendedUserProfile = {
+        id: 'guest',
+        name: 'Guest User',
+        avatar_url: null,
+        created_at: null,
+        updated_at: null,
+        favorites: guestFavorites,
+        isAdmin: false,
+        orders: []
+      };
+
+      setUserProfile(guestProfile);
+      setIsGuest(true);
+      setIsAuthenticated(true);
+      setIsAdmin(false);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error setting up guest profile:', error);
+    }
+  };
+
+  // Load guest favorites from AsyncStorage
+  const loadGuestFavorites = async () => {
+    try {
+      const { data } = await userService.getFavorites({ isGuest: true });
+      return data || [];
+    } catch (error) {
+      console.error('Error loading guest favorites:', error);
+      return [];
+    }
+  };
+
   // Set up auth state listener for Supabase
   useEffect(() => {
     // Check if guest mode was previously enabled
@@ -76,7 +118,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const currentSession = data.session;
       
       // Set up the auth state change listener
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
         async (event, newSession) => {
           console.log("Auth state changed:", event);
           setSession(newSession);
@@ -119,45 +161,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     setupAuthListener();
   }, []);
-
-  // Set up guest profile
-  const setupGuestProfile = async () => {
-    try {
-      // Get guest favorites from storage
-      const guestFavorites = await loadGuestFavorites();
-
-      // Create a guest profile
-      const guestProfile: ExtendedUserProfile = {
-        id: 'guest',
-        name: 'Guest User',
-        avatar_url: null,
-        created_at: null,
-        updated_at: null,
-        favorites: guestFavorites,
-        isAdmin: false,
-        orders: []
-      };
-
-      setUserProfile(guestProfile);
-      setIsGuest(true);
-      setIsAuthenticated(true);
-      setIsAdmin(false);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error setting up guest profile:', error);
-    }
-  };
-
-  // Load guest favorites from AsyncStorage
-  const loadGuestFavorites = async () => {
-    try {
-      const { data } = await userService.getFavorites({ isGuest: true });
-      return data || [];
-    } catch (error) {
-      console.error('Error loading guest favorites:', error);
-      return [];
-    }
-  };
 
   const login = async (email: string, password: string) => {
     try {

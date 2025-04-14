@@ -1,5 +1,5 @@
 // src/api/supabase/services/authService.ts
-import { supabaseClient } from '../client';
+import { supabaseClient, supabasePublicClient } from '../client';
 import { 
   AuthResponse, 
   ApiResponse, 
@@ -69,17 +69,19 @@ export const authService = {
 
       // If signUp is successful but email confirmation is required,
       // we need to create a profile for the user
-      if (data.user && !data.session) {
-        // Create profile in the profiles table
+      if (data.user) {
+        // Create profile in the profiles table (which is in the public schema)
         const profileData: UserProfileInsert = {
           id: data.user.id,
           name,
-          email
+          avatar_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         };
 
-        const { error: profileError } = await supabaseClient
+        const { error: profileError } = await supabasePublicClient
           .from('profiles')
-          .insert(profileData);
+          .upsert(profileData);
 
         if (profileError) {
           console.error('Error creating profile:', profileError);
@@ -152,11 +154,11 @@ export const authService = {
   },
 
   /**
-   * Check if user is admin
+   * Check if user is admin - using public schema for the function
    */
   isAdmin: async (userId: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabaseClient.rpc('is_admin', { user_id: userId });
+      const { data, error } = await supabasePublicClient.rpc('is_admin', { user_id: userId });
       
       if (error) {
         throw error;
@@ -170,11 +172,11 @@ export const authService = {
   },
 
   /**
-   * Get user profile from database
+   * Get user profile from database - using public schema
    */
   getUserProfile: async (userId: string): Promise<ApiResponse<UserProfile>> => {
     try {
-      const { data, error, status } = await supabaseClient
+      const { data, error, status } = await supabasePublicClient
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -200,11 +202,11 @@ export const authService = {
   },
   
   /**
-   * Update user profile in database
+   * Update user profile in database - using public schema
    */
   updateUserProfile: async (userId: string, updates: UserProfileUpdate): Promise<ApiResponse<null>> => {
     try {
-      const { error, status } = await supabaseClient
+      const { error, status } = await supabasePublicClient
         .from('profiles')
         .update(updates)
         .eq('id', userId);

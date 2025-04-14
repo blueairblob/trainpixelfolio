@@ -9,7 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../integrations/supabase/client';
+import { supabaseClient } from '@/api/supabase/client';
 import { useDebounce } from '../../hooks/useDebounce';
 
 interface Organisation {
@@ -44,7 +44,7 @@ const OrganisationFilter: React.FC<OrganisationFilterProps> = ({
   useEffect(() => {
     const fetchOrganisationTypes = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
           .from('organisation')
           .select('type')
           .not('type', 'is', null);
@@ -74,7 +74,7 @@ const OrganisationFilter: React.FC<OrganisationFilterProps> = ({
     setError(null);
 
     try {
-      let query = supabase
+      let query = supabaseClient
         .from('organisation')
         .select('id, name, type')
         .order('name');

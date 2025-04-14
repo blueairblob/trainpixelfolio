@@ -8,7 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import FavoritesTab from '@/components/FavoritesTab'; // Import the FavoritesTab component
+import FavoritesTab from '@/components/FavoritesTab'; 
+
+
+
 
 const ProfileScreen = ({ navigation }) => {
   const { 
@@ -21,6 +24,8 @@ const ProfileScreen = ({ navigation }) => {
     disableGuestMode 
   } = useAuth();
   
+  const { updateProfile } = useAuth();
+
   const [activeTab, setActiveTab] = useState('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -58,10 +63,30 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
-  const handleUpdateProfile = () => {
-    // Profile update logic here
-    Alert.alert('Success', 'Profile updated successfully');
-    setIsEditing(false);
+  const handleUpdateProfile = async () => {
+    try {
+      // Show loading indicator
+      setIsLoading(true);
+      
+      // Call the updateProfile function from the AuthContext
+      await updateProfile({
+        name: name,
+        // Add other fields you want to update
+      });
+      
+      // Success message
+      Alert.alert('Success', 'Profile updated successfully');
+      
+      // Exit editing mode
+      setIsEditing(false);
+    } catch (error) {
+      // Show error message
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      // Hide loading indicator
+      setIsLoading(false);
+    }
   };
 
   const handleChangePassword = () => {

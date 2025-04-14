@@ -42,6 +42,7 @@ const AuthScreen = ({ navigation }) => {
     try {
       if (isLogin) {
         const result = await login(email, password);
+        console.log('Tried to log in got: ' + result);
         if (result) {
           // Navigate to the main app flow after successful login
           navigation.reset({

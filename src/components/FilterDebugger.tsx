@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseClient } from '@/api/supabase/client';
 import { useFilters } from '@/context/FilterContext';
 
 /**
@@ -28,7 +28,7 @@ const FilterDebugger: React.FC = () => {
       console.log('FilterDebugger: Running test query with filters', JSON.stringify(filters, null, 2));
       
       // Create a basic query 
-      let query = supabase
+      let query = supabaseClient
         .from('mobile_catalog_view')
         .select('image_no, description, organisation')
         .limit(10);

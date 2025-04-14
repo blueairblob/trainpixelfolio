@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/api/supabase/client';
 import { CatalogPhoto } from '@/services/catalogService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

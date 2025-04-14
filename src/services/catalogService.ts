@@ -1,5 +1,5 @@
 // src/services/catalogService.ts
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseClient } from "@/api/supabase/client";
 import { getCachedApiData, cacheApiData } from "@/utils/imageCache";
 
 // Define the types for the catalog data
@@ -62,7 +62,7 @@ const DEFAULT_OPTIONS: PhotoFetchOptions = {
 export const getImageUrl = (imageNo: string): string => {
   // Normalize the image_no by removing spaces to match the file name format
   const normalizedImageNo = imageNo.replace(/\s/g, ''); // e.g., "Class 1800 (10)" -> "Class1800(10)"
-  const url = supabase.storage.from('picaloco').getPublicUrl(`images/${normalizedImageNo}.webp`).data.publicUrl;
+  const url = supabaseClient.storage.from('picaloco').getPublicUrl(`images/${normalizedImageNo}.webp`).data.publicUrl;
   return url;
 };
 
@@ -93,7 +93,7 @@ export const fetchCatalogPhotos = async (
     // If not in cache or forced fresh, fetch from API
     const offset = (page - 1) * limit;
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('mobile_catalog_view')
       .select('*')
       .order('date_taken', { ascending: false })
@@ -158,7 +158,7 @@ export const fetchPhotosByCategory = async (
     
     // If not in cache, fetch from API
     const offset = (page - 1) * limit;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('mobile_catalog_view')
       .select('*')
       .eq('category', category)
@@ -216,7 +216,7 @@ export const fetchPhotoById = async (
     }
     
     // If not in cache, fetch from API
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('mobile_catalog_view')
       .select('*')
       .eq('image_no', imageNo)
@@ -273,7 +273,7 @@ export const fetchCategories = async (
     }
   
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('mobile_catalog_view')
       .select('category')
       .not('category', 'is', null);
@@ -337,7 +337,7 @@ export const searchPhotos = async (
     // Not in cache, perform the search
     const offset = (page - 1) * limit;
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('mobile_catalog_view')
       .select('*')
       .or(`description.ilike.%${query}%,category.ilike.%${query}%,photographer.ilike.%${query}%,location.ilike.%${query}%`)
@@ -431,7 +431,7 @@ export const fetchFilteredPhotos = async (
   
   try {
     // Build the base query
-    let query = supabase
+    let query = supabaseClient
       .from('mobile_catalog_view')
       .select('*');
       
