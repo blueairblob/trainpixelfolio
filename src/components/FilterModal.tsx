@@ -1,5 +1,5 @@
 // src/components/FilterModal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -16,6 +16,31 @@ import { supabaseClient } from '@/api/supabase/client';
 import { useFilters } from '@/context/FilterContext';
 import DateRangeFilter from './filters/DateRangeFilter';
 import SelectInput from './filters/SelectInput';
+import { getCachedFilterOptions, cacheFilterOptions } from '@/utils/filterCache';
+
+// Cache keys - consistent with FilterCacheInfo
+const CACHE_KEYS = {
+  COUNTRIES: 'countries',
+  ORG_TYPES: 'organization_types',
+  ORGANIZATIONS: 'organizations',
+  INDUSTRY_TYPES: 'industry_types',
+  ACTIVE_AREAS: 'active_areas',
+  ROUTES: 'routes',
+  CORPORATE_BODIES: 'corporate_bodies',
+  LOCATIONS: 'locations',
+  FACILITIES: 'facilities',
+  BUILDERS: 'builders',
+  COLLECTIONS: 'collections',
+  GAUGES: 'gauges',
+  PHOTOGRAPHERS: 'photographers'
+};
+
+// Cache durations in milliseconds
+const CACHE_DURATIONS = {
+  DEFAULT: 24 * 60 * 60 * 1000, // 24 hours
+  SHORT: 6 * 60 * 60 * 1000,    // 6 hours for frequently changing data
+  LONG: 7 * 24 * 60 * 60 * 1000 // 7 days for relatively static data
+};
 
 // Define filter option type
 interface FilterOption {
@@ -73,6 +98,7 @@ const FilterModal = ({
   
   // State for loading options
   const [loadingOptions, setLoadingOptions] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState<Record<string, boolean>>({});
   
   // Effect to fetch filter options when modal is opened
   useEffect(() => {
@@ -81,163 +107,272 @@ const FilterModal = ({
     }
   }, [visible]);
   
-  // Function to load filter options from Supabase
+  // Try to get data from cache first, then fallback to database
+  const fetchWithCache = async <T extends any>(
+    cacheKey: string,
+    fetchFn: () => Promise<T>,
+    setState: React.Dispatch<React.SetStateAction<T>>,
+    cacheDuration = CACHE_DURATIONS.DEFAULT
+  ) => {
+    try {
+      // Try to get from cache
+      const cachedData = await getCachedFilterOptions<T>(cacheKey);
+      if (cachedData) {
+        // Update cache status
+        setCacheStatus(prev => ({ ...prev, [cacheKey]: true }));
+        // Use cached data
+        setState(cachedData);
+        return;
+      }
+      
+      // No cached data, fetch fresh data
+      setCacheStatus(prev => ({ ...prev, [cacheKey]: false }));
+      const data = await fetchFn();
+      // Save to cache
+      await cacheFilterOptions(cacheKey, data, cacheDuration);
+      // Update state
+      setState(data);
+    } catch (error) {
+      console.error(`Error fetching/caching ${cacheKey}:`, error);
+    }
+  };
+  
+  // Function to load filter options from Supabase or cache
   const loadFilterOptions = async () => {
     if (loadingOptions) return;
     
     try {
       setLoadingOptions(true);
       
-      // Load countries
-      const { data: countries } = await supabaseClient
-        .from('country')
-        .select('id, name')
-        .order('name');
+      // Load countries with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.COUNTRIES,
+        async () => {
+          const { data: countries } = await supabaseClient
+            .from('country')
+            .select('id, name')
+            .order('name');
+          
+          return countries?.map(c => ({ id: c.id, name: c.name })) || [];
+        },
+        setCountryOptions,
+        CACHE_DURATIONS.LONG  // Countries rarely change
+      );
       
-      if (countries) {
-        setCountryOptions(countries.map(c => ({ id: c.id, name: c.name })));
-      }
+      // Load organisation types with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.ORG_TYPES,
+        async () => {
+          const { data: orgTypes } = await supabaseClient
+            .from('organisation')
+            .select('type')
+            .not('type', 'is', null);
+          
+          if (orgTypes) {
+            const uniqueTypes = Array.from(new Set(orgTypes.map(ot => ot.type).filter(Boolean)));
+            return uniqueTypes.map(type => ({ id: type, name: type }));
+          }
+          return [];
+        },
+        setOrgTypeOptions,
+        CACHE_DURATIONS.LONG
+      );
       
-      // Load organisation types
-      const { data: orgTypes } = await supabaseClient
-        .from('organisation')
-        .select('type')
-        .not('type', 'is', null);
+      // Load organisations with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.ORGANIZATIONS,
+        async () => {
+          const { data: organisations } = await supabaseClient
+            .from('organisation')
+            .select('id, name')
+            .order('name')
+            .limit(100);
+          
+          return organisations?.map(o => ({
+            id: o.id, 
+            name: o.name || 'Unnamed'
+          })) || [];
+        },
+        setOrganisationOptions
+      );
       
-      if (orgTypes) {
-        const uniqueTypes = Array.from(new Set(orgTypes.map(ot => ot.type).filter(Boolean)));
-        setOrgTypeOptions(uniqueTypes.map(type => ({ id: type, name: type })));
-      }
+      // Get common industry types with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.INDUSTRY_TYPES,
+        async () => {
+          const { data: industries } = await supabaseClient
+            .from('mobile_catalog_view')
+            .select('type_of_industry')
+            .not('type_of_industry', 'is', null);
+          
+          if (industries) {
+            const uniqueIndustries = Array.from(new Set(industries
+              .map(i => i.type_of_industry)
+              .filter(Boolean)));
+            return uniqueIndustries.map(type => ({ id: type, name: type }));
+          }
+          return [];
+        },
+        setIndustryTypeOptions
+      );
       
-      // Load organisations
-      const { data: organisations } = await supabaseClient
-        .from('organisation')
-        .select('id, name')
-        .order('name')
-        .limit(100);
+      // Get active areas with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.ACTIVE_AREAS,
+        async () => {
+          const { data: areas } = await supabaseClient
+            .from('mobile_catalog_view')
+            .select('active_area')
+            .not('active_area', 'is', null);
+          
+          if (areas) {
+            const uniqueAreas = Array.from(new Set(areas
+              .map(a => a.active_area)
+              .filter(Boolean)));
+            return uniqueAreas.map(area => ({ id: area, name: area }));
+          }
+          return [];
+        },
+        setActiveAreaOptions
+      );
       
-      if (organisations) {
-        setOrganisationOptions(organisations.map(o => ({ id: o.id, name: o.name || 'Unnamed' })));
-      }
+      // Load routes with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.ROUTES,
+        async () => {
+          const { data: routes } = await supabaseClient
+            .from('route')
+            .select('id, name')
+            .order('name');
+          
+          return routes?.map(r => ({ id: r.id, name: r.name })) || [];
+        },
+        setRouteOptions,
+        CACHE_DURATIONS.LONG
+      );
       
-      // Get common industry types
-      const { data: industries } = await supabaseClient
-        .from('mobile_catalog_view')
-        .select('type_of_industry')
-        .not('type_of_industry', 'is', null);
+      // Get corporate bodies with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.CORPORATE_BODIES,
+        async () => {
+          const { data: bodies } = await supabaseClient
+            .from('mobile_catalog_view')
+            .select('corporate_body')
+            .not('corporate_body', 'is', null);
+          
+          if (bodies) {
+            const uniqueBodies = Array.from(new Set(bodies
+              .map(b => b.corporate_body)
+              .filter(Boolean)));
+            return uniqueBodies.map(body => ({ id: body, name: body }));
+          }
+          return [];
+        },
+        setCorporateBodyOptions
+      );
       
-      if (industries) {
-        const uniqueIndustries = Array.from(new Set(industries
-          .map(i => i.type_of_industry)
-          .filter(Boolean)));
-        setIndustryTypeOptions(uniqueIndustries.map(type => ({ id: type, name: type })));
-      }
+      // Load locations with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.LOCATIONS,
+        async () => {
+          const { data: locations } = await supabaseClient
+            .from('location')
+            .select('id, name')
+            .order('name')
+            .limit(100);
+          
+          return locations?.map(l => ({ id: l.id, name: l.name })) || [];
+        },
+        setLocationOptions
+      );
       
-      // Get active areas
-      const { data: areas } = await supabaseClient
-        .from('mobile_catalog_view')
-        .select('active_area')
-        .not('active_area', 'is', null);
+      // Get facilities with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.FACILITIES,
+        async () => {
+          const { data: facilities } = await supabaseClient
+            .from('mobile_catalog_view')
+            .select('facility')
+            .not('facility', 'is', null);
+          
+          if (facilities) {
+            const uniqueFacilities = Array.from(new Set(facilities
+              .map(f => f.facility)
+              .filter(Boolean)));
+            return uniqueFacilities.map(facility => ({ id: facility, name: facility }));
+          }
+          return [];
+        },
+        setFacilityOptions
+      );
       
-      if (areas) {
-        const uniqueAreas = Array.from(new Set(areas
-          .map(a => a.active_area)
-          .filter(Boolean)));
-        setActiveAreaOptions(uniqueAreas.map(area => ({ id: area, name: area })));
-      }
+      // Load builders with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.BUILDERS,
+        async () => {
+          const { data: builders } = await supabaseClient
+            .from('builder')
+            .select('id, name, code')
+            .order('name');
+          
+          return builders?.map(b => ({ 
+            id: b.id, 
+            name: b.name || b.code || 'Unnamed'
+          })) || [];
+        },
+        setBuilderOptions,
+        CACHE_DURATIONS.LONG
+      );
       
-      // Load routes
-      const { data: routes } = await supabaseClient
-        .from('route')
-        .select('id, name')
-        .order('name');
+      // Load collections with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.COLLECTIONS,
+        async () => {
+          const { data: collections } = await supabaseClient
+            .from('collection')
+            .select('id, name')
+            .order('name');
+          
+          return collections?.map(c => ({ id: c.id, name: c.name })) || [];
+        },
+        setCollectionOptions,
+        CACHE_DURATIONS.LONG
+      );
       
-      if (routes) {
-        setRouteOptions(routes.map(r => ({ id: r.id, name: r.name })));
-      }
+      // Get gauges with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.GAUGES,
+        async () => {
+          const { data: gauges } = await supabaseClient
+            .from('mobile_catalog_view')
+            .select('gauge')
+            .not('gauge', 'is', null);
+          
+          if (gauges) {
+            const uniqueGauges = Array.from(new Set(gauges
+              .map(g => g.gauge)
+              .filter(Boolean)));
+            return uniqueGauges.map(gauge => ({ id: gauge, name: gauge }));
+          }
+          return [];
+        },
+        setGaugeOptions,
+        CACHE_DURATIONS.LONG
+      );
       
-      // Get corporate bodies
-      const { data: bodies } = await supabaseClient
-        .from('mobile_catalog_view')
-        .select('corporate_body')
-        .not('corporate_body', 'is', null);
-      
-      if (bodies) {
-        const uniqueBodies = Array.from(new Set(bodies
-          .map(b => b.corporate_body)
-          .filter(Boolean)));
-        setCorporateBodyOptions(uniqueBodies.map(body => ({ id: body, name: body })));
-      }
-      
-      // Load locations
-      const { data: locations } = await supabaseClient
-        .from('location')
-        .select('id, name')
-        .order('name')
-        .limit(100);
-      
-      if (locations) {
-        setLocationOptions(locations.map(l => ({ id: l.id, name: l.name })));
-      }
-      
-      // Get facilities
-      const { data: facilities } = await supabaseClient
-        .from('mobile_catalog_view')
-        .select('facility')
-        .not('facility', 'is', null);
-      
-      if (facilities) {
-        const uniqueFacilities = Array.from(new Set(facilities
-          .map(f => f.facility)
-          .filter(Boolean)));
-        setFacilityOptions(uniqueFacilities.map(facility => ({ id: facility, name: facility })));
-      }
-      
-      // Load builders
-      const { data: builders } = await supabaseClient
-        .from('builder')
-        .select('id, name, code')
-        .order('name');
-      
-      if (builders) {
-        setBuilderOptions(builders.map(b => ({ 
-          id: b.id, 
-          name: b.name || b.code || 'Unnamed'
-        })));
-      }
-      
-      // Load collections
-      const { data: collections } = await supabaseClient
-        .from('collection')
-        .select('id, name')
-        .order('name');
-      
-      if (collections) {
-        setCollectionOptions(collections.map(c => ({ id: c.id, name: c.name })));
-      }
-      
-      // Get gauges
-      const { data: gauges } = await supabaseClient
-        .from('mobile_catalog_view')
-        .select('gauge')
-        .not('gauge', 'is', null);
-      
-      if (gauges) {
-        const uniqueGauges = Array.from(new Set(gauges
-          .map(g => g.gauge)
-          .filter(Boolean)));
-        setGaugeOptions(uniqueGauges.map(gauge => ({ id: gauge, name: gauge })));
-      }
-      
-      // Load photographers
-      const { data: photographers } = await supabaseClient
-        .from('photographer')
-        .select('id, name')
-        .order('name');
-      
-      if (photographers) {
-        setPhotographerOptions(photographers.map(p => ({ id: p.id, name: p.name })));
-      }
+      // Load photographers with caching
+      await fetchWithCache<FilterOption[]>(
+        CACHE_KEYS.PHOTOGRAPHERS,
+        async () => {
+          const { data: photographers } = await supabaseClient
+            .from('photographer')
+            .select('id, name')
+            .order('name');
+          
+          return photographers?.map(p => ({ id: p.id, name: p.name })) || [];
+        },
+        setPhotographerOptions
+      );
       
     } catch (error) {
       console.error('Error loading filter options:', error);
@@ -358,6 +493,7 @@ const FilterModal = ({
                         }
                       }}
                       placeholder="Select photographer"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.PHOTOGRAPHERS]}
                     />
                     
                     {/* Location Filter */}
@@ -386,6 +522,7 @@ const FilterModal = ({
                         }
                       }}
                       placeholder="Select location"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.LOCATIONS]}
                     />
                     
                     {/* Date Range Filter */}
@@ -419,6 +556,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select gauge"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.GAUGES]}
                     />
                     
                     {/* Description Filter */}
@@ -458,6 +596,7 @@ const FilterModal = ({
                         }
                       }}
                       placeholder="Select collection"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.COLLECTIONS]}
                     />
                   </View>
                 )}
@@ -477,6 +616,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select country"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.COUNTRIES]}
                     />
                     
                     {/* Organisation Type */}
@@ -491,6 +631,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select organisation type"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORG_TYPES]}
                     />
                     
                     {/* Organisation/Operator */}
@@ -519,6 +660,7 @@ const FilterModal = ({
                         }
                       }}
                       placeholder="Select organisation"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORGANIZATIONS]}
                     />
                     
                     {/* Type of Industry */}
@@ -533,6 +675,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select industry type"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.INDUSTRY_TYPES]}
                     />
                     
                     {/* Active Area */}
@@ -547,6 +690,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select active area"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ACTIVE_AREAS]}
                     />
                     
                     {/* Route */}
@@ -561,6 +705,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select route"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ROUTES]}
                     />
                     
                     {/* Corporate Body */}
@@ -575,6 +720,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select corporate body"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.CORPORATE_BODIES]}
                     />
                     
                     {/* Location (already in Basic Filters, duplicated here for completeness) */}
@@ -603,6 +749,7 @@ const FilterModal = ({
                         }
                       }}
                       placeholder="Select location"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.LOCATIONS]}
                     />
                     
                     {/* Plant/Facility */}
@@ -617,6 +764,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select facility"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.FACILITIES]}
                     />
                     
                     {/* Description */}
@@ -642,6 +790,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select builder"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.BUILDERS]}
                     />
                     
                     {/* Works Number */}
@@ -681,6 +830,7 @@ const FilterModal = ({
                         }
                       }}
                       placeholder="Select collection"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.COLLECTIONS]}
                     />
                     
                     {/* Image Number */}
@@ -706,6 +856,7 @@ const FilterModal = ({
                         });
                       }}
                       placeholder="Select gauge"
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.GAUGES]}
                     />
                     
                     {/* Date Range - duplicated for completeness */}
@@ -745,7 +896,7 @@ const FilterModal = ({
             {/* Result count display */}
             <Text style={styles.resultCountText}>
               {isLoading 
-                ? "Calculating results..." 
+                ? "Calculating results..."  
                 : `${displayCount} ${displayCount === 1 ? 'result' : 'results'} ${hasMoreResults ? '+' : ''}`}
             </Text>
 

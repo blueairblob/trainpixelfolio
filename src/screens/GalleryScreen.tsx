@@ -284,7 +284,7 @@ const GalleryScreen = ({ navigation, route }) => {
         id: photo.image_no,
         title: photo.description || 'Untitled',
         photographer: photo.photographer || 'Unknown',
-        price: 0.50, // Default price (in a real app this would come from the API)
+        // price: 0.50, // Default price (in a real app this would come from the API)
         imageUrl: photo.image_url || '',
         location: photo.location || '',
         description: photo.description || ''
