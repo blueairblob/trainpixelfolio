@@ -15,13 +15,10 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import AuthScreen from './src/screens/AuthScreen';
 
-
 // Context Providers
 import { FilterProvider } from './src/context/FilterContext';
 import { CartProvider } from './src/context/CartContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-
-
 
 // Create the navigators
 const Stack = createNativeStackNavigator();
@@ -73,7 +70,7 @@ const RootNavigator = () => {
     <Stack.Navigator>
       {!isAuthenticated ? (
         <Stack.Screen 
-          name="Auth" 
+          name="AuthScreen" 
           component={AuthScreen} 
           options={{ headerShown: false }}
         />
@@ -84,8 +81,16 @@ const RootNavigator = () => {
             component={TabNavigator} 
             options={{ headerShown: false }}
           />
-          <Stack.Screen name="PhotoDetail" component={PhotoDetailScreen} />
-          <Stack.Screen name="Admin" component={AdminScreen} />
+          <Stack.Screen 
+            name="PhotoDetailScreen" 
+            component={PhotoDetailScreen}
+            options={{ headerShown: false, title: 'Photo Details' }} 
+          />
+          <Stack.Screen 
+            name="AdminScreen" 
+            component={AdminScreen}
+            options={{ title: 'Admin Dashboard' }} 
+          />
         </>
       )}
     </Stack.Navigator>
@@ -97,37 +102,18 @@ const App = () => {
   console.log("Running App.tsx");
 
   return (
-    <AuthProvider>
-      <CartProvider>
-        <FilterProvider>
-          <NavigationContainer>
-            <Stack.Navigator initialRouteName="Main">
-              <Stack.Screen 
-                name="Main" 
-                component={TabNavigator} 
-                options={{ headerShown: false }} 
-              />
-              <Stack.Screen 
-                name="PhotoDetailScreen" 
-                component={PhotoDetailScreen}
-                options={{ headerShown: false, title: 'Photo Details' }} 
-              />
-              <Stack.Screen 
-                name="AdminScreen" 
-                component={AdminScreen}
-                options={{ title: 'Admin Dashboard' }} 
-              />
-              <Stack.Screen 
-                name="AuthScreen" 
-                component={AuthScreen}
-                options={{ headerShown: false, title: 'Login / Register' }} 
-              />
-            </Stack.Navigator>
-            <StatusBar style="auto" />
-          </NavigationContainer>
-        </FilterProvider>
-      </CartProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <CartProvider>
+          <FilterProvider>
+            <NavigationContainer>
+              <RootNavigator />
+              <StatusBar style="auto" />
+            </NavigationContainer>
+          </FilterProvider>
+        </CartProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 };
 

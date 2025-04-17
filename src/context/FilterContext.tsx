@@ -4,7 +4,7 @@ import { supabaseClient } from '@/api/supabase/client';
 import { CatalogPhoto } from '@/services/catalogService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Define types for our filters
+// Define types for our filter entities
 export interface Organisation {
   id: string;
   name: string;
@@ -28,30 +28,77 @@ export interface Collection {
   owner: string | null;
 }
 
+export interface Country {
+  id: string;
+  name: string;
+}
+
+export interface OrganisationType {
+  id: string;
+  name: string;
+}
+
+export interface IndustryType {
+  id: string;
+  name: string;
+}
+
+export interface ActiveArea {
+  id: string;
+  name: string;
+}
+
+export interface Route {
+  id: string;
+  name: string;
+}
+
+export interface CorporateBody {
+  id: string;
+  name: string;
+}
+
+export interface Facility {
+  id: string;
+  name: string;
+}
+
+export interface Builder {
+  id: string;
+  name: string;
+  code?: string;
+}
+
+export interface Gauge {
+  id: string;
+  name: string;
+}
+
 export interface DateRange {
   startDate: string | null;
   endDate: string | null;
 }
 
-// Define the shape of our filter state
+// Define the shape of our filter state - all reference types now use objects with id/name
 export interface FilterState {
   organisation: Organisation | null;
   location: Location | null;
   photographer: Photographer | null;
   collection: Collection | null;
   dateRange: DateRange | null;
-  gauge: string | null;
+  gauge: Gauge | null;
   searchQuery: string;
-  // New filter fields matching FileMaker Pro
-  country: string | null;
-  organisationType: string | null;
-  industryType: string | null;
-  activeArea: string | null;
-  route: string | null;
-  corporateBody: string | null;
-  facility: string | null;
+  // Reference types
+  country: Country | null;
+  organisationType: OrganisationType | null;
+  industryType: IndustryType | null;
+  activeArea: ActiveArea | null;
+  route: Route | null;
+  corporateBody: CorporateBody | null;
+  facility: Facility | null;
+  builder: Builder | null;
+  // String-based search fields
   description: string | null;
-  builder: string | null;
   worksNumber: string | null;
   imageNo: string | null;
 }
@@ -65,18 +112,18 @@ interface FilterContextType {
   setPhotographer: (photographer: Photographer | null) => void;
   setCollection: (collection: Collection | null) => void;
   setDateRange: (range: DateRange | null) => void;
-  setGauge: (gauge: string | null) => void;
+  setGauge: (gauge: Gauge | null) => void;
   setSearchQuery: (query: string) => void;
-  // New setters for FileMaker Pro filters
-  setCountry: (country: string | null) => void;
-  setOrganisationType: (type: string | null) => void;
-  setIndustryType: (type: string | null) => void;
-  setActiveArea: (area: string | null) => void;
-  setRoute: (route: string | null) => void;
-  setCorporateBody: (body: string | null) => void;
-  setFacility: (facility: string | null) => void;
+  // New setters for reference type filters
+  setCountry: (country: Country | null) => void;
+  setOrganisationType: (type: OrganisationType | null) => void;
+  setIndustryType: (type: IndustryType | null) => void;
+  setActiveArea: (area: ActiveArea | null) => void;
+  setRoute: (route: Route | null) => void;
+  setCorporateBody: (body: CorporateBody | null) => void;
+  setFacility: (facility: Facility | null) => void;
   setDescription: (description: string | null) => void;
-  setBuilder: (builder: string | null) => void;
+  setBuilder: (builder: Builder | null) => void;
   setWorksNumber: (number: string | null) => void;
   setImageNo: (number: string | null) => void;
   clearAllFilters: () => void;
@@ -100,7 +147,7 @@ const initialFilterState: FilterState = {
   dateRange: null,
   gauge: null,
   searchQuery: '',
-  // Initialize new fields
+  // Initialize reference types
   country: null,
   organisationType: null,
   industryType: null,
@@ -108,8 +155,9 @@ const initialFilterState: FilterState = {
   route: null,
   corporateBody: null,
   facility: null,
-  description: null,
   builder: null,
+  // Initialize string fields
+  description: null,
   worksNumber: null,
   imageNo: null
 };
@@ -178,7 +226,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setFiltersState(prev => ({ ...prev, dateRange: range }));
   };
 
-  const setGauge = (gauge: string | null) => {
+  const setGauge = (gauge: Gauge | null) => {
     setFiltersState(prev => ({ ...prev, gauge }));
   };
 
@@ -186,32 +234,32 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setFiltersState(prev => ({ ...prev, searchQuery: query }));
   };
 
-  // New setters for FileMaker Pro filters
-  const setCountry = (country: string | null) => {
+  // New setters for reference type filters
+  const setCountry = (country: Country | null) => {
     setFiltersState(prev => ({ ...prev, country }));
   };
 
-  const setOrganisationType = (type: string | null) => {
+  const setOrganisationType = (type: OrganisationType | null) => {
     setFiltersState(prev => ({ ...prev, organisationType: type }));
   };
 
-  const setIndustryType = (type: string | null) => {
+  const setIndustryType = (type: IndustryType | null) => {
     setFiltersState(prev => ({ ...prev, industryType: type }));
   };
 
-  const setActiveArea = (area: string | null) => {
+  const setActiveArea = (area: ActiveArea | null) => {
     setFiltersState(prev => ({ ...prev, activeArea: area }));
   };
 
-  const setRoute = (route: string | null) => {
+  const setRoute = (route: Route | null) => {
     setFiltersState(prev => ({ ...prev, route }));
   };
 
-  const setCorporateBody = (body: string | null) => {
+  const setCorporateBody = (body: CorporateBody | null) => {
     setFiltersState(prev => ({ ...prev, corporateBody: body }));
   };
 
-  const setFacility = (facility: string | null) => {
+  const setFacility = (facility: Facility | null) => {
     setFiltersState(prev => ({ ...prev, facility }));
   };
 
@@ -219,7 +267,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setFiltersState(prev => ({ ...prev, description }));
   };
 
-  const setBuilder = (builder: string | null) => {
+  const setBuilder = (builder: Builder | null) => {
     setFiltersState(prev => ({ ...prev, builder }));
   };
 
@@ -255,7 +303,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  // Apply filters to a query
+  // Apply filters to a query - updated to use proper ID references
   const applyFilters = useCallback((baseQuery: any) => {
     let query = baseQuery;
     console.log('Starting to apply filters to query');
@@ -263,25 +311,25 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Apply organisation filter
     if (filters.organisation) {
       console.log(`Filtering by organisation: ${JSON.stringify(filters.organisation)}`);
-      query = query.ilike('organisation', `%${filters.organisation.name}%`);
+      query = query.eq('organisation_id', filters.organisation.id);
     }
 
     // Apply location filter
     if (filters.location) {
       console.log(`Filtering by location: ${filters.location.name}`);
-      query = query.ilike('location', `%${filters.location.name}%`);
+      query = query.eq('location_id', filters.location.id);
     }
 
     // Apply photographer filter
     if (filters.photographer) {
       console.log(`Filtering by photographer: ${filters.photographer.name}`);
-      query = query.ilike('photographer', `%${filters.photographer.name}%`);
+      query = query.eq('photographer_id', filters.photographer.id);
     }
 
     // Apply collection filter
     if (filters.collection) {
       console.log(`Filtering by collection: ${filters.collection.name}`);
-      query = query.ilike('collection', `%${filters.collection.name}%`);
+      query = query.eq('collection_id', filters.collection.id);
     }
 
     // Apply date range filter
@@ -298,8 +346,8 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     // Apply gauge filter
     if (filters.gauge) {
-      console.log(`Filtering by gauge: ${filters.gauge}`);
-      query = query.eq('gauge', filters.gauge);
+      console.log(`Filtering by gauge: ${filters.gauge.name}`);
+      query = query.eq('gauge', filters.gauge.id);
     }
 
     // Apply search query
@@ -308,46 +356,46 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       query = query.or(
         `description.ilike.%${filters.searchQuery}%,` +
         `category.ilike.%${filters.searchQuery}%,` +
-        `photographer.ilike.%${filters.searchQuery}%,` +
-        `location.ilike.%${filters.searchQuery}%,` +
-        `organisation.ilike.%${filters.searchQuery}%`
+        `photographer.name.ilike.%${filters.searchQuery}%,` +
+        `location.name.ilike.%${filters.searchQuery}%,` +
+        `organisation.name.ilike.%${filters.searchQuery}%`
       );
     }
 
-    // Apply new FileMaker Pro filters
+    // Apply new FileMaker Pro filters with proper ID references
     if (filters.country) {
-      console.log(`Filtering by country: ${filters.country}`);
-      query = query.eq('country', filters.country);
+      console.log(`Filtering by country: ${filters.country.name}`);
+      query = query.eq('country_id', filters.country.id);
     }
 
     if (filters.organisationType) {
-      console.log(`Filtering by organisation type: ${filters.organisationType}`);
-      query = query.eq('organisation_type', filters.organisationType);
+      console.log(`Filtering by organisation type: ${filters.organisationType.name}`);
+      query = query.eq('organisation_type', filters.organisationType.id);
     }
 
     if (filters.industryType) {
-      console.log(`Filtering by industry type: ${filters.industryType}`);
-      query = query.ilike('type_of_industry', `%${filters.industryType}%`);
+      console.log(`Filtering by industry type: ${filters.industryType.name}`);
+      query = query.ilike('type_of_industry', `%${filters.industryType.id}%`);
     }
 
     if (filters.activeArea) {
-      console.log(`Filtering by active area: ${filters.activeArea}`);
-      query = query.ilike('active_area', `%${filters.activeArea}%`);
+      console.log(`Filtering by active area: ${filters.activeArea.name}`);
+      query = query.ilike('active_area', `%${filters.activeArea.id}%`);
     }
 
     if (filters.route) {
-      console.log(`Filtering by route: ${filters.route}`);
-      query = query.eq('route', filters.route);
+      console.log(`Filtering by route: ${filters.route.name}`);
+      query = query.eq('route_id', filters.route.id);
     }
 
     if (filters.corporateBody) {
-      console.log(`Filtering by corporate body: ${filters.corporateBody}`);
-      query = query.ilike('corporate_body', `%${filters.corporateBody}%`);
+      console.log(`Filtering by corporate body: ${filters.corporateBody.name}`);
+      query = query.ilike('corporate_body', `%${filters.corporateBody.id}%`);
     }
 
     if (filters.facility) {
-      console.log(`Filtering by facility: ${filters.facility}`);
-      query = query.ilike('facility', `%${filters.facility}%`);
+      console.log(`Filtering by facility: ${filters.facility.name}`);
+      query = query.ilike('facility', `%${filters.facility.id}%`);
     }
 
     if (filters.description) {
@@ -356,9 +404,9 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
 
     if (filters.builder) {
-      console.log(`Filtering by builder: ${filters.builder}`);
+      console.log(`Filtering by builder: ${filters.builder.name}`);
       // This is a bit complex since builders are in a JSON array field
-      query = query.or(`builders::jsonb @> '[{"builder_id": "${filters.builder}"}]'::jsonb,builders::jsonb @> '[{"builder_name": "${filters.builder}"}]'::jsonb`);
+      query = query.or(`builders::jsonb @> '[{"builder_id": "${filters.builder.id}"}]'::jsonb,builders::jsonb @> '[{"builder_name": "${filters.builder.name}"}]'::jsonb`);
     }
 
     if (filters.worksNumber) {
@@ -452,10 +500,10 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return url;
   };
 
-  // Execute query when filters change
+  // Execute query only when lastRefreshTime changes (triggered by Apply Filters)
   useEffect(() => {
     executeFilteredQuery();
-  }, [executeFilteredQuery, lastRefreshTime]);
+  }, [lastRefreshTime]);
 
   const value = {
     filters,
@@ -467,7 +515,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setDateRange,
     setGauge,
     setSearchQuery,
-    // New FileMaker Pro filter setters
+    // Reference type filter setters
     setCountry,
     setOrganisationType,
     setIndustryType,

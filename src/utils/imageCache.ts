@@ -5,7 +5,7 @@ import { getCachedPhotoData, cachePhotoData } from './cache'; // Import existing
 
 // Constants
 const CACHE_PREFIX = 'app_cache_';
-const DEFAULT_EXPIRY_MINUTES = 60; // 1 hour
+const DEFAULT_EXPIRY_MINUTES = 60 * 24 * 7; // 7 days
 
 /**
  * Cache interface for stored items

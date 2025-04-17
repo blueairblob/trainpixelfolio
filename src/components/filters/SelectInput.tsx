@@ -1,5 +1,5 @@
 // src/components/filters/SelectInput.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -49,6 +49,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
   // Open modal
   const openModal = () => {
     if (disabled) return;
+    setSearchText(''); // Clear search when opening
     setModalVisible(true);
   };
 
@@ -159,6 +160,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
                   </TouchableOpacity>
                 )}
                 contentContainerStyle={styles.optionsList}
+                keyboardShouldPersistTaps="handled"
               />
             ) : (
               <View style={styles.emptyContainer}>
@@ -174,7 +176,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 0,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
@@ -243,19 +245,19 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
+    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
     backgroundColor: '#f9fafb',
   },
   searchIcon: {
-    marginHorizontal: 8,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    padding: 8,
     fontSize: 14,
     color: '#1f2937',
+    padding: 8,
   },
   optionsList: {
     paddingVertical: 8,
@@ -281,7 +283,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   emptyContainer: {
-    padding: 16,
+    padding: 24,
     alignItems: 'center',
   },
   emptyText: {

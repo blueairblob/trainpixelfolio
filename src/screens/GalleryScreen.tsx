@@ -272,8 +272,8 @@ const GalleryScreen = ({ navigation, route }) => {
     
     // Use refreshFilters from closure (not a new hook call)
     refreshFilters();
-    handleRefresh();
-  }, [isSearchMode, search, refreshFilters, handleRefresh]);
+    
+  }, [isSearchMode, search, refreshFilters]);
 
   // Create photo display data
   const getPhotoDisplayData = useCallback(() => {
@@ -487,7 +487,6 @@ const GalleryScreen = ({ navigation, route }) => {
       <FilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        onApplyFilters={handleApplyFilters}
         resultCount={photoData.length}
         hasMoreResults={isSearchMode ? search.hasMore : hasMore}
       />

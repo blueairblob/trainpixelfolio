@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabaseClient } from '@/api/supabase/client';
-import { useFilters } from '@/context/FilterContext';
+import { useFilters, Country, OrganisationType, Organisation, Location, Collection, Photographer, Gauge } from '@/context/FilterContext';
 import DateRangeFilter from './filters/DateRangeFilter';
 import SelectInput from './filters/SelectInput';
 import { getCachedFilterOptions, cacheFilterOptions } from '@/utils/filterCache';
@@ -548,12 +548,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Gauge"
                       options={gaugeOptions}
-                      selectedValue={filters.gauge}
+                      selectedValue={filters.gauge?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          gauge: value
-                        });
+                        if (value) {
+                          const gauge = gaugeOptions.find(g => g.id === value);
+                          if (gauge) {
+                            setFilters({
+                              ...filters,
+                              gauge: { 
+                                id: gauge.id, 
+                                name: gauge.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            gauge: null
+                          });
+                        }
                       }}
                       placeholder="Select gauge"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.GAUGES]}
@@ -608,12 +621,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Country"
                       options={countryOptions}
-                      selectedValue={filters.country}
+                      selectedValue={filters.country?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          country: value
-                        });
+                        if (value) {
+                          const country = countryOptions.find(c => c.id === value);
+                          if (country) {
+                            setFilters({
+                              ...filters,
+                              country: { 
+                                id: country.id, 
+                                name: country.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            country: null
+                          });
+                        }
                       }}
                       placeholder="Select country"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.COUNTRIES]}
@@ -623,12 +649,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Organisation Type"
                       options={orgTypeOptions}
-                      selectedValue={filters.organisationType}
+                      selectedValue={filters.organisationType?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          organisationType: value
-                        });
+                        if (value) {
+                          const orgType = orgTypeOptions.find(ot => ot.id === value);
+                          if (orgType) {
+                            setFilters({
+                              ...filters,
+                              organisationType: { 
+                                id: orgType.id, 
+                                name: orgType.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            organisationType: null
+                          });
+                        }
                       }}
                       placeholder="Select organisation type"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORG_TYPES]}
@@ -667,12 +706,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Type of Industry"
                       options={industryTypeOptions}
-                      selectedValue={filters.industryType}
+                      selectedValue={filters.industryType?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          industryType: value
-                        });
+                        if (value) {
+                          const industryType = industryTypeOptions.find(it => it.id === value);
+                          if (industryType) {
+                            setFilters({
+                              ...filters,
+                              industryType: { 
+                                id: industryType.id, 
+                                name: industryType.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            industryType: null
+                          });
+                        }
                       }}
                       placeholder="Select industry type"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.INDUSTRY_TYPES]}
@@ -682,12 +734,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Active Area"
                       options={activeAreaOptions}
-                      selectedValue={filters.activeArea}
+                      selectedValue={filters.activeArea?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          activeArea: value
-                        });
+                        if (value) {
+                          const activeArea = activeAreaOptions.find(aa => aa.id === value);
+                          if (activeArea) {
+                            setFilters({
+                              ...filters,
+                              activeArea: { 
+                                id: activeArea.id, 
+                                name: activeArea.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            activeArea: null
+                          });
+                        }
                       }}
                       placeholder="Select active area"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.ACTIVE_AREAS]}
@@ -697,12 +762,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Route"
                       options={routeOptions}
-                      selectedValue={filters.route}
+                      selectedValue={filters.route?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          route: value
-                        });
+                        if (value) {
+                          const route = routeOptions.find(r => r.id === value);
+                          if (route) {
+                            setFilters({
+                              ...filters,
+                              route: { 
+                                id: route.id, 
+                                name: route.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            route: null
+                          });
+                        }
                       }}
                       placeholder="Select route"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.ROUTES]}
@@ -712,12 +790,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Corporate Body"
                       options={corporateBodyOptions}
-                      selectedValue={filters.corporateBody}
+                      selectedValue={filters.corporateBody?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          corporateBody: value
-                        });
+                        if (value) {
+                          const corporateBody = corporateBodyOptions.find(cb => cb.id === value);
+                          if (corporateBody) {
+                            setFilters({
+                              ...filters,
+                              corporateBody: { 
+                                id: corporateBody.id, 
+                                name: corporateBody.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            corporateBody: null
+                          });
+                        }
                       }}
                       placeholder="Select corporate body"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.CORPORATE_BODIES]}
@@ -756,12 +847,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Plant/Facility"
                       options={facilityOptions}
-                      selectedValue={filters.facility}
+                      selectedValue={filters.facility?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          facility: value
-                        });
+                        if (value) {
+                          const facility = facilityOptions.find(f => f.id === value);
+                          if (facility) {
+                            setFilters({
+                              ...filters,
+                              facility: { 
+                                id: facility.id, 
+                                name: facility.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            facility: null
+                          });
+                        }
                       }}
                       placeholder="Select facility"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.FACILITIES]}
@@ -782,12 +886,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Builder"
                       options={builderOptions}
-                      selectedValue={filters.builder}
+                      selectedValue={filters.builder?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          builder: value
-                        });
+                        if (value) {
+                          const builder = builderOptions.find(b => b.id === value);
+                          if (builder) {
+                            setFilters({
+                              ...filters,
+                              builder: { 
+                                id: builder.id, 
+                                name: builder.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            builder: null
+                          });
+                        }
                       }}
                       placeholder="Select builder"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.BUILDERS]}
@@ -848,12 +965,25 @@ const FilterModal = ({
                     <SelectInput
                       label="Gauge"
                       options={gaugeOptions}
-                      selectedValue={filters.gauge}
+                      selectedValue={filters.gauge?.id || null}
                       onValueChange={(value) => {
-                        setFilters({
-                          ...filters,
-                          gauge: value
-                        });
+                        if (value) {
+                          const gauge = gaugeOptions.find(g => g.id === value);
+                          if (gauge) {
+                            setFilters({
+                              ...filters,
+                              gauge: { 
+                                id: gauge.id, 
+                                name: gauge.name 
+                              }
+                            });
+                          }
+                        } else {
+                          setFilters({
+                            ...filters,
+                            gauge: null
+                          });
+                        }
                       }}
                       placeholder="Select gauge"
                       loading={loadingOptions && !cacheStatus[CACHE_KEYS.GAUGES]}
