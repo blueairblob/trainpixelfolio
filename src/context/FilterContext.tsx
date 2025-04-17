@@ -311,25 +311,25 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Apply organisation filter
     if (filters.organisation) {
       console.log(`Filtering by organisation: ${JSON.stringify(filters.organisation)}`);
-      query = query.eq('organisation_id', filters.organisation.id);
+      query = query.eq('organisation', filters.organisation.name);
     }
 
     // Apply location filter
     if (filters.location) {
       console.log(`Filtering by location: ${filters.location.name}`);
-      query = query.eq('location_id', filters.location.id);
+      query = query.eq('location', filters.location.name);
     }
 
     // Apply photographer filter
     if (filters.photographer) {
       console.log(`Filtering by photographer: ${filters.photographer.name}`);
-      query = query.eq('photographer_id', filters.photographer.id);
+      query = query.eq('photographer', filters.photographer.name);
     }
 
     // Apply collection filter
     if (filters.collection) {
       console.log(`Filtering by collection: ${filters.collection.name}`);
-      query = query.eq('collection_id', filters.collection.id);
+      query = query.eq('collection', filters.collection.name);
     }
 
     // Apply date range filter
@@ -365,7 +365,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Apply new FileMaker Pro filters with proper ID references
     if (filters.country) {
       console.log(`Filtering by country: ${filters.country.name}`);
-      query = query.eq('country_id', filters.country.id);
+      query = query.eq('country', filters.country.name);
     }
 
     if (filters.organisationType) {
@@ -385,7 +385,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     if (filters.route) {
       console.log(`Filtering by route: ${filters.route.name}`);
-      query = query.eq('route_id', filters.route.id);
+      query = query.eq('route', filters.route.name);
     }
 
     if (filters.corporateBody) {
@@ -463,6 +463,13 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const results = data || [];
       console.log(`Query returned ${results.length} results (FRESH DATA)`);
       
+      // Check if we have zero results and set an appropriate error message
+      if (results.length === 0) {
+        setError('No photos match the current filter selection');
+        setFilteredResults([]);
+        return;
+      }
+      
       const processedResults = results.map(item => ({
         ...item,
         id: item.image_no, // Ensure id is set for compatibility
@@ -485,7 +492,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('Error executing filtered query:', errorMessage);
-      setError(errorMessage);
+      setError('Error searching with these filters. Please try different criteria.');
       setFilteredResults([]);
     } finally {
       setIsLoading(false);

@@ -71,6 +71,7 @@ const FilterModal = ({
     setFilters,
     clearAllFilters,
     isLoading,
+    applyFilters,
     refreshFilters,
     hasActiveFilters,
     filteredResults,
@@ -96,16 +97,83 @@ const FilterModal = ({
   const [worksNumber, setWorksNumber] = useState<string>(filters.worksNumber || '');
   const [imageNo, setImageNo] = useState<string>(filters.imageNo || '');
   
-  // State for loading options
+  // State for loading options and counts
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [cacheStatus, setCacheStatus] = useState<Record<string, boolean>>({});
+  const [countLoading, setCountLoading] = useState(false);
+  const [estimatedCount, setEstimatedCount] = useState<number | null>(null);
   
   // Effect to fetch filter options when modal is opened
   useEffect(() => {
     if (visible) {
       loadFilterOptions();
+      // Initialize with the result count
+      setEstimatedCount(resultCount || 0);
     }
   }, [visible]);
+  
+  // Effect to estimate the result count as filters change
+  useEffect(() => {
+    if (!visible) return;
+    
+    // Need to debounce this to prevent too many queries
+    const timer = setTimeout(() => {
+      try {
+        getFilteredCount();
+      } catch (e) {
+        console.log('Count estimation error, using fallback:', e);
+        // If count estimation fails, use a fallback display
+        setCountLoading(false);
+        // Don't update count, let the UI show "Applying filters..." instead
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [filters]);
+
+  // Function to get estimated count when applying the current filters
+  const getFilteredCount = async () => {
+    // Skip if no active filters
+    if (!hasActiveFilters) {
+      setEstimatedCount(resultCount || 0);
+      return;
+    }
+    
+    setCountLoading(true);
+    
+    try {
+      console.log('Building count query...');
+      
+      // Start with a base query - use a simpler query just for count
+      // Instead of using head: true which might be causing issues
+      let query = supabaseClient
+        .from('mobile_catalog_view')
+        .select('image_no', { count: 'exact' });
+      
+      // Apply all the filters
+      console.log('Applying filters to count query...');
+      query = applyFilters(query);
+      
+      console.log('Executing count query...');
+      const { count, error, status } = await query;
+      
+      console.log('Count query complete, status:', status);
+      
+      if (error) {
+        console.error('Count query error:', error);
+        throw error;
+      }
+      
+      console.log('Count result:', count);
+      setEstimatedCount(count || 0);
+    } catch (error) {
+      console.error('Error getting filtered count:', error);
+      // Don't update the count if there's an error, keep the previous value
+      // Just log the error and continue
+    } finally {
+      setCountLoading(false);
+    }
+  };
   
   // Try to get data from cache first, then fallback to database
   const fetchWithCache = async <T extends any>(
@@ -404,13 +472,33 @@ const FilterModal = ({
     setWorksNumber('');
     setImageNo('');
     clearAllFilters();
+    setEstimatedCount(resultCount || 0);
   };
 
-  // Get the real-time count from either filtered results or passed in resultCount
-  const displayCount = filteredResults.length > 0 
-    ? filteredResults.length 
-    : resultCount || 0;
+  // Get the real-time count from estimatedCount, filtered results, or passed in resultCount
+  const displayCount = estimatedCount !== null 
+    ? estimatedCount
+    : filteredResults.length > 0 
+      ? filteredResults.length 
+      : resultCount || 0;
 
+  // Format the display count with proper message
+  const getDisplayCountText = () => {
+    if (isLoading || countLoading) {
+      return "Calculating results...";
+    }
+    
+    if (estimatedCount === 0 && hasActiveFilters) {
+      return "No matching results";
+    }
+    
+    if (estimatedCount === null) {
+      return "Applying filters..."; // Fallback when count estimation fails
+    }
+    
+    return `${displayCount} ${displayCount === 1 ? 'result' : 'results'} ${hasMoreResults ? '+' : ''}`;
+  };
+  
   return (
     <Modal
       animationType="slide"
@@ -1024,11 +1112,15 @@ const FilterModal = ({
           {/* Action buttons and result count */}
           <View style={styles.actionButtonsContainer}>
             {/* Result count display */}
-            <Text style={styles.resultCountText}>
-              {isLoading 
-                ? "Calculating results..."  
-                : `${displayCount} ${displayCount === 1 ? 'result' : 'results'} ${hasMoreResults ? '+' : ''}`}
-            </Text>
+            <View style={styles.resultCountWrapper}>
+              {countLoading && <ActivityIndicator size="small" color="#4f46e5" style={styles.countLoadingIndicator} />}
+              <Text style={[
+                styles.resultCountText,
+                displayCount === 0 && hasActiveFilters && styles.noResultsText
+              ]}>
+                {getDisplayCountText()}
+              </Text>
+            </View>
 
             <View style={styles.actionButtons}>
               <TouchableOpacity
@@ -1039,7 +1131,10 @@ const FilterModal = ({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.applyButton}
+                style={[
+                  styles.applyButton,
+                  displayCount === 0 && hasActiveFilters && styles.applyButtonWarning
+                ]}
                 onPress={handleApplyFilters}
               >
                 <Text style={styles.applyButtonText}>Apply Filters</Text>
@@ -1156,11 +1251,23 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   },
+  resultCountWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  countLoadingIndicator: {
+    marginRight: 8,
+  },
   resultCountText: {
     fontSize: 14,
     color: '#6b7280',
-    marginBottom: 12,
     textAlign: 'center',
+  },
+  noResultsText: {
+    color: '#ef4444',
+    fontWeight: '500',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -1185,6 +1292,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#4f46e5',
     borderRadius: 8,
     marginLeft: 8,
+  },
+  applyButtonWarning: {
+    backgroundColor: '#f59e0b', // Use a warning color when there are no results
   },
   applyButtonText: {
     fontSize: 16,

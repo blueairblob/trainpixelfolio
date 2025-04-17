@@ -1,4 +1,4 @@
-// GalleryScreen.tsx
+// GalleryScreen.tsx - Updated with proper no results handling
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   SafeAreaView, 
@@ -475,6 +475,14 @@ const GalleryScreen = ({ navigation, route }) => {
                     : 'No photos available'
                 }
               </Text>
+              {hasActiveFilters && (
+                <TouchableOpacity 
+                  style={styles.clearFiltersEmptyButton}
+                  onPress={clearAllFilters}
+                >
+                  <Text style={styles.clearFiltersEmptyText}>Clear Filters</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : null
         }
@@ -538,6 +546,18 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     marginTop: 16,
+    marginBottom: 16,
+  },
+  clearFiltersEmptyButton: {
+    backgroundColor: '#4f46e5',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  clearFiltersEmptyText: {
+    color: '#ffffff',
+    fontWeight: '500',
+    fontSize: 14,
   },
   searchActiveContainer: {
     flexDirection: 'row',
