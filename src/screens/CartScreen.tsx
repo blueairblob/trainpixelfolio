@@ -1,36 +1,29 @@
 // CartScreen.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, Image, 
-  TouchableOpacity, Alert 
+  TouchableOpacity, Alert, ActivityIndicator 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
-// These would come from the CartContext in a real implementation
-const cartItems = [
-  {
-    id: 'photo1',
-    title: 'Vintage Steam Locomotive',
-    photographer: 'John Smith',
-    price: 0.50,
-    quantity: 1,
-    imageUrl: 'https://images.unsplash.com/photo-1527684651001-731c474bbb5a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80',
-  },
-  {
-    id: 'photo2',
-    title: 'Modern High-Speed Train',
-    photographer: 'Sarah Johnson',
-    price: 0.50,
-    quantity: 2,
-    imageUrl: 'https://images.unsplash.com/photo-1679679008383-6f778fe07382?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80',
-  },
-];
+import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 
 const CartScreen = ({ navigation }) => {
-  // Calculate total price
-  const totalPrice = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const { 
+    items, 
+    totalItems, 
+    totalPrice, 
+    removeFromCart, 
+    updateQuantity, 
+    clearCart 
+  } = useCart();
   
+  const { isGuest } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Handle removing an item from the cart
   const handleRemoveItem = (id: string) => {
     Alert.alert(
       "Remove Item",
@@ -43,30 +36,97 @@ const CartScreen = ({ navigation }) => {
         { 
           text: "Remove", 
           style: "destructive",
-          // In a real app, we would call removeFromCart here
-          onPress: () => console.log("Remove item:", id) 
+          onPress: () => removeFromCart(id)
         }
       ]
     );
   };
   
+  // Handle updating an item's quantity
   const handleUpdateQuantity = (id: string, newQuantity: number) => {
-    // In a real app, we would call updateQuantity here
-    console.log("Update quantity for", id, "to", newQuantity);
+    updateQuantity(id, newQuantity);
   };
   
-  const handleCheckout = () => {
+  // Handle cart clearing
+  const handleClearCart = () => {
+    if (items.length === 0) return;
+    
     Alert.alert(
-      "Checkout",
-      "This would proceed to payment in a real app.",
-      [{ text: "OK" }]
+      "Clear Cart",
+      "Are you sure you want to remove all items from your cart?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        { 
+          text: "Clear", 
+          style: "destructive",
+          onPress: () => clearCart()
+        }
+      ]
     );
   };
   
+  // Handle checkout process
+  const handleCheckout = () => {
+    if (isGuest) {
+      Alert.alert(
+        "Sign In Required",
+        "Please sign in to complete your purchase.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Sign In", 
+            onPress: () => navigation.navigate('Profile')
+          }
+        ]
+      );
+      return;
+    }
+    
+    setIsProcessingPayment(true);
+    
+    // Simulate payment processing
+    setTimeout(() => {
+      setIsProcessingPayment(false);
+      
+      Alert.alert(
+        "Order Completed",
+        "Your order has been successfully processed! You will receive an email with your download links.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              clearCart();
+              navigation.navigate('Home');
+            }
+          }
+        ]
+      );
+    }, 2000);
+  };
+  
+  // Calculate tax and total
+  const taxAmount = totalPrice * 0.08; // 8% tax rate
+  const orderTotal = totalPrice + taxAmount;
+  
+  // Safe toFixed function that handles undefined prices
+  const safeToFixed = (value, digits = 2) => {
+    if (value === undefined || value === null) {
+      return "0.00";
+    }
+    return value.toFixed(digits);
+  };
+  
+  // Render cart item
   const renderCartItem = ({ item }) => (
     <View style={styles.cartItem}>
       <TouchableOpacity
-        onPress={() => navigation.navigate('PhotoDetail', { id: item.id })}
+        onPress={() => navigation.navigate('PhotoDetailScreen', { id: item.id })}
       >
         <Image 
           source={{ uri: item.imageUrl }}
@@ -77,14 +137,18 @@ const CartScreen = ({ navigation }) => {
       
       <View style={styles.itemDetails}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('PhotoDetail', { id: item.id })}
+          onPress={() => navigation.navigate('PhotoDetailScreen', { id: item.id })}
         >
-          <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.itemTitle} numberOfLines={1}>
+            {item.title || 'Untitled Photo'}
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.itemPhotographer}>{item.photographer}</Text>
+        <Text style={styles.itemPhotographer}>
+          {item.photographer || 'Unknown photographer'}
+        </Text>
         
         <View style={styles.priceRow}>
-          <Text style={styles.itemPrice}>£{item.price.toFixed(2)}</Text>
+          <Text style={styles.itemPrice}>£{safeToFixed(item.price || 0.50)}</Text>
           
           <View style={styles.quantityControls}>
             <TouchableOpacity
@@ -112,7 +176,7 @@ const CartScreen = ({ navigation }) => {
         </View>
         
         <Text style={styles.itemTotal}>
-          Total: ${(item.price * item.quantity).toFixed(2)}
+          Total: £{safeToFixed((item.price || 0.50) * item.quantity)}
         </Text>
       </View>
       
@@ -125,38 +189,36 @@ const CartScreen = ({ navigation }) => {
     </View>
   );
   
+  // Loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Shopping Cart</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4f46e5" />
+          <Text style={styles.loadingText}>Loading your cart...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Shopping Cart</Text>
-        {cartItems.length > 0 && (
-          <TouchableOpacity
-            onPress={() => Alert.alert(
-              "Clear Cart",
-              "Are you sure you want to remove all items from your cart?",
-              [
-                {
-                  text: "Cancel",
-                  style: "cancel"
-                },
-                { 
-                  text: "Clear", 
-                  style: "destructive",
-                  // In a real app, we would call clearCart here
-                  onPress: () => console.log("Clear cart") 
-                }
-              ]
-            )}
-          >
+        {items.length > 0 && (
+          <TouchableOpacity onPress={handleClearCart}>
             <Text style={styles.clearCartText}>Clear Cart</Text>
           </TouchableOpacity>
         )}
       </View>
       
-      {cartItems.length > 0 ? (
+      {items.length > 0 ? (
         <>
           <FlatList
-            data={cartItems}
+            data={items}
             renderItem={renderCartItem}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.cartList}
@@ -164,13 +226,13 @@ const CartScreen = ({ navigation }) => {
           
           <View style={styles.summaryContainer}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>£{totalPrice.toFixed(2)}</Text>
+              <Text style={styles.summaryLabel}>Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'})</Text>
+              <Text style={styles.summaryValue}>£{safeToFixed(totalPrice)}</Text>
             </View>
             
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tax</Text>
-              <Text style={styles.summaryValue}>£{(totalPrice * 0.08).toFixed(2)}</Text>
+              <Text style={styles.summaryLabel}>Tax (8%)</Text>
+              <Text style={styles.summaryValue}>£{safeToFixed(taxAmount)}</Text>
             </View>
             
             <View style={styles.divider} />
@@ -178,17 +240,43 @@ const CartScreen = ({ navigation }) => {
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>
-                £{(totalPrice * 1.08).toFixed(2)}
+                £{safeToFixed(orderTotal)}
               </Text>
             </View>
             
             <TouchableOpacity
-              style={styles.checkoutButton}
+              style={[
+                styles.checkoutButton,
+                (isProcessingPayment || isGuest) && styles.checkoutButtonDisabled
+              ]}
               onPress={handleCheckout}
+              disabled={isProcessingPayment}
             >
-              <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
-              <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+              {isProcessingPayment ? (
+                <>
+                  <ActivityIndicator size="small" color="#ffffff" style={styles.checkoutButtonIcon} />
+                  <Text style={styles.checkoutButtonText}>Processing...</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.checkoutButtonText}>
+                    {isGuest ? 'Sign In to Checkout' : 'Proceed to Checkout'}
+                  </Text>
+                  <Ionicons 
+                    name={isGuest ? 'log-in-outline' : 'arrow-forward'} 
+                    size={16} 
+                    color="#ffffff" 
+                    style={styles.checkoutButtonIcon} 
+                  />
+                </>
+              )}
             </TouchableOpacity>
+            
+            {isGuest && (
+              <Text style={styles.guestMessage}>
+                You're browsing as a guest. Sign in to complete your purchase.
+              </Text>
+            )}
           </View>
         </>
       ) : (
@@ -232,6 +320,17 @@ const styles = StyleSheet.create({
   clearCartText: {
     fontSize: 14,
     color: '#dc2626',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6b7280',
   },
   cartList: {
     padding: 16,
@@ -356,12 +455,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
+  },
+  checkoutButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
   checkoutButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
-    marginRight: 8,
+  },
+  checkoutButtonIcon: {
+    marginLeft: 8,
+  },
+  guestMessage: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
   },
   emptyCartContainer: {
     flex: 1,
