@@ -374,7 +374,7 @@ export const adminService = {
    */
   getStorageSize: async function(bucket, prefix = '') {
     try {
-      const { data, error } = await supabaseClient
+      const { data, error } = await supabaseClient// Specify schema
         .rpc('total_size_in_bucket', { bucket_name: bucket, bucket_prefix: prefix });
 
       if (error) {
