@@ -1,11 +1,11 @@
 // src/hooks/useSearch.ts
 import { useState, useEffect, useCallback } from 'react';
-import { searchPhotos } from '@/services/catalogService';
-import { CatalogPhoto } from '@/services/catalogService';
+import { photoService } from '@/api/supabase';
+import { Photo } from '@/api/supabase/types';
 
 export interface SearchState {
   query: string;
-  results: CatalogPhoto[];
+  results: Photo[];
   isLoading: boolean;
   isError: boolean;
   errorMessage: string | null;
@@ -64,13 +64,17 @@ export const useSearch = (options: UseSearchOptions = {}) => {
     }));
 
     try {
-      // Using the catalogService's searchPhotos function
-      const results = await searchPhotos(
-        searchQuery, 
-        page, 
-        itemsPerPage, 
-        { useCache: cacheResults, cacheDuration }
+      const { data: results, error } = await photoService.searchPhotos(
+        searchQuery,
+        { 
+          page, 
+          limit: itemsPerPage, 
+          useCache: cacheResults, 
+          cacheDuration 
+        }
       );
+      
+      if (error) throw error;
 
       if (page === 1) {
         // New search, replace all results

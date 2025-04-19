@@ -1,6 +1,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getPhotoById } from './catalogService';
+import { photoService } from '@/api/supabase';
 
 const CART_STORAGE_KEY = 'user_cart';
 
@@ -19,7 +19,7 @@ export const getCartItems = async () => {
     // Get full details for each photo in cart
     const cartItemsWithDetails = await Promise.all(
       cart.map(async (item) => {
-        const photo = await getPhotoById(item.id);
+        const { data: photo, error}  = await photoService.getPhotoById(item.id);
         return {
           ...photo,
           quantity: item.quantity
