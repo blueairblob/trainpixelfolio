@@ -10,13 +10,19 @@ import { addToCart } from '@/services/cartService';
 import { photoService } from '@/api/supabase';
 import { Photo } from '@/api/supabase/types';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext'; // Import useCart hook
 
 const PhotoDetailScreen = ({ route, navigation }) => {
   const { id } = route.params;
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isInCart, setIsInCart] = useState(false);
+  
+  // Use the CartContext hook
+  const { items, addToCart } = useCart();
+  
+  // Check if the current photo is in the cart
+  const isInCart = items.some(item => item.id === id);
   
   const { 
     isGuest, 
@@ -59,7 +65,7 @@ const PhotoDetailScreen = ({ route, navigation }) => {
   }, [id, isFavorite]);
   
   // Handle add to cart
-  const handleAddToCart = async () => {
+  const handleAddToCart = useCallback(() => {
     try {
       if (isGuest) {
         Alert.alert(
@@ -72,13 +78,24 @@ const PhotoDetailScreen = ({ route, navigation }) => {
       
       if (!photo) return;
       
-      await addToCart(id);
-      setIsInCart(true);
+      // Create a properly formatted cart item from the photo
+      // Make sure the price is set to a default value if undefined
+      const cartItem = {
+        ...photo,
+        id: photo.image_no,
+        price: 0.50, // Set a default price of £0.50
+        title: photo.description || 'Untitled Photo',
+        imageUrl: photo.image_url
+      };
+      
+      // Use the addToCart from CartContext
+      addToCart(cartItem);
       Alert.alert('Success', 'Added to cart');
     } catch (err) {
+      console.error('Error adding to cart:', err);
       Alert.alert('Error', 'Failed to add to cart');
     }
-  };
+  }, [photo, isGuest, addToCart]);
   
   // Handle toggle favorite
   const handleToggleFavorite = useCallback(async () => {

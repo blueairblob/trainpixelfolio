@@ -101,7 +101,7 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleAdminAccess = () => {
-    navigation.navigate('Admin');
+    navigation.navigate('AdminScreen');
   };
 
   const handleContinueAsGuest = () => {
