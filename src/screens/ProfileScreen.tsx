@@ -10,9 +10,6 @@ import { useAuth } from '@/context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FavoritesTab from '@/components/FavoritesTab'; 
 
-
-
-
 const ProfileScreen = ({ navigation }) => {
   const { 
     isAuthenticated, 

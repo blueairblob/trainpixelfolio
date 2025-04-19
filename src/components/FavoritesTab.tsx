@@ -6,7 +6,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPhotoById } from '@/services/catalogService';
+import { photoService } from '@/api/supabase';
+
 
 interface FavoritesTabProps {
   navigation: any;
@@ -43,7 +44,9 @@ const FavoritesTab: React.FC<FavoritesTabProps> = ({ navigation }) => {
         const photos = [];
         for (const photoId of userProfile.favorites) {
           try {
-            const photo = await fetchPhotoById(photoId);
+            const { data: photo, error } = await photoService.getPhotoById(photoId);
+            if (error) throw error;
+
             if (photo) photos.push(photo);
           } catch (err) {
             console.error(`Error loading photo ${photoId}:`, err);

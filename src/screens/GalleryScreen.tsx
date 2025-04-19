@@ -20,12 +20,9 @@ import SearchBar from '../components/SearchBar';
 import FilterDebugger from '../components/FilterDebugger';
 
 // Import services and hooks
-import { 
-  fetchCatalogPhotos, 
-  fetchPhotosByCategory,
-  fetchCategories,
-  CatalogPhoto 
-} from '../services/catalogService';
+import { photoService } from '@/api/supabase';
+import { Photo } from '@/api/supabase/types';
+
 import { useSearch } from '../hooks/useSearch';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { FilterProvider, useFilters } from '../context/FilterContext';
@@ -51,7 +48,7 @@ const GalleryScreen = ({ navigation, route }) => {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [categories, setCategories] = useState<{ id: string, title: string }[]>([]);
-  const [photos, setPhotos] = useState<CatalogPhoto[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -102,7 +99,11 @@ const GalleryScreen = ({ navigation, route }) => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const categoryData = await fetchCategories();
+
+        const { data: categoryData, error } = await photoService.getCategories();
+        if (error) throw error;
+        const categories = categoryData || [];
+
         const formattedCategories = [
           { id: 'all', title: 'All Photos' },
           ...categoryData.map(category => ({ id: category, title: category }))
@@ -126,11 +127,20 @@ const GalleryScreen = ({ navigation, route }) => {
         setIsLoading(true);
         setError(null);
         
-        let photoData: CatalogPhoto[];
         if (activeCategory === 'all') {
-          photoData = await fetchCatalogPhotos(1);
+          const { data, error } = await photoService.getCatalogPhotos({ 
+            page: 1, 
+            limit: 10 
+          });
+          if (error) throw error;
+          photoData = data || [];
         } else {
-          photoData = await fetchPhotosByCategory(activeCategory, 1);
+          const { data, error } = await photoService.getPhotosByCategory(
+            activeCategory, 
+            { page: 1, limit: 10 }
+          );
+          if (error) throw error;
+          photoData = data || [];
         }
         
         setPhotos(photoData);
@@ -156,14 +166,24 @@ const GalleryScreen = ({ navigation, route }) => {
       setIsLoadingMore(true);
       
       const nextPage = page + 1;
-      let newPhotos: CatalogPhoto[];
+      let newPhotos: Photo[];
       
       if (activeCategory === 'all') {
-        newPhotos = await fetchCatalogPhotos(nextPage);
+        const { data, error } = await photoService.getCatalogPhotos({ 
+          page: nextPage, 
+          limit: 10 
+        });
+        if (error) throw error;
+        newPhotos = data || [];
       } else {
-        newPhotos = await fetchPhotosByCategory(activeCategory, nextPage);
+        const { data, error } = await photoService.getPhotosByCategory(
+          activeCategory, 
+          { page: nextPage, limit: 10 }
+        );
+        if (error) throw error;
+        newPhotos = data || [];
       }
-      
+
       if (newPhotos.length > 0) {
         setPhotos(prev => [...prev, ...newPhotos]);
         setPage(nextPage);
@@ -193,11 +213,22 @@ const GalleryScreen = ({ navigation, route }) => {
         refreshFilters();
       } else {
         // Regular refresh without filters
-        let refreshedPhotos: CatalogPhoto[];
+        let refreshedPhotos: Photo[];
         if (activeCategory === 'all') {
-          refreshedPhotos = await fetchCatalogPhotos(1, 10, { useCache: false });
+          const { data, error } = await photoService.getCatalogPhotos({ 
+            page: 1, 
+            limit: 10,
+            useCache: false 
+          });
+          if (error) throw error;
+          refreshedPhotos = data || [];
         } else {
-          refreshedPhotos = await fetchPhotosByCategory(activeCategory, 1, 10, { useCache: false });
+          const { data, error } = await photoService.getPhotosByCategory(
+            activeCategory, 
+            { page: 1, limit: 10, useCache: false }
+          );
+          if (error) throw error;
+          refreshedPhotos = data || [];
         }
         
         setPhotos(refreshedPhotos);
@@ -334,7 +365,7 @@ const GalleryScreen = ({ navigation, route }) => {
   }
 
   // Get the photo data to display
-  const photoData = getPhotoDisplayData();
+  let photoData = getPhotoDisplayData();
   
   // Determine if we should show error state
   const shouldShowError = isSearchMode 

@@ -7,12 +7,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { addToCart } from '@/services/cartService';
-import { fetchPhotoById, getImageUrl, CatalogPhoto } from '@/services/catalogService';
+import { photoService } from '@/api/supabase';
+import { Photo } from '@/api/supabase/types';
 import { useAuth } from '@/context/AuthContext';
 
 const PhotoDetailScreen = ({ route, navigation }) => {
   const { id } = route.params;
-  const [photo, setPhoto] = useState<CatalogPhoto | null>(null);
+  const [photo, setPhoto] = useState<Photo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isInCart, setIsInCart] = useState(false);
@@ -33,7 +34,11 @@ const PhotoDetailScreen = ({ route, navigation }) => {
         setIsLoading(true);
         setError(null);
         
-        const photoData = await fetchPhotoById(id);
+        const { data: photoData, error } = await photoService.getPhotoById(id);
+
+
+        console.log('photoData = ' + photoData)
+
         if (!photoData) {
           throw new Error('Photo not found');
         }

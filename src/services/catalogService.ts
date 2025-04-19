@@ -69,7 +69,7 @@ export const getImageUrl = (imageNo: string): string => {
 /**
  * Fetch catalog photos with pagination and caching
  */
-export const fetchCatalogPhotos = async (
+export const getCatalogPhotos = async (
   page: number = 1, 
   limit: number = 10,
   options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
@@ -132,7 +132,7 @@ export const fetchCatalogPhotos = async (
 /**
  * Fetch photos by category with pagination and caching
  */
-export const fetchPhotosByCategory = async (
+export const getPhotosByCategory = async (
   category: string, 
   page: number = 1, 
   limit: number = 10,
@@ -193,7 +193,7 @@ export const fetchPhotosByCategory = async (
 /**
  * Fetch a single photo by its ID (image_no)
  */
-export const fetchPhotoById = async (
+export const getPhotoById = async (
   imageNo: string, 
   options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
 ): Promise<CatalogPhoto | null> => {
@@ -253,7 +253,7 @@ export const fetchPhotoById = async (
 /**
  * Fetch unique categories
  */
-export const fetchCategories = async (
+export const getCategories = async (
   options?: Partial<Omit<PhotoFetchOptions, 'page' | 'limit'>>
 ): Promise<string[]> => {
   const { useCache, cacheDuration, forceFresh } = { ...DEFAULT_OPTIONS, ...options };
@@ -423,7 +423,7 @@ export const countActiveFilters = (
 };
 
 // Bypass cache for filtered queries
-export const fetchFilteredPhotos = async (
+export const getFilteredPhotos = async (
   filters: any, // Your filter object structure
   options: PhotoFetchOptions = DEFAULT_OPTIONS
 ): Promise<CatalogPhoto[]> => {

@@ -10,7 +10,8 @@ import WelcomeSection from '../components/WelcomeSection';
 import CategoriesSection from '../components/CategoriesSection';
 import FeaturedPhotoSection from '../components/FeaturedPhotoSection';
 import SearchBar from '../components/SearchBar';
-import { fetchCategories } from '../services/catalogService';
+import { photoService } from '@/api/supabase';
+
 
 const HomeScreen = ({ navigation }) => {
   const [categories, setCategories] = useState([
@@ -37,7 +38,10 @@ const HomeScreen = ({ navigation }) => {
     const loadCategories = async () => {
       try {
         setIsLoading(true);
-        const categoryData = await fetchCategories();
+
+        const { data: categoryData, error } = await photoService.getCategories();
+        if (error) throw error;
+        const categories = categoryData || [];        
         
         // Map categories to the format our component expects
         const categoryIcons = {

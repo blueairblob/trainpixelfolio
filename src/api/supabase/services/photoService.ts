@@ -73,8 +73,8 @@ export const photoService = {
       const photosWithUrls = data.map(photo => ({
         ...photo,
         id: photo.image_no, // Ensure id is set for compatibility
-        image_url: this.getImageUrl(photo.image_no),
-        thumbnail_url: this.getThumbnailUrl(photo.image_no),
+        image_url: photoService.getImageUrl(photo.image_no),
+        thumbnail_url: photoService.getThumbnailUrl(photo.image_no),
         price: 49.99 // Default price for compatibility
       })) as Photo[];
       
@@ -137,8 +137,8 @@ export const photoService = {
       const photosWithUrls = data.map(photo => ({
         ...photo,
         id: photo.image_no, // Ensure id is set for compatibility
-        image_url: this.getImageUrl(photo.image_no),
-        thumbnail_url: this.getThumbnailUrl(photo.image_no),
+        image_url: photoService.getImageUrl(photo.image_no),
+        thumbnail_url: photoService.getThumbnailUrl(photo.image_no),
         price: 49.99 // Default price for compatibility
       })) as Photo[];
       
@@ -198,8 +198,8 @@ export const photoService = {
       const photoWithUrl = {
         ...data,
         id: data.image_no, // Ensure id is set for compatibility
-        image_url: this.getImageUrl(data.image_no),
-        thumbnail_url: this.getThumbnailUrl(data.image_no),
+        image_url: photoService.getImageUrl(data.image_no),
+        thumbnail_url: photoService.getThumbnailUrl(data.image_no),
         price: 49.99 // Default price for compatibility
       } as Photo;
       
@@ -277,7 +277,7 @@ export const photoService = {
     try {
       // If search query is empty, return regular catalog photos
       if (!searchQuery.trim()) {
-        return await this.getCatalogPhotos({ page, limit, useCache, cacheDuration });
+        return await photoService.getCatalogPhotos({ page, limit, useCache, cacheDuration });
       }
       
       const query = searchQuery.toLowerCase().trim();
@@ -316,8 +316,8 @@ export const photoService = {
       const photosWithUrls = data.map(photo => ({
         ...photo,
         id: photo.image_no, // Ensure id is set for compatibility
-        image_url: this.getImageUrl(photo.image_no),
-        thumbnail_url: this.getThumbnailUrl(photo.image_no),
+        image_url: photoService.getImageUrl(photo.image_no),
+        thumbnail_url: photoService.getThumbnailUrl(photo.image_no),
         price: 49.99 // Default price for compatibility
       })) as Photo[];
       
@@ -409,8 +409,8 @@ export const photoService = {
       const photosWithUrls = data.map(photo => ({
         ...photo,
         id: photo.image_no,
-        image_url: this.getImageUrl(photo.image_no),
-        thumbnail_url: this.getThumbnailUrl(photo.image_no),
+        image_url: photoService.getImageUrl(photo.image_no),
+        thumbnail_url: photoService.getThumbnailUrl(photo.image_no),
         price: 49.99 // Default price for compatibility
       })) as Photo[];
       
