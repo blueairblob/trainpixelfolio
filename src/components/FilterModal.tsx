@@ -35,13 +35,6 @@ const CACHE_KEYS = {
   PHOTOGRAPHERS: 'photographers'
 };
 
-// Cache durations in milliseconds
-const CACHE_DURATIONS = {
-  DEFAULT: 24 * 60 * 60 * 1000, // 24 hours
-  SHORT: 6 * 60 * 60 * 1000,    // 6 hours for frequently changing data
-  LONG: 7 * 24 * 60 * 60 * 1000 // 7 days for relatively static data
-};
-
 // Define filter option type
 interface FilterOption {
   id: string;
@@ -61,10 +54,6 @@ const FilterModal = ({
   resultCount,
   hasMoreResults = false
 }: FilterModalProps) => {
-  // State for tabs
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
-  const tabs = ['Common Filters', 'All Fields'];
-  
   // Get filter context
   const {
     filters,
@@ -79,8 +68,7 @@ const FilterModal = ({
 
   // States for filter options
   const [countryOptions, setCountryOptions] = useState<FilterOption[]>([]);
-  const [catergoryOptions, setCategoryOptions] = useState<FilterOption[]>([]);
-  
+  const [categoryOptions, setCategoryOptions] = useState<FilterOption[]>([]);
   const [orgTypeOptions, setOrgTypeOptions] = useState<FilterOption[]>([]);
   const [organisationOptions, setOrganisationOptions] = useState<FilterOption[]>([]);
   const [activeAreaOptions, setActiveAreaOptions] = useState<FilterOption[]>([]);
@@ -104,12 +92,20 @@ const FilterModal = ({
   const [countLoading, setCountLoading] = useState(false);
   const [estimatedCount, setEstimatedCount] = useState<number | null>(null);
   
+  // Track if filters have changed
+  const [filtersChanged, setFiltersChanged] = useState(false);
+  const [initialFilters, setInitialFilters] = useState(filters);
+
   // Effect to fetch filter options when modal is opened
   useEffect(() => {
     if (visible) {
       loadFilterOptions();
       // Initialize with the result count
       setEstimatedCount(resultCount || 0);
+      // Track initial filters for comparison
+      setInitialFilters({...filters});
+      // Reset filtersChanged flag when opening modal
+      setFiltersChanged(false);
     }
   }, [visible]);
   
@@ -121,6 +117,10 @@ const FilterModal = ({
     const timer = setTimeout(() => {
       try {
         getFilteredCount();
+        
+        // Check if filters have changed from initial state
+        const hasChanged = JSON.stringify(filters) !== JSON.stringify(initialFilters);
+        setFiltersChanged(hasChanged);
       } catch (e) {
         console.log('Count estimation error, using fallback:', e);
         // If count estimation fails, use a fallback display
@@ -175,37 +175,6 @@ const FilterModal = ({
       setCountLoading(false);
     }
   };
-  
-  // Try to get data from cache first, then fallback to database
-  const fetchWithCache = async <T extends any>(
-    cacheKey: string,
-    fetchFn: () => Promise<T>,
-    setState: React.Dispatch<React.SetStateAction<T>>,
-    cacheDuration = CACHE_DURATIONS.DEFAULT
-  ) => {
-    try {
-      // Try to get from cache
-      const cachedData = await getCachedFilterOptions<T>(cacheKey);
-      if (cachedData) {
-        // Update cache status
-        setCacheStatus(prev => ({ ...prev, [cacheKey]: true }));
-        // Use cached data
-        setState(cachedData);
-        return;
-      }
-      
-      // No cached data, fetch fresh data
-      setCacheStatus(prev => ({ ...prev, [cacheKey]: false }));
-      const data = await fetchFn();
-      // Save to cache
-      await cacheFilterOptions(cacheKey, data, cacheDuration);
-      // Update state
-      setState(data);
-    } catch (error) {
-      console.error(`Error fetching/caching ${cacheKey}:`, error);
-    }
-  };
-  
 
   const loadFilterOptions = async () => {
     if (loadingOptions) return;
@@ -213,7 +182,7 @@ const FilterModal = ({
     try {
       setLoadingOptions(true);
       
-      // Load option data
+      // Load option data using filterService
       const { data: country } = await filterService.getCountries();
       if (country) setCountryOptions(country);
 
@@ -242,7 +211,7 @@ const FilterModal = ({
       if (corporateBodies) setCorporateBodyOptions(corporateBodies);
 
       const { data: facilities } = await filterService.getFacilities();
-      if (facilities) setRouteOptions(facilities);
+      if (facilities) setFacilityOptions(facilities);
 
       const { data: builders } = await filterService.getBuilders();
       if (builders) setBuilderOptions(builders);
@@ -250,9 +219,8 @@ const FilterModal = ({
       const { data: collection } = await filterService.getCollections();
       if (collection) setCollectionOptions(collection);
 
-      const { data: guages } = await filterService.getGauges();
-      if (guages) setGaugeOptions(guages);
-
+      const { data: gauges } = await filterService.getGauges();
+      if (gauges) setGaugeOptions(gauges);
       
     } catch (error) {
       console.error('Error loading filter options:', error);
@@ -260,7 +228,6 @@ const FilterModal = ({
       setLoadingOptions(false);
     }
   };
-
  
   // Apply filters
   const handleApplyFilters = () => {
@@ -286,6 +253,8 @@ const FilterModal = ({
     setImageNo('');
     clearAllFilters();
     setEstimatedCount(resultCount || 0);
+    setFiltersChanged(false);
+    setInitialFilters({}); // Reset the initial filters to empty
   };
 
   // Get the real-time count from estimatedCount, filtered results, or passed in resultCount
@@ -311,33 +280,6 @@ const FilterModal = ({
     
     return `${displayCount} ${displayCount === 1 ? 'result' : 'results'} ${hasMoreResults ? '+' : ''}`;
   };
-  
-  // Calculate active filters count - add this function
-  const countActiveFilters = () => {
-    let count = 0;
-    if (filters.organisation) count++;
-    if (filters.location) count++;
-    if (filters.photographer) count++;
-    if (filters.collection) count++;
-    if (filters.dateRange?.startDate || filters.dateRange?.endDate) count++;
-    if (filters.gauge) count++;
-    if (filters.country) count++;
-    if (filters.organisationType) count++;
-    if (filters.industryType) count++;  // you can remove this if no longer needed
-    if (filters.activeArea) count++;
-    if (filters.route) count++;
-    if (filters.corporateBody) count++;
-    if (filters.facility) count++;
-    if (filters.description) count++;
-    if (filters.builder) count++;
-    if (filters.worksNumber) count++;
-    if (filters.imageNo) count++;
-    return count;
-  };
-
-  // Add a state to track if filters have changed
-  const [filtersChanged, setFiltersChanged] = useState(false);
-
 
   return (
     <Modal
@@ -367,376 +309,402 @@ const FilterModal = ({
                 <Text style={styles.loadingText}>Loading filter options...</Text>
               </View>
             ) : (
-              <>
-                
-                {/* All Fields Tab - Matching FileMaker Pro fields */}
-                  <View style={styles.filterSection}>
-                    {/* Country */}
-                    <SelectInput
-                      label="Country"
-                      options={countryOptions}
-                      selectedValue={filters.country?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const country = countryOptions.find(c => c.id === value);
-                          if (country) {
-                            setFilters({
-                              ...filters,
-                              country: { 
-                                id: country.id, 
-                                name: country.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            country: null
-                          });
-                        }
-                      }}
-                      placeholder="Select country"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.COUNTRIES]}
-                    />
-                    
-                    {/* Organisation Type */}
-                    <SelectInput
-                      label="Organisation Type"
-                      options={orgTypeOptions}
-                      selectedValue={filters.organisationType?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const orgType = orgTypeOptions.find(ot => ot.id === value);
-                          if (orgType) {
-                            setFilters({
-                              ...filters,
-                              organisationType: { 
-                                id: orgType.id, 
-                                name: orgType.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            organisationType: null
-                          });
-                        }
-                      }}
-                      placeholder="Select organisation type"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORG_TYPES]}
-                    />
-                    
-                    {/* Organisation/Operator */}
-                    <SelectInput
-                      label="Organisation (Operator)"
-                      options={organisationOptions}
-                      selectedValue={filters.organisation?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const organisation = organisationOptions.find(o => o.id === value);
-                          if (organisation) {
-                            setFilters({
-                              ...filters,
-                              organisation: { 
-                                id: organisation.id, 
-                                name: organisation.name,
-                                type: null
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            organisation: null
-                          });
-                        }
-                      }}
-                      placeholder="Select organisation"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORGANISATIONS]}
-                    />
-
-                    
-                    {/* Active Area */}
-                    <SelectInput
-                      label="Active Area"
-                      options={activeAreaOptions}
-                      selectedValue={filters.activeArea?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const activeArea = activeAreaOptions.find(aa => aa.id === value);
-                          if (activeArea) {
-                            setFilters({
-                              ...filters,
-                              activeArea: { 
-                                id: activeArea.id, 
-                                name: activeArea.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            activeArea: null
-                          });
-                        }
-                      }}
-                      placeholder="Select active area"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ACTIVE_AREAS]}
-                    />
-                    
-                    {/* Route */}
-                    <SelectInput
-                      label="Route"
-                      options={routeOptions}
-                      selectedValue={filters.route?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const route = routeOptions.find(r => r.id === value);
-                          if (route) {
-                            setFilters({
-                              ...filters,
-                              route: { 
-                                id: route.id, 
-                                name: route.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            route: null
-                          });
-                        }
-                      }}
-                      placeholder="Select route"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ROUTES]}
-                    />
-                    
-                    {/* Corporate Body */}
-                    <SelectInput
-                      label="Corporate Body"
-                      options={corporateBodyOptions}
-                      selectedValue={filters.corporateBody?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const corporateBody = corporateBodyOptions.find(cb => cb.id === value);
-                          if (corporateBody) {
-                            setFilters({
-                              ...filters,
-                              corporateBody: { 
-                                id: corporateBody.id, 
-                                name: corporateBody.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            corporateBody: null
-                          });
-                        }
-                      }}
-                      placeholder="Select corporate body"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.CORPORATE_BODIES]}
-                    />
-                    
-                    {/* Location (already in Basic Filters, duplicated here for completeness) */}
-                    <SelectInput
-                      label="Location"
-                      options={locationOptions}
-                      selectedValue={filters.location?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const location = locationOptions.find(l => l.id === value);
-                          if (location) {
-                            setFilters({
-                              ...filters,
-                              location: { 
-                                id: location.id, 
-                                name: location.name,
-                                country: null
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            location: null
-                          });
-                        }
-                      }}
-                      placeholder="Select location"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.LOCATIONS]}
-                    />
-                    
-                    {/* Plant/Facility */}
-                    <SelectInput
-                      label="Plant/Facility"
-                      options={facilityOptions}
-                      selectedValue={filters.facility?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const facility = facilityOptions.find(f => f.id === value);
-                          if (facility) {
-                            setFilters({
-                              ...filters,
-                              facility: { 
-                                id: facility.id, 
-                                name: facility.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            facility: null
-                          });
-                        }
-                      }}
-                      placeholder="Select facility"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.FACILITIES]}
-                    />
-                    
-                    {/* Description */}
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Description</Text>
-                      <TextInput
-                        style={styles.textInput}
-                        value={description}
-                        onChangeText={setDescription}
-                        placeholder="Enter description keywords"
-                      />
-                    </View>
-                    
-                    {/* Builder */}
-                    <SelectInput
-                      label="Builder"
-                      options={builderOptions}
-                      selectedValue={filters.builder?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const builder = builderOptions.find(b => b.id === value);
-                          if (builder) {
-                            setFilters({
-                              ...filters,
-                              builder: { 
-                                id: builder.id, 
-                                name: builder.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            builder: null
-                          });
-                        }
-                      }}
-                      placeholder="Select builder"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.BUILDERS]}
-                    />
-                    
-                    {/* Works Number */}
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Works Number</Text>
-                      <TextInput
-                        style={styles.textInput}
-                        value={worksNumber}
-                        onChangeText={setWorksNumber}
-                        placeholder="Enter works number"
-                      />
-                    </View>
-                    
-                    {/* Collection */}
-                    <SelectInput
-                      label="Collection"
-                      options={collectionOptions}
-                      selectedValue={filters.collection?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const collection = collectionOptions.find(c => c.id === value);
-                          if (collection) {
-                            setFilters({
-                              ...filters,
-                              collection: { 
-                                id: collection.id, 
-                                name: collection.name,
-                                owner: null
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            collection: null
-                          });
-                        }
-                      }}
-                      placeholder="Select collection"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.COLLECTIONS]}
-                    />
-                    
-                    {/* Image Number */}
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Image Number</Text>
-                      <TextInput
-                        style={styles.textInput}
-                        value={imageNo}
-                        onChangeText={setImageNo}
-                        placeholder="Enter image number"
-                      />
-                    </View>
-                    
-                    {/* Gauge */}
-                    <SelectInput
-                      label="Gauge"
-                      options={gaugeOptions}
-                      selectedValue={filters.gauge?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const gauge = gaugeOptions.find(g => g.id === value);
-                          if (gauge) {
-                            setFilters({
-                              ...filters,
-                              gauge: { 
-                                id: gauge.id, 
-                                name: gauge.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            gauge: null
-                          });
-                        }
-                      }}
-                      placeholder="Select gauge"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.GAUGES]}
-                    />
-                    
-                    {/* Date Range - duplicated for completeness */}
-                    <DateRangeFilter
-                      label="Date Range"
-                      value={{
-                        startDate: filters.dateRange?.startDate ? new Date(filters.dateRange.startDate) : null,
-                        endDate: filters.dateRange?.endDate ? new Date(filters.dateRange.endDate) : null
-                      }}
-                      onChange={range => {
+              <View style={styles.filterSection}>
+                {/* Country */}
+                <SelectInput
+                  label="Country"
+                  options={countryOptions}
+                  selectedValue={filters.country?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const country = countryOptions.find(c => c.id === value);
+                      if (country) {
                         setFilters({
                           ...filters,
-                          dateRange: {
-                            startDate: range.startDate ? range.startDate.toISOString().split('T')[0] : null,
-                            endDate: range.endDate ? range.endDate.toISOString().split('T')[0] : null
+                          country: { 
+                            id: country.id, 
+                            name: country.name 
                           }
                         });
-                      }}
-                      placeholder="Filter by date range"
-                    />
-                  </View>
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        country: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select country"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.COUNTRIES]}
+                />
                 
-              </>
+                {/* Organisation Type */}
+                <SelectInput
+                  label="Organisation Type"
+                  options={orgTypeOptions}
+                  selectedValue={filters.organisationType?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const orgType = orgTypeOptions.find(ot => ot.id === value);
+                      if (orgType) {
+                        setFilters({
+                          ...filters,
+                          organisationType: { 
+                            id: orgType.id, 
+                            name: orgType.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        organisationType: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select organisation type"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORG_TYPES]}
+                />
+                
+                {/* Organisation/Operator */}
+                <SelectInput
+                  label="Organisation (Operator)"
+                  options={organisationOptions}
+                  selectedValue={filters.organisation?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const organisation = organisationOptions.find(o => o.id === value);
+                      if (organisation) {
+                        setFilters({
+                          ...filters,
+                          organisation: { 
+                            id: organisation.id, 
+                            name: organisation.name,
+                            type: null
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        organisation: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select organisation"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORGANISATIONS]}
+                />
+                
+                {/* Active Area */}
+                <SelectInput
+                  label="Active Area"
+                  options={activeAreaOptions}
+                  selectedValue={filters.activeArea?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const activeArea = activeAreaOptions.find(aa => aa.id === value);
+                      if (activeArea) {
+                        setFilters({
+                          ...filters,
+                          activeArea: { 
+                            id: activeArea.id, 
+                            name: activeArea.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        activeArea: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select active area"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.ACTIVE_AREAS]}
+                />
+                
+                {/* Route */}
+                <SelectInput
+                  label="Route"
+                  options={routeOptions}
+                  selectedValue={filters.route?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const route = routeOptions.find(r => r.id === value);
+                      if (route) {
+                        setFilters({
+                          ...filters,
+                          route: { 
+                            id: route.id, 
+                            name: route.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        route: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select route"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.ROUTES]}
+                />
+                
+                {/* Corporate Body */}
+                <SelectInput
+                  label="Corporate Body"
+                  options={corporateBodyOptions}
+                  selectedValue={filters.corporateBody?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const corporateBody = corporateBodyOptions.find(cb => cb.id === value);
+                      if (corporateBody) {
+                        setFilters({
+                          ...filters,
+                          corporateBody: { 
+                            id: corporateBody.id, 
+                            name: corporateBody.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        corporateBody: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select corporate body"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.CORPORATE_BODIES]}
+                />
+                
+                {/* Location */}
+                <SelectInput
+                  label="Location"
+                  options={locationOptions}
+                  selectedValue={filters.location?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const location = locationOptions.find(l => l.id === value);
+                      if (location) {
+                        setFilters({
+                          ...filters,
+                          location: { 
+                            id: location.id, 
+                            name: location.name,
+                            country: null
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        location: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select location"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.LOCATIONS]}
+                />
+                
+                {/* Plant/Facility */}
+                <SelectInput
+                  label="Plant/Facility"
+                  options={facilityOptions}
+                  selectedValue={filters.facility?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const facility = facilityOptions.find(f => f.id === value);
+                      if (facility) {
+                        setFilters({
+                          ...filters,
+                          facility: { 
+                            id: facility.id, 
+                            name: facility.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        facility: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select facility"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.FACILITIES]}
+                />
+                
+                {/* Description */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Description</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={description}
+                    onChangeText={(text) => {
+                      setDescription(text);
+                      setFiltersChanged(true);
+                    }}
+                    placeholder="Enter description keywords"
+                  />
+                </View>
+                
+                {/* Builder */}
+                <SelectInput
+                  label="Builder"
+                  options={builderOptions}
+                  selectedValue={filters.builder?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const builder = builderOptions.find(b => b.id === value);
+                      if (builder) {
+                        setFilters({
+                          ...filters,
+                          builder: { 
+                            id: builder.id, 
+                            name: builder.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        builder: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select builder"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.BUILDERS]}
+                />
+                
+                {/* Works Number */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Works Number</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={worksNumber}
+                    onChangeText={(text) => {
+                      setWorksNumber(text);
+                      setFiltersChanged(true);
+                    }}
+                    placeholder="Enter works number"
+                  />
+                </View>
+                
+                {/* Collection */}
+                <SelectInput
+                  label="Collection"
+                  options={collectionOptions}
+                  selectedValue={filters.collection?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const collection = collectionOptions.find(c => c.id === value);
+                      if (collection) {
+                        setFilters({
+                          ...filters,
+                          collection: { 
+                            id: collection.id, 
+                            name: collection.name,
+                            owner: null
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        collection: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select collection"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.COLLECTIONS]}
+                />
+                
+                {/* Image Number */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Image Number</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={imageNo}
+                    onChangeText={(text) => {
+                      setImageNo(text);
+                      setFiltersChanged(true);
+                    }}
+                    placeholder="Enter image number"
+                  />
+                </View>
+                
+                {/* Gauge */}
+                <SelectInput
+                  label="Gauge"
+                  options={gaugeOptions}
+                  selectedValue={filters.gauge?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const gauge = gaugeOptions.find(g => g.id === value);
+                      if (gauge) {
+                        setFilters({
+                          ...filters,
+                          gauge: { 
+                            id: gauge.id, 
+                            name: gauge.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        gauge: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select gauge"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.GAUGES]}
+                />
+                
+                {/* Date Range */}
+                <DateRangeFilter
+                  label="Date Range"
+                  value={{
+                    startDate: filters.dateRange?.startDate ? new Date(filters.dateRange.startDate) : null,
+                    endDate: filters.dateRange?.endDate ? new Date(filters.dateRange.endDate) : null
+                  }}
+                  onChange={range => {
+                    setFilters({
+                      ...filters,
+                      dateRange: {
+                        startDate: range.startDate ? range.startDate.toISOString().split('T')[0] : null,
+                        endDate: range.endDate ? range.endDate.toISOString().split('T')[0] : null
+                      }
+                    });
+                    setFiltersChanged(true);
+                  }}
+                  placeholder="Filter by date range"
+                />
+              </View>
             )}
           </ScrollView>
 
@@ -748,16 +716,16 @@ const FilterModal = ({
             </View>
           )}
 
-          {/* Action buttons and result count */}
+          {/* Action buttons and query count */}
           <View style={styles.actionButtonsContainer}>
-            {/* Result count display */}
+            {/* Query count display */}
             <View style={styles.resultCountWrapper}>
               {countLoading && <ActivityIndicator size="small" color="#4f46e5" style={styles.countLoadingIndicator} />}
               <Text style={[
                 styles.resultCountText,
                 displayCount === 0 && hasActiveFilters && styles.noResultsText
               ]}>
-                {countActiveFilters()} {countActiveFilters() === 1 ? 'filter' : 'filters'} applied
+                {getDisplayCountText()}
               </Text>
             </View>
 
@@ -782,8 +750,6 @@ const FilterModal = ({
               </TouchableOpacity>
             </View>
           </View>
-
-
         </View>
       </View>
     </Modal>
@@ -818,28 +784,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#4f46e5',
-  },
-  tabText: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  activeTabText: {
-    color: '#4f46e5',
-    fontWeight: '600',
   },
   contentContainer: {
     maxHeight: '70%',
@@ -944,7 +888,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
   },
-
   buttonDisabled: {
     opacity: 0.5,
   },

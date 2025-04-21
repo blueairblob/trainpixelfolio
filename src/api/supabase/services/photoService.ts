@@ -475,5 +475,46 @@ export const photoService = {
       console.error('Error getting photo stats:', error);
       return { data: null, error: error as Error, status: 500 };
     }
+  },
+
+  /**
+   * Get total photo count with caching
+   */
+  getTotalPhotoCount: async (
+    options: CacheOptions = { useCache: true, cacheDuration: 3600 }
+  ): Promise<ApiResponse<number>> => {
+    const { useCache = true, cacheDuration = 3600, forceFresh = false } = options;
+    
+    try {
+      const cacheKey = 'total_photo_count';
+      
+      // Try to get from cache first if enabled AND not forced fresh
+      if (useCache && !forceFresh) {
+        const cachedData = await getCachedApiData<number>(cacheKey);
+        if (cachedData !== null) {
+          console.log('Using cached total photo count');
+          return { data: cachedData, error: null, status: 200 };
+        }
+      }
+      
+      // If not in cache or forced fresh, fetch from API
+      const { count, error, status } = await supabaseClient
+        .from('mobile_catalog_view')
+        .select('*', { count: 'exact', head: true });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Cache the result if enabled
+      if (useCache && !forceFresh && count !== null) {
+        await cacheApiData(cacheKey, count, cacheDuration);
+      }
+      
+      return { data: count || 0, error: null, status };
+    } catch (error) {
+      console.error('Error in getTotalPhotoCount:', error);
+      return { data: 0, error: error as Error, status: 500 };
+    }
   }
 };

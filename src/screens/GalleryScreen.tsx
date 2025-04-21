@@ -157,6 +157,30 @@ const GalleryScreen = ({ navigation, route }) => {
     loadPhotos();
   }, [activeCategory, isSearchMode]);
 
+
+  // Add this state for total photo count
+  const [totalPhotoCount, setTotalPhotoCount] = useState(0);
+
+  // Add a function to fetch the total count
+  const fetchTotalPhotoCount = useCallback(async () => {
+    try {
+      const { data, error } = await photoService.getTotalPhotoCount();
+      if (error) throw error;
+      
+      if (data !== null) {
+        setTotalPhotoCount(data);
+      }
+    } catch (err) {
+      console.error('Error fetching total photo count:', err);
+    }
+  }, []);
+
+  // Call this function when the component mounts
+  useEffect(() => {
+    fetchTotalPhotoCount();
+  }, [fetchTotalPhotoCount]);
+  
+
   // Load more photos (pagination)
   const loadMore = useCallback(async () => {
     // Skip if we're in search mode, loading, or have no more items
@@ -526,8 +550,8 @@ const GalleryScreen = ({ navigation, route }) => {
       <FilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        resultCount={photoData.length}
-        hasMoreResults={isSearchMode ? search.hasMore : hasMore}
+        resultCount={totalPhotoCount}
+        hasMoreResults={hasMore}
       />
     </SafeAreaView>
   );
