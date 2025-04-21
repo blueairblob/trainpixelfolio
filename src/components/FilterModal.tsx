@@ -17,13 +17,13 @@ import { useFilters, Country, OrganisationType, Organisation, Location, Collecti
 import DateRangeFilter from './filters/DateRangeFilter';
 import SelectInput from './filters/SelectInput';
 import { getCachedFilterOptions, cacheFilterOptions } from '@/utils/filterCache';
+import { filterService } from '@/api/supabase';
 
 // Cache keys - consistent with FilterCacheInfo
 const CACHE_KEYS = {
   COUNTRIES: 'countries',
-  ORG_TYPES: 'organization_types',
-  ORGANIZATIONS: 'organizations',
-  INDUSTRY_TYPES: 'industry_types',
+  ORG_TYPES: 'organisation_types',
+  ORGANISATIONS: 'organisations',
   ACTIVE_AREAS: 'active_areas',
   ROUTES: 'routes',
   CORPORATE_BODIES: 'corporate_bodies',
@@ -79,9 +79,10 @@ const FilterModal = ({
 
   // States for filter options
   const [countryOptions, setCountryOptions] = useState<FilterOption[]>([]);
+  const [catergoryOptions, setCategoryOptions] = useState<FilterOption[]>([]);
+  
   const [orgTypeOptions, setOrgTypeOptions] = useState<FilterOption[]>([]);
   const [organisationOptions, setOrganisationOptions] = useState<FilterOption[]>([]);
-  const [industryTypeOptions, setIndustryTypeOptions] = useState<FilterOption[]>([]);
   const [activeAreaOptions, setActiveAreaOptions] = useState<FilterOption[]>([]);
   const [routeOptions, setRouteOptions] = useState<FilterOption[]>([]);
   const [corporateBodyOptions, setCorporateBodyOptions] = useState<FilterOption[]>([]);
@@ -205,242 +206,53 @@ const FilterModal = ({
     }
   };
   
-  // Function to load filter options from Supabase or cache
+
   const loadFilterOptions = async () => {
     if (loadingOptions) return;
     
     try {
       setLoadingOptions(true);
       
-      // Load countries with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.COUNTRIES,
-        async () => {
-          const { data: countries } = await supabaseClient
-            .from('country')
-            .select('id, name')
-            .order('name');
-          
-          return countries?.map(c => ({ id: c.id, name: c.name })) || [];
-        },
-        setCountryOptions,
-        CACHE_DURATIONS.LONG  // Countries rarely change
-      );
+      // Load option data
+      const { data: country } = await filterService.getCountries();
+      if (country) setCountryOptions(country);
+
+      const { data: categories } = await filterService.getCategories();
+      if (categories) setCategoryOptions(categories);
       
-      // Load organisation types with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.ORG_TYPES,
-        async () => {
-          const { data: orgTypes } = await supabaseClient
-            .from('organisation')
-            .select('type')
-            .not('type', 'is', null);
-          
-          if (orgTypes) {
-            const uniqueTypes = Array.from(new Set(orgTypes.map(ot => ot.type).filter(Boolean)));
-            return uniqueTypes.map(type => ({ id: type, name: type }));
-          }
-          return [];
-        },
-        setOrgTypeOptions,
-        CACHE_DURATIONS.LONG
-      );
+      const { data: photographers } = await filterService.getPhotographers();
+      if (photographers) setPhotographerOptions(photographers);
       
-      // Load organisations with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.ORGANIZATIONS,
-        async () => {
-          const { data: organisations } = await supabaseClient
-            .from('organisation')
-            .select('id, name')
-            .order('name')
-            .limit(100);
-          
-          return organisations?.map(o => ({
-            id: o.id, 
-            name: o.name || 'Unnamed'
-          })) || [];
-        },
-        setOrganisationOptions
-      );
+      const { data: locations } = await filterService.getLocations();
+      if (locations) setLocationOptions(locations);
       
-      // Get common industry types with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.INDUSTRY_TYPES,
-        async () => {
-          const { data: industries } = await supabaseClient
-            .from('mobile_catalog_view')
-            .select('type_of_industry')
-            .not('type_of_industry', 'is', null);
-          
-          if (industries) {
-            const uniqueIndustries = Array.from(new Set(industries
-              .map(i => i.type_of_industry)
-              .filter(Boolean)));
-            return uniqueIndustries.map(type => ({ id: type, name: type }));
-          }
-          return [];
-        },
-        setIndustryTypeOptions
-      );
-      
-      // Get active areas with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.ACTIVE_AREAS,
-        async () => {
-          const { data: areas } = await supabaseClient
-            .from('mobile_catalog_view')
-            .select('active_area')
-            .not('active_area', 'is', null);
-          
-          if (areas) {
-            const uniqueAreas = Array.from(new Set(areas
-              .map(a => a.active_area)
-              .filter(Boolean)));
-            return uniqueAreas.map(area => ({ id: area, name: area }));
-          }
-          return [];
-        },
-        setActiveAreaOptions
-      );
-      
-      // Load routes with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.ROUTES,
-        async () => {
-          const { data: routes } = await supabaseClient
-            .from('route')
-            .select('id, name')
-            .order('name');
-          
-          return routes?.map(r => ({ id: r.id, name: r.name })) || [];
-        },
-        setRouteOptions,
-        CACHE_DURATIONS.LONG
-      );
-      
-      // Get corporate bodies with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.CORPORATE_BODIES,
-        async () => {
-          const { data: bodies } = await supabaseClient
-            .from('mobile_catalog_view')
-            .select('corporate_body')
-            .not('corporate_body', 'is', null);
-          
-          if (bodies) {
-            const uniqueBodies = Array.from(new Set(bodies
-              .map(b => b.corporate_body)
-              .filter(Boolean)));
-            return uniqueBodies.map(body => ({ id: body, name: body }));
-          }
-          return [];
-        },
-        setCorporateBodyOptions
-      );
-      
-      // Load locations with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.LOCATIONS,
-        async () => {
-          const { data: locations } = await supabaseClient
-            .from('location')
-            .select('id, name')
-            .order('name')
-            .limit(100);
-          
-          return locations?.map(l => ({ id: l.id, name: l.name })) || [];
-        },
-        setLocationOptions
-      );
-      
-      // Get facilities with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.FACILITIES,
-        async () => {
-          const { data: facilities } = await supabaseClient
-            .from('mobile_catalog_view')
-            .select('facility')
-            .not('facility', 'is', null);
-          
-          if (facilities) {
-            const uniqueFacilities = Array.from(new Set(facilities
-              .map(f => f.facility)
-              .filter(Boolean)));
-            return uniqueFacilities.map(facility => ({ id: facility, name: facility }));
-          }
-          return [];
-        },
-        setFacilityOptions
-      );
-      
-      // Load builders with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.BUILDERS,
-        async () => {
-          const { data: builders } = await supabaseClient
-            .from('builder')
-            .select('id, name, code')
-            .order('name');
-          
-          return builders?.map(b => ({ 
-            id: b.id, 
-            name: b.name || b.code || 'Unnamed'
-          })) || [];
-        },
-        setBuilderOptions,
-        CACHE_DURATIONS.LONG
-      );
-      
-      // Load collections with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.COLLECTIONS,
-        async () => {
-          const { data: collections } = await supabaseClient
-            .from('collection')
-            .select('id, name')
-            .order('name');
-          
-          return collections?.map(c => ({ id: c.id, name: c.name })) || [];
-        },
-        setCollectionOptions,
-        CACHE_DURATIONS.LONG
-      );
-      
-      // Get gauges with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.GAUGES,
-        async () => {
-          const { data: gauges } = await supabaseClient
-            .from('mobile_catalog_view')
-            .select('gauge')
-            .not('gauge', 'is', null);
-          
-          if (gauges) {
-            const uniqueGauges = Array.from(new Set(gauges
-              .map(g => g.gauge)
-              .filter(Boolean)));
-            return uniqueGauges.map(gauge => ({ id: gauge, name: gauge }));
-          }
-          return [];
-        },
-        setGaugeOptions,
-        CACHE_DURATIONS.LONG
-      );
-      
-      // Load photographers with caching
-      await fetchWithCache<FilterOption[]>(
-        CACHE_KEYS.PHOTOGRAPHERS,
-        async () => {
-          const { data: photographers } = await supabaseClient
-            .from('photographer')
-            .select('id, name')
-            .order('name');
-          
-          return photographers?.map(p => ({ id: p.id, name: p.name })) || [];
-        },
-        setPhotographerOptions
-      );
+      const { data: orgType } = await filterService.getOrganisationTypes();
+      if (orgType) setOrgTypeOptions(orgType);
+
+      const { data: organisations } = await filterService.getOrganisations();
+      if (organisations) setOrganisationOptions(organisations);
+    
+      const { data: activeArea } = await filterService.getActiveAreas();
+      if (activeArea) setActiveAreaOptions(activeArea);
+
+      const { data: routes } = await filterService.getRoutes();
+      if (routes) setRouteOptions(routes);
+
+      const { data: corporateBodies } = await filterService.getCorporateBodies();
+      if (corporateBodies) setCorporateBodyOptions(corporateBodies);
+
+      const { data: facilities } = await filterService.getFacilities();
+      if (facilities) setRouteOptions(facilities);
+
+      const { data: builders } = await filterService.getBuilders();
+      if (builders) setBuilderOptions(builders);
+
+      const { data: collection } = await filterService.getCollections();
+      if (collection) setCollectionOptions(collection);
+
+      const { data: guages } = await filterService.getGauges();
+      if (guages) setGaugeOptions(guages);
+
       
     } catch (error) {
       console.error('Error loading filter options:', error);
@@ -448,7 +260,8 @@ const FilterModal = ({
       setLoadingOptions(false);
     }
   };
-  
+
+ 
   // Apply filters
   const handleApplyFilters = () => {
     // Update filters that use text inputs (for which we maintain local state)
@@ -499,6 +312,33 @@ const FilterModal = ({
     return `${displayCount} ${displayCount === 1 ? 'result' : 'results'} ${hasMoreResults ? '+' : ''}`;
   };
   
+  // Calculate active filters count - add this function
+  const countActiveFilters = () => {
+    let count = 0;
+    if (filters.organisation) count++;
+    if (filters.location) count++;
+    if (filters.photographer) count++;
+    if (filters.collection) count++;
+    if (filters.dateRange?.startDate || filters.dateRange?.endDate) count++;
+    if (filters.gauge) count++;
+    if (filters.country) count++;
+    if (filters.organisationType) count++;
+    if (filters.industryType) count++;  // you can remove this if no longer needed
+    if (filters.activeArea) count++;
+    if (filters.route) count++;
+    if (filters.corporateBody) count++;
+    if (filters.facility) count++;
+    if (filters.description) count++;
+    if (filters.builder) count++;
+    if (filters.worksNumber) count++;
+    if (filters.imageNo) count++;
+    return count;
+  };
+
+  // Add a state to track if filters have changed
+  const [filtersChanged, setFiltersChanged] = useState(false);
+
+
   return (
     <Modal
       animationType="slide"
@@ -516,29 +356,6 @@ const FilterModal = ({
             </TouchableOpacity>
           </View>
 
-          {/* Tabs */}
-          <View style={styles.tabsContainer}>
-            {tabs.map((tab, index) => (
-              <TouchableOpacity
-                key={tab}
-                style={[
-                  styles.tab,
-                  activeTabIndex === index && styles.activeTab,
-                ]}
-                onPress={() => setActiveTabIndex(index)}
-              >
-                <Text
-                  style={[
-                    styles.tabText,
-                    activeTabIndex === index && styles.activeTabText,
-                  ]}
-                >
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
           {/* Filter content area */}
           <ScrollView 
             style={styles.contentContainer}
@@ -551,159 +368,8 @@ const FilterModal = ({
               </View>
             ) : (
               <>
-                {/* Common Filters Tab */}
-                {activeTabIndex === 0 && (
-                  <View style={styles.filterSection}>
-                    {/* Common/Most Used Filters */}
-                    
-                    {/* Photographer Filter */}
-                    <SelectInput
-                      label="Photographer"
-                      options={photographerOptions}
-                      selectedValue={filters.photographer?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const photographer = photographerOptions.find(p => p.id === value);
-                          if (photographer) {
-                            setFilters({
-                              ...filters,
-                              photographer: { 
-                                id: photographer.id, 
-                                name: photographer.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            photographer: null
-                          });
-                        }
-                      }}
-                      placeholder="Select photographer"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.PHOTOGRAPHERS]}
-                    />
-                    
-                    {/* Location Filter */}
-                    <SelectInput
-                      label="Location"
-                      options={locationOptions}
-                      selectedValue={filters.location?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const location = locationOptions.find(l => l.id === value);
-                          if (location) {
-                            setFilters({
-                              ...filters,
-                              location: { 
-                                id: location.id, 
-                                name: location.name,
-                                country: null
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            location: null
-                          });
-                        }
-                      }}
-                      placeholder="Select location"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.LOCATIONS]}
-                    />
-                    
-                    {/* Date Range Filter */}
-                    <DateRangeFilter
-                      label="Date Taken"
-                      value={{
-                        startDate: filters.dateRange?.startDate ? new Date(filters.dateRange.startDate) : null,
-                        endDate: filters.dateRange?.endDate ? new Date(filters.dateRange.endDate) : null
-                      }}
-                      onChange={range => {
-                        setFilters({
-                          ...filters,
-                          dateRange: {
-                            startDate: range.startDate ? range.startDate.toISOString().split('T')[0] : null,
-                            endDate: range.endDate ? range.endDate.toISOString().split('T')[0] : null
-                          }
-                        });
-                      }}
-                      placeholder="Filter by date range"
-                    />
-                    
-                    {/* Gauge Filter */}
-                    <SelectInput
-                      label="Gauge"
-                      options={gaugeOptions}
-                      selectedValue={filters.gauge?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const gauge = gaugeOptions.find(g => g.id === value);
-                          if (gauge) {
-                            setFilters({
-                              ...filters,
-                              gauge: { 
-                                id: gauge.id, 
-                                name: gauge.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            gauge: null
-                          });
-                        }
-                      }}
-                      placeholder="Select gauge"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.GAUGES]}
-                    />
-                    
-                    {/* Description Filter */}
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Description Keywords</Text>
-                      <TextInput
-                        style={styles.textInput}
-                        value={description}
-                        onChangeText={setDescription}
-                        placeholder="Search in descriptions"
-                      />
-                    </View>
-
-                    {/* Collection Filter */}
-                    <SelectInput
-                      label="Collection"
-                      options={collectionOptions}
-                      selectedValue={filters.collection?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const collection = collectionOptions.find(c => c.id === value);
-                          if (collection) {
-                            setFilters({
-                              ...filters,
-                              collection: { 
-                                id: collection.id, 
-                                name: collection.name,
-                                owner: null
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            collection: null
-                          });
-                        }
-                      }}
-                      placeholder="Select collection"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.COLLECTIONS]}
-                    />
-                  </View>
-                )}
                 
                 {/* All Fields Tab - Matching FileMaker Pro fields */}
-                {activeTabIndex === 1 && (
                   <View style={styles.filterSection}>
                     {/* Country */}
                     <SelectInput
@@ -787,36 +453,9 @@ const FilterModal = ({
                         }
                       }}
                       placeholder="Select organisation"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORGANIZATIONS]}
+                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.ORGANISATIONS]}
                     />
-                    
-                    {/* Type of Industry */}
-                    <SelectInput
-                      label="Type of Industry"
-                      options={industryTypeOptions}
-                      selectedValue={filters.industryType?.id || null}
-                      onValueChange={(value) => {
-                        if (value) {
-                          const industryType = industryTypeOptions.find(it => it.id === value);
-                          if (industryType) {
-                            setFilters({
-                              ...filters,
-                              industryType: { 
-                                id: industryType.id, 
-                                name: industryType.name 
-                              }
-                            });
-                          }
-                        } else {
-                          setFilters({
-                            ...filters,
-                            industryType: null
-                          });
-                        }
-                      }}
-                      placeholder="Select industry type"
-                      loading={loadingOptions && !cacheStatus[CACHE_KEYS.INDUSTRY_TYPES]}
-                    />
+
                     
                     {/* Active Area */}
                     <SelectInput
@@ -1096,7 +735,7 @@ const FilterModal = ({
                       placeholder="Filter by date range"
                     />
                   </View>
-                )}
+                
               </>
             )}
           </ScrollView>
@@ -1118,14 +757,15 @@ const FilterModal = ({
                 styles.resultCountText,
                 displayCount === 0 && hasActiveFilters && styles.noResultsText
               ]}>
-                {getDisplayCountText()}
+                {countActiveFilters()} {countActiveFilters() === 1 ? 'filter' : 'filters'} applied
               </Text>
             </View>
 
             <View style={styles.actionButtons}>
               <TouchableOpacity
-                style={styles.resetButton}
+                style={[styles.resetButton, !filtersChanged && styles.buttonDisabled]}
                 onPress={handleResetFilters}
+                disabled={!filtersChanged}
               >
                 <Text style={styles.resetButtonText}>Reset</Text>
               </TouchableOpacity>
@@ -1133,14 +773,17 @@ const FilterModal = ({
               <TouchableOpacity
                 style={[
                   styles.applyButton,
-                  displayCount === 0 && hasActiveFilters && styles.applyButtonWarning
+                  (!filtersChanged || (displayCount === 0 && hasActiveFilters)) && styles.buttonDisabled
                 ]}
                 onPress={handleApplyFilters}
+                disabled={!filtersChanged || (displayCount === 0 && hasActiveFilters)}
               >
                 <Text style={styles.applyButtonText}>Apply Filters</Text>
               </TouchableOpacity>
             </View>
           </View>
+
+
         </View>
       </View>
     </Modal>
@@ -1300,6 +943,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
     fontWeight: '600',
+  },
+
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });
 

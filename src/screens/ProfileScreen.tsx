@@ -108,10 +108,15 @@ const ProfileScreen = ({ navigation }) => {
     enableGuestMode();
   };
   
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (isGuest) {
-      disableGuestMode();
+      await disableGuestMode();
+
+      return;
     }
+
+    // If not in guest mode, this code should never run
+    // but we'll leave it as a fallback
     navigation.navigate('AuthScreen');
   };
 

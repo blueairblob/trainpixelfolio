@@ -10,6 +10,7 @@ export { userService } from './services/userService';
 export { photoService } from './services/photoService';
 export { cartService } from './services/cartService';
 export { adminService } from './services/adminService';
+export { filterService } from './services/filterService';
 
 // Export types
 export * from './types';
