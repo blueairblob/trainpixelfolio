@@ -14,7 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabaseClient } from '@/api/supabase/client';
 import { useFilters, Country, OrganisationType, Organisation, Location, Collection, Photographer, Gauge } from '@/context/FilterContext';
-import DateRangeFilter from './filters/DateRangeFilter';
 import YearMonthDayPicker from './filters/YearMonthDayPicker';
 import SelectInput from './filters/SelectInput';
 import { getCachedFilterOptions, cacheFilterOptions } from '@/utils/filterCache';
@@ -22,6 +21,7 @@ import { filterService } from '@/api/supabase';
 
 // Cache keys - consistent with FilterCacheInfo
 const CACHE_KEYS = {
+  CATEGORIES: 'category',
   COUNTRIES: 'countries',
   ORG_TYPES: 'organisation_types',
   ORGANISATIONS: 'organisations',
@@ -311,6 +311,67 @@ const FilterModal = ({
               </View>
             ) : (
               <View style={styles.filterSection}>
+                
+                {/* Category - Added */}
+                <SelectInput
+                  label="Category"
+                  options={categoryOptions}
+                  selectedValue={filters.category?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const category = categoryOptions.find(c => c.id === value);
+                      if (category) {
+                        setFilters({
+                          ...filters,
+                          category: { 
+                            id: category.id, 
+                            name: category.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        category: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select category"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.CATEGORIES]}
+                />
+
+                {/* Photographer - Added */}
+                <SelectInput
+                  label="Photographer"
+                  options={photographerOptions}
+                  selectedValue={filters.photographer?.id || null}
+                  onValueChange={(value) => {
+                    if (value) {
+                      const photographer = photographerOptions.find(p => p.id === value);
+                      if (photographer) {
+                        setFilters({
+                          ...filters,
+                          photographer: { 
+                            id: photographer.id, 
+                            name: photographer.name 
+                          }
+                        });
+                        setFiltersChanged(true);
+                      }
+                    } else {
+                      setFilters({
+                        ...filters,
+                        photographer: null
+                      });
+                      setFiltersChanged(true);
+                    }
+                  }}
+                  placeholder="Select photographer"
+                  loading={loadingOptions && !cacheStatus[CACHE_KEYS.PHOTOGRAPHERS]}
+                />
+
                 {/* Country */}
                 <SelectInput
                   label="Country"

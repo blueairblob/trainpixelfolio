@@ -1,4 +1,4 @@
-// GalleryScreen.tsx - Updated with proper no results handling
+// GalleryScreen.tsx - Updated with consistent hook order to fix Rules of Hooks violation
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   SafeAreaView, 
@@ -33,7 +33,9 @@ const GalleryScreen = ({ navigation, route }) => {
   const initialSearchQuery = route.params?.searchQuery || '';
   const fromSearch = route.params?.fromSearch || false;
 
-  // Extract filter context at top level (Correctly following Rules of Hooks)
+  // **** ALL HOOK DECLARATIONS MUST COME BEFORE ANY CONDITIONAL LOGIC ****
+  
+  // 1. Context hooks
   const { 
     filteredResults, 
     hasActiveFilters,
@@ -42,8 +44,10 @@ const GalleryScreen = ({ navigation, route }) => {
     isLoading: isFilterLoading,
     error: filterError
   } = useFilters();
-
-  // State
+  
+  const { isOffline } = useNetworkStatus();
+  
+  // 2. State hooks - declare all at the top, before any conditional logic
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'single'>('grid');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
@@ -55,20 +59,17 @@ const GalleryScreen = ({ navigation, route }) => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [isSearchMode, setIsSearchMode] = useState(fromSearch);
+  const [totalPhotoCount, setTotalPhotoCount] = useState(0);
   
-  // Network status
-  const { isOffline } = useNetworkStatus();
-  
-  // Search hook
+  // 3. Custom hooks
   const search = useSearch({
     initialQuery: fromSearch ? initialSearchQuery : '',
     itemsPerPage: 10
   });
   
-  // Track if we're in search mode
-  const [isSearchMode, setIsSearchMode] = useState(fromSearch);
-
-  // Reset on navigation focus
+  // 4. useEffect hooks
+  // Navigation focus effect
   useFocusEffect(
     useCallback(() => {
       // Only reset if we're coming in with a new search query
@@ -95,30 +96,52 @@ const GalleryScreen = ({ navigation, route }) => {
     }, [route.params, navigation, activeCategory, search])
   );
 
-  // Load categories
+  // Load categories effect
   useEffect(() => {
     const loadCategories = async () => {
       try {
+        setIsLoading(true);
 
         const { data: categoryData, error } = await photoService.getCategories();
         if (error) throw error;
-        const categories = categoryData || [];
-
+        const categories = categoryData || [];        
+        
+        // Map categories to the format our component expects
+        const categoryIcons = {
+          'steam': 'train',
+          'modern': 'subway',
+          'stations': 'business',
+          'scenic': 'image',
+          'historical': 'time',
+          'passenger': 'people',
+          'freight': 'cube',
+          'railway': 'git-branch'
+        };
+        
+        // Create formatted categories with icons
         const formattedCategories = [
           { id: 'all', title: 'All Photos' },
-          ...categoryData.map(category => ({ id: category, title: category }))
+          ...categoryData.map(category => {
+            // Use a matching icon if available, or a default icon
+            const icon = categoryIcons[category.toLowerCase()] || 'image';
+            return { id: category, title: category, icon };
+          })
         ];
-        setCategories(formattedCategories);
+        
+        // Limit to the first 8 categories for display
+        setCategories(formattedCategories.slice(0, 8));
       } catch (err) {
         console.error('Error loading categories:', err);
         setError('Failed to load categories');
+      } finally {
+        setIsLoading(false);
       }
     };
     
     loadCategories();
   }, []);
 
-  // Load photos based on active category (not in search mode)
+  // Load photos effect
   useEffect(() => {
     if (isSearchMode) return; // Skip when in search mode
     
@@ -127,11 +150,11 @@ const GalleryScreen = ({ navigation, route }) => {
         setIsLoading(true);
         setError(null);
         
+        let photoData;
         if (activeCategory === 'all') {
-          const { data, error } = await photoService.getCatalogPhotos({ 
-            page: 1, 
-            limit: 10 
-          });
+          const { data, error } = await photoService.getCatalogPhotos(
+            { page: 1, limit: 10 }
+          );
           if (error) throw error;
           photoData = data || [];
         } else {
@@ -157,11 +180,12 @@ const GalleryScreen = ({ navigation, route }) => {
     loadPhotos();
   }, [activeCategory, isSearchMode]);
 
+  // Fetch total count effect
+  useEffect(() => {
+    fetchTotalPhotoCount();
+  }, []);
 
-  // Add this state for total photo count
-  const [totalPhotoCount, setTotalPhotoCount] = useState(0);
-
-  // Add a function to fetch the total count
+  // 5. useCallback hooks - ALL declared before any conditional returns
   const fetchTotalPhotoCount = useCallback(async () => {
     try {
       const { data, error } = await photoService.getTotalPhotoCount();
@@ -174,14 +198,7 @@ const GalleryScreen = ({ navigation, route }) => {
       console.error('Error fetching total photo count:', err);
     }
   }, []);
-
-  // Call this function when the component mounts
-  useEffect(() => {
-    fetchTotalPhotoCount();
-  }, [fetchTotalPhotoCount]);
   
-
-  // Load more photos (pagination)
   const loadMore = useCallback(async () => {
     // Skip if we're in search mode, loading, or have no more items
     if (isSearchMode || isLoadingMore || !hasMore || hasActiveFilters) return;
@@ -223,7 +240,6 @@ const GalleryScreen = ({ navigation, route }) => {
     }
   }, [isSearchMode, isLoadingMore, hasMore, page, activeCategory, hasActiveFilters]);
 
-  // Handle refresh - FIXED to use refreshFilters from closure
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     
@@ -234,7 +250,7 @@ const GalleryScreen = ({ navigation, route }) => {
       } else if (hasActiveFilters) {
         // Call refreshFilters from the closure (not a new hook call)
         console.log('Refreshing with active filters');
-        refreshFilters();
+        await refreshFilters();
       } else {
         // Regular refresh without filters
         let refreshedPhotos: Photo[];
@@ -268,7 +284,6 @@ const GalleryScreen = ({ navigation, route }) => {
     }
   }, [isSearchMode, activeCategory, search, hasActiveFilters, refreshFilters]);
 
-  // Handle search
   const handleSearch = useCallback((text: string) => {
     if (!text.trim()) {
       // Clear search
@@ -281,13 +296,11 @@ const GalleryScreen = ({ navigation, route }) => {
     search.setSearchQuery(text);
   }, [search]);
 
-  // Handle clearing search
   const handleClearSearch = useCallback(() => {
     search.clearSearch();
     setIsSearchMode(false);
   }, [search]);
 
-  // Handle category change
   const handleCategoryChange = useCallback((category: string) => {
     if (category === activeCategory) return;
     
@@ -302,12 +315,10 @@ const GalleryScreen = ({ navigation, route }) => {
     }
   }, [activeCategory, search, hasActiveFilters, clearAllFilters]);
 
-  // Handle photo press
   const handlePhotoPress = useCallback((id: string) => {
     navigation.navigate('PhotoDetailScreen', { id });
   }, [navigation]);
 
-  // Handle end reached (for pagination)
   const handleEndReached = useCallback(() => {
     if (isSearchMode) {
       search.loadMore();
@@ -317,7 +328,6 @@ const GalleryScreen = ({ navigation, route }) => {
     // We don't load more for filtered results yet
   }, [isSearchMode, search, loadMore, hasActiveFilters]);
 
-  // Handle filter apply
   const handleApplyFilters = useCallback(() => {
     // When filters are applied, we want to exit search mode
     if (isSearchMode) {
@@ -327,16 +337,16 @@ const GalleryScreen = ({ navigation, route }) => {
     
     // Use refreshFilters from closure (not a new hook call)
     refreshFilters();
-    
   }, [isSearchMode, search, refreshFilters]);
 
-  // Create photo display data
+  // This function prepares the photo data for display
   const getPhotoDisplayData = useCallback(() => {
     // If we have active filters, use filteredResults instead of regular data
     if (hasActiveFilters && !isSearchMode) {
       console.log(`Using ${filteredResults.length} filtered results instead of regular data`);
-      return filteredResults.map(photo => ({
-        id: photo.image_no,
+      return filteredResults.map((photo, index) => ({
+        id: `${photo.image_no}_${index}`, // Added index to ensure uniqueness
+        originalId: photo.image_no, // Keep original ID for navigation
         title: photo.description || 'Untitled',
         photographer: photo.photographer || 'Unknown',
         // price: 0.50, // Default price (in a real app this would come from the API)
@@ -349,8 +359,9 @@ const GalleryScreen = ({ navigation, route }) => {
     // Otherwise use the original logic
     const sourcePhotos = isSearchMode ? search.results : photos;
     
-    return sourcePhotos.map(photo => ({
-      id: photo.image_no,
+    return sourcePhotos.map((photo, index) => ({
+      id: `${photo.image_no}_${index}`, // Added index to ensure uniqueness
+      originalId: photo.image_no, // Keep original ID for navigation
       title: photo.description || 'Untitled',
       photographer: photo.photographer || 'Unknown',
       price: 0.50, // Default price (in a real app this would come from the API)
@@ -360,12 +371,50 @@ const GalleryScreen = ({ navigation, route }) => {
     }));
   }, [isSearchMode, search.results, photos, hasActiveFilters, filteredResults]);
 
+  // Handle photo press using the data prepared by getPhotoDisplayData
+  const handlePhotoItemPress = useCallback((id: string) => {
+    // Find the photo with the compound ID and extract the original ID
+    const photoData = getPhotoDisplayData();
+    const photo = photoData.find(p => p.id === id);
+    if (photo) {
+      navigation.navigate('PhotoDetailScreen', { id: photo.originalId });
+    }
+  }, [getPhotoDisplayData, navigation]);
+
+  // *** After all hooks are defined, we can have conditional logic ***
+
+  // Get the photo data to display
+  const photoData = getPhotoDisplayData();
+  
+  // Check for duplicate IDs and log them - debugging helper
+  if (__DEV__) {
+    const photoIds = photoData.map(p => p.id);
+    const uniqueIds = new Set(photoIds);
+    if (photoIds.length !== uniqueIds.size) {
+      const duplicates = photoIds.filter((id, index) => photoIds.indexOf(id) !== index);
+      console.warn('Duplicate photo IDs detected:', duplicates);
+    }
+  }
+  
+  // Determine if we should show error state
+  const shouldShowError = isSearchMode 
+    ? search.isError 
+    : hasActiveFilters 
+      ? filterError !== null 
+      : error !== null;
+  
+  const errorMessage = isSearchMode 
+    ? search.errorMessage 
+    : hasActiveFilters 
+      ? filterError 
+      : error;
+
   // Determine loading state
   const isContentLoading = (isSearchMode 
     ? search.isLoading && !isRefreshing 
     : isLoading && !isRefreshing) || (hasActiveFilters && isFilterLoading && !isRefreshing);
 
-  // Render loading state
+  // Render loading state - moved after all hooks are defined
   if (isContentLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -388,22 +437,7 @@ const GalleryScreen = ({ navigation, route }) => {
     );
   }
 
-  // Get the photo data to display
-  let photoData = getPhotoDisplayData();
-  
-  // Determine if we should show error state
-  const shouldShowError = isSearchMode 
-    ? search.isError 
-    : hasActiveFilters 
-      ? filterError !== null 
-      : error !== null;
-  
-  const errorMessage = isSearchMode 
-    ? search.errorMessage 
-    : hasActiveFilters 
-      ? filterError 
-      : error;
-
+  // Main render
   return (
     <SafeAreaView style={styles.container}>
       <GalleryHeader
@@ -492,7 +526,7 @@ const GalleryScreen = ({ navigation, route }) => {
       <PhotoList
         photos={photoData}
         viewMode={viewMode}
-        onPhotoPress={handlePhotoPress}
+        onPhotoPress={handlePhotoItemPress} // Using the consistently defined hook
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -544,7 +578,7 @@ const GalleryScreen = ({ navigation, route }) => {
       />
       
       {/* Debug component (only in development mode) */}
-      {__DEV__ && <FilterDebugger />}
+      {/* {__DEV__ && <FilterDebugger />} */}
       
       {/* Advanced Filter Modal */}
       <FilterModal

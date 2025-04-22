@@ -1,7 +1,7 @@
 // src/context/FilterContext.tsx
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { supabaseClient } from '@/api/supabase/client';
-import { CatalogPhoto } from '@/services/catalogService';
+import { Photo } from '@/api/supabase/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define types for our filter entities
@@ -81,6 +81,7 @@ export interface DateRange {
 
 // Define the shape of our filter state - all reference types now use objects with id/name
 export interface FilterState {
+  category: any;
   organisation: Organisation | null;
   location: Location | null;
   photographer: Photographer | null;
