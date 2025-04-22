@@ -309,6 +309,11 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     let query = baseQuery;
     console.log('Starting to apply filters to query');
 
+    if (filters.category) {
+      console.log(`Filtering by category: ${filters.category.name}`);
+      query = query.eq('category', filters.category.name);
+    }
+
     // Apply organisation filter
     if (filters.organisation) {
       console.log(`Filtering by organisation: ${JSON.stringify(filters.organisation)}`);

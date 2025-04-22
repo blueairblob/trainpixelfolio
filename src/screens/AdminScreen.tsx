@@ -131,6 +131,18 @@ const AdminScreen = ({ navigation }) => {
       if (statsError) throw statsError;
       setPhotoStats(stats);
       
+      // Get the actual total photo count instead of fixed number
+      const { data: totalCount, error: countError } = await photoService.getTotalPhotoCount();
+      if (countError) throw countError;
+      
+      // If stats doesn't have totalPhotos or it's wrong, update it
+      if (!stats.totalPhotos || stats.totalPhotos !== totalCount) {
+        setPhotoStats(prev => ({
+          ...prev,
+          totalPhotos: totalCount
+        }));
+      }
+      
       // Load storage statistics
       const { data: storageSize, error: storageError } = await adminService.getStorageSize('picaloco', '');
       if (storageError) throw storageError;
