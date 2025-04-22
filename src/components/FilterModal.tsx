@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabaseClient } from '@/api/supabase/client';
 import { useFilters, Country, OrganisationType, Organisation, Location, Collection, Photographer, Gauge } from '@/context/FilterContext';
 import DateRangeFilter from './filters/DateRangeFilter';
+import YearMonthDayPicker from './filters/YearMonthDayPicker';
 import SelectInput from './filters/SelectInput';
 import { getCachedFilterOptions, cacheFilterOptions } from '@/utils/filterCache';
 import { filterService } from '@/api/supabase';
@@ -686,7 +687,7 @@ const FilterModal = ({
                 />
                 
                 {/* Date Range */}
-                <DateRangeFilter
+                <YearMonthDayPicker
                   label="Date Range"
                   value={{
                     startDate: filters.dateRange?.startDate ? new Date(filters.dateRange.startDate) : null,
