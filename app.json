@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "TrainPixelfolio",
-    "slug": "trainpixelfolio",
+    "name": "PicaLoco",
+    "slug": "picaloco",
     "version": "1.0.0",
     "newArchEnabled": true,
     "orientation": "portrait",
@@ -17,24 +17,24 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.blueairblob.trainpixelfolio"
+      "bundleIdentifier": "com.stuffdotstuff.picaloco"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1A237E"
       },
-      "package": "com.blueairblob.trainpixelfolio"
+      "package": "com.stuffdotstuff.picaloco"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "357dfb88-6494-42e7-abc1-7014ec799777"
       }
     },
-    "owner": "blueairblob",
+    "owner": "stuffdotstuff",
     "plugins": [
       "expo-font"
     ]
