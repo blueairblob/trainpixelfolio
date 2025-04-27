@@ -6,11 +6,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { addToCart } from '@/services/cartService';
 import { photoService } from '@/api/supabase';
 import { Photo } from '@/api/supabase/types';
 import { useAuth } from '@/context/AuthContext';
-import { useCart } from '@/context/CartContext'; // Import useCart hook
+import { useCart } from '@/context/CartContext';
 
 const PhotoDetailScreen = ({ route, navigation }) => {
   const { id } = route.params;
@@ -26,6 +25,7 @@ const PhotoDetailScreen = ({ route, navigation }) => {
   
   const { 
     isGuest, 
+    isAdmin,
     addFavorite, 
     removeFavorite, 
     isFavorite
@@ -41,9 +41,6 @@ const PhotoDetailScreen = ({ route, navigation }) => {
         setError(null);
         
         const { data: photoData, error } = await photoService.getPhotoById(id);
-
-
-        console.log('photoData = ' + photoData)
 
         if (!photoData) {
           throw new Error('Photo not found');
@@ -113,6 +110,17 @@ const PhotoDetailScreen = ({ route, navigation }) => {
     }
   }, [id, isFavoriteState, addFavorite, removeFavorite]);
 
+  // Handle edit photo (for admins)
+  const handleEditPhoto = useCallback(() => {
+    if (!isAdmin || !photo) return;
+    
+    // Navigate to the AdminScreen with the photo to edit
+    navigation.navigate('AdminScreen', {
+      initialTab: 'upload',
+      photoToEdit: photo
+    });
+  }, [isAdmin, photo, navigation]);
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -147,16 +155,27 @@ const PhotoDetailScreen = ({ route, navigation }) => {
           <Ionicons name="arrow-back" size={24} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Photo Details</Text>
-        <TouchableOpacity 
-          onPress={handleToggleFavorite} 
-          style={styles.favoriteButton}
-        >
-          <Ionicons 
-            name={isFavoriteState ? 'heart' : 'heart-outline'} 
-            size={24} 
-            color={isFavoriteState ? '#ef4444' : '#374151'} 
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {/* Edit button for admins */}
+          {isAdmin && (
+            <TouchableOpacity 
+              onPress={handleEditPhoto} 
+              style={styles.editButton}
+            >
+              <Ionicons name="create-outline" size={24} color="#374151" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            onPress={handleToggleFavorite} 
+            style={styles.favoriteButton}
+          >
+            <Ionicons 
+              name={isFavoriteState ? 'heart' : 'heart-outline'} 
+              size={24} 
+              color={isFavoriteState ? '#ef4444' : '#374151'} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
       
       <ScrollView contentContainerStyle={styles.content}>
@@ -398,11 +417,19 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     textAlign: 'center',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   backButton: {
     padding: 8,
   },
   favoriteButton: {
     padding: 8,
+  },
+  editButton: {
+    padding: 8,
+    marginRight: 4,
   },
   content: {
     paddingBottom: 90, // Add padding for footer

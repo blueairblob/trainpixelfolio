@@ -89,7 +89,9 @@ const RootNavigator = () => {
           <Stack.Screen 
             name="AdminScreen" 
             component={AdminScreen}
-            options={{ title: 'Admin Dashboard' }} 
+            options={{ headerShown: false, title: 'Admin Dashboard' }}
+            // This allows us to pass parameters to navigate to specific admin tab
+            // and set up edit mode for photos
           />
         </>
       )}

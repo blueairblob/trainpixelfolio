@@ -14,6 +14,8 @@ import { adminService, photoService } from '@/api/supabase';
 import SelectInput from '@/components/filters/SelectInput';
 import DateRangeFilter from '@/components/filters/DateRangeFilter';
 import { supabaseClient } from '@/api/supabase/client';
+import { useFocusEffect } from '@react-navigation/native';
+import PhotoManager from '@/components/admin/PhotoManager';
 
 // Form types
 interface PhotoMetadata {
@@ -31,7 +33,7 @@ interface PhotoMetadata {
   publicationUse: boolean;
 }
 
-const AdminScreen = ({ navigation }) => {
+const AdminScreen = ({ navigation, route }) => {
   // Check if user is admin
   const { isAdmin, userProfile } = useAuth();
   
@@ -42,6 +44,10 @@ const AdminScreen = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
+  // Upload/Edit states
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [photoToEdit, setPhotoToEdit] = useState<any>(null);
+
   // Tabs state for different admin sections
   const tabs = [
     { id: 'dashboard', title: 'Dashboard', icon: 'grid-outline' },
@@ -119,6 +125,37 @@ const AdminScreen = ({ navigation }) => {
       loadAppConfig();
     }
   }, [activeTab]);
+
+  // Handle navigation parameters for editing photos
+  useFocusEffect(
+    React.useCallback(() => {
+      // Check for navigation parameters
+      const params = route.params;
+      if (params) {
+        // If we have an initialTab parameter, set the active tab
+        if (params.initialTab) {
+          setActiveTab(params.initialTab);
+        }
+        
+        // If we have a photoToEdit parameter, set up edit mode
+        if (params.photoToEdit) {
+          setIsLoading(true);
+          
+          // Get complete photo data or use what we already have
+          if (params.photoToEdit.id) {
+            // Set up edit mode with the provided photo
+            setPhotoToEdit(params.photoToEdit);
+            setIsEditMode(true);
+          }
+          
+          setIsLoading(false);
+        }
+        
+        // Clear the parameters to avoid processing them again
+        navigation.setParams({ initialTab: undefined, photoToEdit: undefined });
+      }
+    }, [navigation])
+  );
   
   // ==================== Dashboard Functions ====================
   
@@ -643,6 +680,51 @@ const AdminScreen = ({ navigation }) => {
     );
   }
   
+
+
+  // Handle edit requests from Photo Manager component
+  const handleSaveComplete = async (photoId) => {
+    try {
+      // If we were in edit mode, exit it
+      if (isEditMode) {
+        setIsEditMode(false);
+        setPhotoToEdit(null);
+        
+        // Get the updated photo details
+        const { data: photoData } = await photoService.getPhotoById(photoId);
+        
+        // Show the photo detail (optional)
+        if (photoData && selectedPhoto && selectedPhoto.id === photoId) {
+          setSelectedPhoto(photoData);
+          setIsPhotoDetailModalVisible(true);
+        }
+      }
+      
+      // Refresh the photos list if we're on the photos tab
+      if (activeTab === 'photos') {
+        await loadPhotos(currentPage);
+      }
+      
+      // Refresh stats if we're on the dashboard
+      if (activeTab === 'dashboard') {
+        await loadStats();
+      }
+    } catch (error) {
+      console.error('Error handling save completion:', error);
+    }
+  };
+
+  // Handle cancel of edit mode
+  const handleEditCancel = () => {
+    setIsEditMode(false);
+    setPhotoToEdit(null);
+    
+    // If the selected photo is still in context, show its detail view
+    if (selectedPhoto) {
+      setIsPhotoDetailModalVisible(true);
+    }
+  };
+
   // ==================== Main Render ====================
   
   return (
@@ -867,227 +949,14 @@ const AdminScreen = ({ navigation }) => {
           
           {/* Upload Tab Content */}
           {activeTab === 'upload' && (
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              style={{ flex: 1 }}
-            >
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Upload New Photo</Text>
-                
-                {/* Image Preview */}
-                <View style={styles.uploadImageContainer}>
-                  {selectedImage ? (
-                    <View style={styles.imagePreviewContainer}>
-                      <Image 
-                        source={{ uri: selectedImage.uri }}
-                        style={styles.imagePreview}
-                        resizeMode="contain"
-                      />
-                      <TouchableOpacity
-                        style={styles.removeImageButton}
-                        onPress={() => setSelectedImage(null)}
-                      >
-                        <Ionicons name="close-circle" size={24} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.imagePlaceholder}
-                      onPress={pickImage}
-                    >
-                      <Ionicons name="cloud-upload-outline" size={48} color="#9ca3af" />
-                      <Text style={styles.imagePlaceholderText}>Tap to select an image</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                {/* Upload Progress */}
-                {isUploading && (
-                  <View style={styles.uploadProgressContainer}>
-                    <View style={styles.progressBarContainer}>
-                      <View 
-                        style={[
-                          styles.progressBar, 
-                          { width: `${uploadProgress}%` }
-                        ]} 
-                      />
-                    </View>
-                    <Text style={styles.progressText}>{uploadProgress}% Uploaded</Text>
-                  </View>
-                )}
-                
-                {/* Metadata Form */}
-                <View style={styles.metadataForm}>
-                  <Text style={styles.formSectionTitle}>Photo Metadata</Text>
-                  
-                  {/* Required Fields */}
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Image Number *</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={metadata.imageNo}
-                      onChangeText={value => setMetadata(prev => ({ ...prev, imageNo: value }))}
-                      placeholder="Enter image number (e.g., IMG00123)"
-                    />
-                  </View>
-                  
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Description *</Text>
-                    <TextInput
-                      style={[styles.input, styles.textArea]}
-                      value={metadata.description}
-                      onChangeText={value => setMetadata(prev => ({ ...prev, description: value }))}
-                      placeholder="Enter photo description"
-                      multiline={true}
-                      numberOfLines={3}
-                    />
-                  </View>
-                  
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Category *</Text>
-                    <View style={styles.dropdownContainer}>
-                      <SelectInput
-                        label=""
-                        options={categoryOptions}
-                        selectedValue={metadata.category}
-                        onValueChange={value => setMetadata(prev => ({ ...prev, category: value }))}
-                        placeholder="Select a category"
-                      />
-                    </View>
-                  </View>
-                  
-                  {/* Optional Fields */}
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Date Taken</Text>
-                    <View style={styles.dateContainer}>
-                      <TextInput
-                        style={styles.input}
-                        value={metadata.dateTaken || ''}
-                        onChangeText={value => setMetadata(prev => ({ ...prev, dateTaken: value }))}
-                        placeholder="YYYY-MM-DD"
-                      />
-                    </View>
-                  </View>
-                  
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Photographer</Text>
-                    <View style={styles.dropdownContainer}>
-                      <SelectInput
-                        label=""
-                        options={photographerOptions}
-                        selectedValue={metadata.photographer}
-                        onValueChange={value => setMetadata(prev => ({ ...prev, photographer: value }))}
-                        placeholder="Select a photographer"
-                      />
-                    </View>
-                  </View>
-                  
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Location</Text>
-                    <View style={styles.dropdownContainer}>
-                      <SelectInput
-                        label=""
-                        options={locationOptions}
-                        selectedValue={metadata.location}
-                        onValueChange={value => setMetadata(prev => ({ ...prev, location: value }))}
-                        placeholder="Select a location"
-                      />
-                    </View>
-                  </View>
-                  
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Organisation</Text>
-                    <View style={styles.dropdownContainer}>
-                      <SelectInput
-                        label=""
-                        options={organisationOptions}
-                        selectedValue={metadata.organisation}
-                        onValueChange={value => setMetadata(prev => ({ ...prev, organisation: value }))}
-                        placeholder="Select an organisation"
-                      />
-                    </View>
-                  </View>
-                  
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Gauge</Text>
-                    <View style={styles.dropdownContainer}>
-                      <SelectInput
-                        label=""
-                        options={gaugeOptions}
-                        selectedValue={metadata.gauge}
-                        onValueChange={value => setMetadata(prev => ({ ...prev, gauge: value }))}
-                        placeholder="Select a gauge"
-                      />
-                    </View>
-                  </View>
-                  
-                  <View style={styles.formGroup}>
-                    <Text style={styles.label}>Collection</Text>
-                    <View style={styles.dropdownContainer}>
-                      <SelectInput
-                        label=""
-                        options={collectionOptions}
-                        selectedValue={metadata.collection}
-                        onValueChange={value => setMetadata(prev => ({ ...prev, collection: value }))}
-                        placeholder="Select a collection"
-                      />
-                    </View>
-                  </View>
-                  
-                  {/* Usage Rights */}
-                  <Text style={styles.formSectionTitle}>Usage Rights</Text>
-                  
-                  <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>Prints Allowed</Text>
-                    <Switch
-                      value={metadata.printAllowed}
-                      onValueChange={value => setMetadata(prev => ({ ...prev, printAllowed: value }))}
-                      trackColor={{ false: '#d1d5db', true: '#c7d2fe' }}
-                      thumbColor={metadata.printAllowed ? '#4f46e5' : '#9ca3af'}
-                    />
-                  </View>
-                  
-                  <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>Internet Use</Text>
-                    <Switch
-                      value={metadata.internetUse}
-                      onValueChange={value => setMetadata(prev => ({ ...prev, internetUse: value }))}
-                      trackColor={{ false: '#d1d5db', true: '#c7d2fe' }}
-                      thumbColor={metadata.internetUse ? '#4f46e5' : '#9ca3af'}
-                    />
-                  </View>
-                  
-                  <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>Publications Use</Text>
-                    <Switch
-                      value={metadata.publicationUse}
-                      onValueChange={value => setMetadata(prev => ({ ...prev, publicationUse: value }))}
-                      trackColor={{ false: '#d1d5db', true: '#c7d2fe' }}
-                      thumbColor={metadata.publicationUse ? '#4f46e5' : '#9ca3af'}
-                    />
-                  </View>
-                  
-                  {/* Submit Button */}
-                  <TouchableOpacity
-                    style={[
-                      styles.uploadButton,
-                      (!selectedImage || isUploading) && styles.uploadButtonDisabled
-                    ]}
-                    onPress={uploadImage}
-                    disabled={!selectedImage || isUploading}
-                  >
-                    {isUploading ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <>
-                        <Ionicons name="cloud-upload-outline" size={20} color="#ffffff" style={styles.uploadButtonIcon} />
-                        <Text style={styles.uploadButtonText}>Upload Photo</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </KeyboardAvoidingView>
+            <View style={styles.section}>
+              <PhotoManager 
+                isEditMode={isEditMode}
+                photoToEdit={photoToEdit}
+                onSaveComplete={handleSaveComplete}
+                onCancel={handleEditCancel}
+              />
+            </View>
           )}
           
           {/* Config Tab Content */}
