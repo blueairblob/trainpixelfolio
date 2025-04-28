@@ -157,16 +157,13 @@ export const photoService = {
   /**
    * Fetch a single photo by its ID (image_no)
    */
-  getPhotoById: async (
-    imageNo: string,
-    options: CacheOptions = { useCache: true, cacheDuration: 180 }
-  ): Promise<ApiResponse<Photo>> => {
+  getPhotoById: async (imageNo: string, options: CacheOptions = { useCache: true, cacheDuration: 180 }): Promise<ApiResponse<Photo>> => {
     const { useCache = true, cacheDuration = 180 } = options;
     
     if (!imageNo) {
       return { data: null, error: new Error('Image number is required'), status: 400 };
     }
-
+  
     try {
       const cacheKey = `photo_${imageNo}`;
       
@@ -180,6 +177,7 @@ export const photoService = {
       }
       
       // If not in cache, fetch from API
+      // First, try to get the photo from mobile_catalog_view
       const { data, error, status } = await supabaseClient
         .from('mobile_catalog_view')
         .select('*')
@@ -193,11 +191,11 @@ export const photoService = {
       if (!data) {
         return { data: null, error: new Error('Photo not found'), status: 404 };
       }
-
+  
       // Add image URL
       const photoWithUrl = {
         ...data,
-        id: data.image_no, // Ensure id is set for compatibility
+        id: data.image_no, // Keep this for compatibility with UI
         image_url: photoService.getImageUrl(data.image_no),
         thumbnail_url: photoService.getThumbnailUrl(data.image_no),
         price: 49.99 // Default price for compatibility
@@ -214,7 +212,6 @@ export const photoService = {
       return { data: null, error: error as Error, status: 500 };
     }
   },
-
   /**
    * Fetch unique categories
    */

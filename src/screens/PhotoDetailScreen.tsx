@@ -110,14 +110,24 @@ const PhotoDetailScreen = ({ route, navigation }) => {
     }
   }, [id, isFavoriteState, addFavorite, removeFavorite]);
 
-  // Handle edit photo (for admins)
+  // Navigate to the AdminScreen with the photo to edit
   const handleEditPhoto = useCallback(() => {
     if (!isAdmin || !photo) return;
     
-    // Navigate to the AdminScreen with the photo to edit
+    // Log what we're working with
+    console.log('Photo object for editing:', {
+      id: photo.id,
+      image_no: photo.image_no
+    });
+    
+    // Just pass the image_no - the photoAdminService will handle finding the UUID
     navigation.navigate('AdminScreen', {
       initialTab: 'upload',
-      photoToEdit: photo
+      photoToEdit: {
+        ...photo,
+        // Just pass the image_no - the admin service will look it up
+        id: photo.image_no 
+      }
     });
   }, [isAdmin, photo, navigation]);
 

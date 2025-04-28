@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { useAuth } from '@/context/AuthContext';
-import { adminService, photoService } from '@/api/supabase';
+import { adminService, photoAdminService, photoService } from '@/api/supabase';
 import SelectInput from '@/components/filters/SelectInput';
 import DateRangeFilter from '@/components/filters/DateRangeFilter';
 import { supabaseClient } from '@/api/supabase/client';
@@ -51,7 +51,6 @@ const AdminScreen = ({ navigation, route }) => {
   // Tabs state for different admin sections
   const tabs = [
     { id: 'dashboard', title: 'Dashboard', icon: 'grid-outline' },
-    { id: 'photos', title: 'Photos', icon: 'images-outline' },
     { id: 'upload', title: 'Upload', icon: 'cloud-upload-outline' },
     { id: 'config', title: 'App Config', icon: 'settings-outline' },
     { id: 'users', title: 'Users', icon: 'people-outline' }
@@ -115,8 +114,6 @@ const AdminScreen = ({ navigation, route }) => {
   useEffect(() => {
     if (activeTab === 'dashboard') {
       loadStats();
-    } else if (activeTab === 'photos') {
-      loadPhotos(1);
     } else if (activeTab === 'upload') {
       loadReferenceData();
     } else if (activeTab === 'users') {
@@ -298,24 +295,18 @@ const AdminScreen = ({ navigation, route }) => {
     try {
       setIsLoading(true);
       
-      if (!selectedPhoto || !selectedPhoto.image_no) {
+      if (!selectedPhoto) {
         throw new Error('No photo selected for deletion');
       }
       
-      // Use adminService to delete the photo
-      const { error } = await adminService.deleteRecord('catalog', selectedPhoto.id, {
-        idField: 'id'
-      });
+      // Use our refactored admin service to delete the photo
+      const { error } = await photoAdminService.deletePhoto(selectedPhoto.id);
       
       if (error) throw error;
       
-      // Close the confirmation modal
       setIsDeleteConfirmVisible(false);
-      
-      // Also close the photo detail modal if open
       setIsPhotoDetailModalVisible(false);
       
-      // Reload the photos list
       await loadPhotos(currentPage);
       
       Alert.alert('Success', 'Photo deleted successfully');
@@ -690,19 +681,11 @@ const AdminScreen = ({ navigation, route }) => {
         setIsEditMode(false);
         setPhotoToEdit(null);
         
-        // Get the updated photo details
-        const { data: photoData } = await photoService.getPhotoById(photoId);
-        
-        // Show the photo detail (optional)
-        if (photoData && selectedPhoto && selectedPhoto.id === photoId) {
-          setSelectedPhoto(photoData);
-          setIsPhotoDetailModalVisible(true);
-        }
-      }
-      
-      // Refresh the photos list if we're on the photos tab
-      if (activeTab === 'photos') {
-        await loadPhotos(currentPage);
+        // Show success message
+        Alert.alert('Success', 'Photo updated successfully');
+      } else {
+        // Show success message for new photo
+        Alert.alert('Success', 'Photo uploaded successfully');
       }
       
       // Refresh stats if we're on the dashboard
@@ -718,11 +701,7 @@ const AdminScreen = ({ navigation, route }) => {
   const handleEditCancel = () => {
     setIsEditMode(false);
     setPhotoToEdit(null);
-    
-    // If the selected photo is still in context, show its detail view
-    if (selectedPhoto) {
-      setIsPhotoDetailModalVisible(true);
-    }
+    Alert.alert('Edit Canceled', 'Changes have been discarded');
   };
 
   // ==================== Main Render ====================
@@ -950,6 +929,10 @@ const AdminScreen = ({ navigation, route }) => {
           {/* Upload Tab Content */}
           {activeTab === 'upload' && (
             <View style={styles.section}>
+              {/* <Text style={styles.sectionTitle}>
+                {isEditMode ? 'Edit Photo' : 'Upload New Photo'}
+              </Text> */}
+              
               <PhotoManager 
                 isEditMode={isEditMode}
                 photoToEdit={photoToEdit}
