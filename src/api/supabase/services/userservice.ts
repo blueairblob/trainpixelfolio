@@ -64,7 +64,7 @@ const userService = {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle(); // Use maybeSingle instead of single
+        .maybeSingle(); 
       
       console.log("Profile query result:", profile ? "found" : "not found", profileError ? "error" : "no error");
       
