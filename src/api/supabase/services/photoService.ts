@@ -163,8 +163,11 @@ export const photoService = {
     if (!imageNo) {
       return { data: null, error: new Error('Image number is required'), status: 400 };
     }
-  
+
     try {
+      // Add debug logging
+      console.log(`Attempting to fetch photo with ID: ${imageNo}`);
+      
       const cacheKey = `photo_${imageNo}`;
       
       // Try to get from cache first if enabled
@@ -185,13 +188,30 @@ export const photoService = {
         .maybeSingle();
       
       if (error) {
+        console.error(`Error fetching photo ${imageNo}:`, error);
         throw error;
       }
       
       if (!data) {
-        return { data: null, error: new Error('Photo not found'), status: 404 };
+        console.error(`Photo not found with image_no: ${imageNo}`);
+        
+        // Try an alternative fetch using a different field if needed
+        // For example, if sometimes the ID might be a UUID:
+        console.log(`Attempting alternative fetch for photo: ${imageNo}`);
+        const { data: altData, error: altError } = await supabaseClient
+          .from('mobile_catalog_view')
+          .select('*')
+          .or(`id.eq.${imageNo},image_no.ilike.%${imageNo}%`)
+          .maybeSingle();
+          
+        if (altError || !altData) {
+          return { data: null, error: new Error('Photo not found'), status: 404 };
+        }
+        
+        console.log(`Found photo via alternative lookup method: ${altData.image_no}`);
+        data = altData;
       }
-  
+
       // Add image URL
       const photoWithUrl = {
         ...data,
@@ -212,8 +232,10 @@ export const photoService = {
       return { data: null, error: error as Error, status: 500 };
     }
   },
+
   /**
-   * Fetch unique categories
+
+  * Fetch unique categories
    */
   getCategories: async (
     options: CacheOptions = { useCache: true, cacheDuration: 1440 }

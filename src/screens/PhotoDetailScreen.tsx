@@ -93,22 +93,56 @@ const PhotoDetailScreen = ({ route, navigation }) => {
       Alert.alert('Error', 'Failed to add to cart');
     }
   }, [photo, isGuest, addToCart]);
-  
+
+
   // Handle toggle favorite
   const handleToggleFavorite = useCallback(async () => {
     try {
+      // Make sure we're using image_no as the ID for favorites
+      const favoriteId = photo.image_no;
+      
+      console.log(`Toggle favorite for photo ${favoriteId}`);
+      
       if (isFavoriteState) {
-        await removeFavorite(id);
+        await removeFavorite(favoriteId);
         setIsFavoriteState(false);
       } else {
-        await addFavorite(id);
+        await addFavorite(favoriteId);
         setIsFavoriteState(true);
       }
     } catch (err) {
       console.error('Error toggling favorite:', err);
       Alert.alert('Error', 'Failed to update favorites');
     }
-  }, [id, isFavoriteState, addFavorite, removeFavorite]);
+  }, [photo, isFavoriteState, addFavorite, removeFavorite]);
+
+  // Load photo and check if it's in favorites
+  useEffect(() => {
+    const loadPhoto = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const { data: photoData, error } = await photoService.getPhotoById(id);
+
+        if (!photoData) {
+          throw new Error('Photo not found');
+        }
+        
+        setPhoto(photoData);
+        
+        // Check if this photo is in favorites using image_no
+        setIsFavoriteState(isFavorite(photoData.image_no));
+      } catch (err) {
+        console.error('Error loading photo details:', err);
+        setError('Failed to load photo details. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadPhoto();
+  }, [id, isFavorite]);
 
   // Navigate to the AdminScreen with the photo to edit
   const handleEditPhoto = useCallback(() => {

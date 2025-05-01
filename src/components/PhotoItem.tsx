@@ -31,8 +31,10 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
 
   // Check if photo is in favorites
   useEffect(() => {
-    setIsFavoriteState(isFavorite(photo.id));
-  }, [photo.id, isFavorite]);
+    // Make sure we're using the correct ID format (image_no)
+    const favoriteId = photo.image_no || photo.id;
+    setIsFavoriteState(isFavorite(favoriteId));
+  }, [photo, isFavorite]);
 
   // Memoize the onPress handler to prevent unnecessary re-renders
   const handlePress = useCallback(() => {
@@ -50,18 +52,23 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
     e.stopPropagation(); // Prevent triggering the parent onPress
     
     try {
+      // Make sure we're using the correct ID format (image_no)
+      const favoriteId = photo.image_no || photo.id;
+      
+      console.log(`Toggle favorite for photo ${favoriteId}`);
+      
       if (isFavoriteState) {
-        await removeFavorite(photo.id);
+        await removeFavorite(favoriteId);
         setIsFavoriteState(false);
       } else {
-        await addFavorite(photo.id);
+        await addFavorite(favoriteId);
         setIsFavoriteState(true);
       }
     } catch (error) {
       console.error('Error toggling favorite:', error);
       Alert.alert('Error', 'Could not update favorites');
     }
-  }, [isFavoriteState, photo.id, addFavorite, removeFavorite]);
+  }, [isFavoriteState, photo.image_no, photo.id, addFavorite, removeFavorite]);
 
   // Generate a placeholder blurhash-like color based on the photo id
   const placeholderColor = `#${(parseInt(photo.id.replace(/\D/g, ''), 10) % 0xffffff).toString(16).padStart(6, '0')}`;

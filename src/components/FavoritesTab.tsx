@@ -22,6 +22,9 @@ const FavoritesTab: React.FC<FavoritesTabProps> = ({ navigation }) => {
 
   // Load favorite photos
   useEffect(() => {
+
+    // Modified section of FavoritesTab.tsx
+    // Change the loadFavorites function to handle the correct ID mapping
     const loadFavorites = async () => {
       if (!userProfile?.favorites || userProfile.favorites.length === 0) {
         setFavoritePhotos([]);
@@ -44,10 +47,25 @@ const FavoritesTab: React.FC<FavoritesTabProps> = ({ navigation }) => {
         const photos = [];
         for (const photoId of userProfile.favorites) {
           try {
-            const { data: photo, error } = await photoService.getPhotoById(photoId);
-            if (error) throw error;
-
-            if (photo) photos.push(photo);
+            // Log for debugging
+            console.log(`Loading favorite photo: ${photoId}`);
+            
+            // Extract the image_no from the favorite ID if needed
+            // In some cases, the ID might be stored with a prefix or different format
+            // than what getPhotoById expects
+            
+            // If photoId is already in image_no format, use it directly
+            const imageNo = photoId;
+            
+            const { data: photo, error } = await photoService.getPhotoById(imageNo);
+            
+            if (error) {
+              console.error(`Error loading photo ${imageNo}:`, error);
+              // Continue with other photos even if one fails
+            }
+            else if (photo) {
+              photos.push(photo);
+            }
           } catch (err) {
             console.error(`Error loading photo ${photoId}:`, err);
           } finally {

@@ -298,15 +298,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     console.log("Guest mode disabled");
   };
 
+
+  // Modified favorites handling in AuthContext.tsx
+
   // Add a photo to favorites
   const addFavorite = async (photoId: string) => {
     try {
+      // Ensure we're using image_no as the ID
+      // If photoId is not already in the correct format, we need to standardize it
+      // For now, we'll assume photoId is already in image_no format
+      const favoriteId = photoId;
+      
+      console.log(`Adding to favorites: ${favoriteId}`);
+      
       if (isGuest) {
         // Use userService for guest favorites
-        await userService.addToFavorites(photoId, { isGuest: true });
+        await userService.addToFavorites(favoriteId, { isGuest: true });
       } else if (user) {
         // Use userService for authenticated user favorites
-        await userService.addToFavorites(photoId, { userId: user.id });
+        await userService.addToFavorites(favoriteId, { userId: user.id });
       } else {
         throw new Error("User must be authenticated or in guest mode");
       }
@@ -314,7 +324,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Update local state
       setUserProfile(prev => {
         if (!prev) return null;
-        const updatedFavorites = [...prev.favorites, photoId];
+        const updatedFavorites = [...prev.favorites, favoriteId];
         return { ...prev, favorites: updatedFavorites };
       });
     } catch (error: any) {
@@ -323,16 +333,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw error;
     }
   };
-  
+
   // Remove a photo from favorites
   const removeFavorite = async (photoId: string) => {
     try {
+      // Ensure we're using image_no as the ID
+      // If photoId is not already in the correct format, we need to standardize it
+      // For now, we'll assume photoId is already in image_no format
+      const favoriteId = photoId;
+      
+      console.log(`Removing from favorites: ${favoriteId}`);
+      
       if (isGuest) {
         // Use userService for guest favorites
-        await userService.removeFromFavorites(photoId, { isGuest: true });
+        await userService.removeFromFavorites(favoriteId, { isGuest: true });
       } else if (user) {
         // Use userService for authenticated user favorites
-        await userService.removeFromFavorites(photoId, { userId: user.id });
+        await userService.removeFromFavorites(favoriteId, { userId: user.id });
       } else {
         throw new Error("User must be authenticated or in guest mode");
       }
@@ -340,7 +357,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Update local state
       setUserProfile(prev => {
         if (!prev) return null;
-        const updatedFavorites = prev.favorites.filter(id => id !== photoId);
+        const updatedFavorites = prev.favorites.filter(id => id !== favoriteId);
         return { ...prev, favorites: updatedFavorites };
       });
     } catch (error: any) {
@@ -349,7 +366,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw error;
     }
   };
-  
+
+  // Check if a photo is in favorites
+  const isFavorite = (photoId: string): boolean => {
+    // Ensure we're using image_no as the ID
+    // If photoId is not already in the correct format, we need to standardize it
+    // For now, we'll assume photoId is already in image_no format
+    const favoriteId = photoId;
+    
+    if (!userProfile) return false;
+    return userProfile.favorites.includes(favoriteId);
+  };
+
   // Get user favorites
   const getFavorites = async (): Promise<string[]> => {
     try {
@@ -369,12 +397,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Error getting favorites:', error);
       return [];
     }
-  };
-
-  // Check if a photo is in favorites
-  const isFavorite = (photoId: string): boolean => {
-    if (!userProfile) return false;
-    return userProfile.favorites.includes(photoId);
   };
 
   return (
