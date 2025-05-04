@@ -1,6 +1,7 @@
 // src/api/supabase/client.ts
 import 'react-native-url-polyfill/auto';
-import { createClient } from '@supabase/supabase-js';
+//import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js/dist/module/index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Database } from '@/types/supabase';
 
@@ -21,6 +22,9 @@ export const supabaseClient = createClient<Database>(supabaseUrl, supabaseKey, {
     autoRefreshToken: true,
     persistSession: true,
     storage: AsyncStorage,
+  },
+  realtime: {
+    enabled: false,
   }
 });
 
@@ -31,5 +35,8 @@ export const supabasePublicClient = createClient<Database>(supabaseUrl, supabase
     autoRefreshToken: true,
     persistSession: true,
     storage: AsyncStorage,
-  }
+  },
+  realtime: {
+    enabled: false,
+  },
 });
