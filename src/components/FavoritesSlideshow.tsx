@@ -187,9 +187,6 @@ const FavoriteSlideshow: React.FC<FavoriteSlideshowProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Favourite Photos</Text>
-        <TouchableOpacity>
-          <Text style={styles.viewAllButton}>View All</Text>
-        </TouchableOpacity>
       </View>
       
       <FlatList

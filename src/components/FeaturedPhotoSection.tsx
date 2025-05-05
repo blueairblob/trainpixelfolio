@@ -47,6 +47,9 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
   const slideshowRef = useRef<ScrollView>(null);
   const [autoPlayTimer, setAutoPlayTimer] = useState<NodeJS.Timeout | null>(null);
   
+  // Added: Toggle state for minimal/detailed view
+  const [isMinimalView, setIsMinimalView] = useState(true);
+  
   // Get auth context to check favorites
   const { userProfile } = useAuth();
 
@@ -252,46 +255,110 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
     setCurrentIndex(newIndex);
   };
 
-  // Render a single featured photo card
-  const renderPhotoCard = (photoData: FeaturedPhoto) => (
-    <View style={styles.featuredCard}>
-      <Image 
-        source={{ uri: photoData.imageUrl }}
-        style={styles.featuredImage}
-        resizeMode="cover"
-      />
-      <View style={styles.featuredContent}>
-        <View style={styles.featuredBadge}>
-          <Ionicons 
-            name={activeCategory === 'featured' ? 'star' : 
-                  activeCategory === 'favorites' ? 'heart' :
-                  activeCategory === 'new' ? 'time' : 'flame'} 
-            size={12} 
-            color="#ffffff" 
-          />
-          <Text style={styles.featuredBadgeText}>
-            {categories.find(c => c.id === activeCategory)?.title || 'Featured'}
-          </Text>
-        </View>
-        <Text style={styles.featuredTitle}>{photoData.title}</Text>
-        <Text style={styles.featuredDescription}>{photoData.description}</Text>
-        <View style={styles.photographerRow}>
-          <Text style={styles.photographerText}>By {photoData.photographer}</Text>
-          <Text style={styles.locationText}>{photoData.location}</Text>
-        </View>
-        <View style={styles.featuredPrice}>
-          <Text style={styles.licenseText}>Standard license</Text>
-        </View>
+  // Toggle between minimal and detailed view
+  const toggleView = () => {
+    setIsMinimalView(!isMinimalView);
+  };
+
+  // Render a single featured photo card with toggle functionality
+  const renderPhotoCard = (photoData: FeaturedPhoto) => {
+    if (isMinimalView) {
+      // Minimal view - similar to the example you provided
+      return (
         <TouchableOpacity 
-          style={styles.viewDetailsButton}
+          style={styles.minimalCard}
           onPress={() => onViewDetailsPress(photoData.id)}
+          activeOpacity={0.9}
         >
-          <Text style={styles.viewDetailsText}>View Details</Text>
-          <Ionicons name="arrow-forward" size={16} color="#4f46e5" />
+          <Image
+            source={{ uri: photoData.imageUrl }}
+            style={styles.minimalImage}
+            resizeMode="cover"
+          />
+          <View style={styles.minimalInfo}>
+            <Text style={styles.minimalTitle} numberOfLines={1}>
+              {photoData.title}
+            </Text>
+            <Text style={styles.minimalPhotographer} numberOfLines={1}>
+              {photoData.photographer}
+            </Text>
+          </View>
+          
+          {/* Toggle button overlaid on image */}
+          <TouchableOpacity 
+            style={styles.toggleButtonOverlay}
+            onPress={toggleView}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={20} color="#ffffff" />
+          </TouchableOpacity>
+          
+          {/* Category badge */}
+          <View style={styles.minimalBadge}>
+            <Ionicons 
+              name={activeCategory === 'featured' ? 'star' : 
+                    activeCategory === 'favorites' ? 'heart' :
+                    activeCategory === 'new' ? 'time' : 'flame'} 
+              size={12} 
+              color="#ffffff" 
+            />
+          </View>
         </TouchableOpacity>
-      </View>
-    </View>
-  );
+      );
+    } else {
+      // Detailed view - original format
+      return (
+        <View style={styles.featuredCard}>
+          <Image 
+            source={{ uri: photoData.imageUrl }}
+            style={styles.featuredImage}
+            resizeMode="cover"
+          />
+          <View style={styles.featuredContent}>
+            <View style={styles.headerRow}>
+              <View style={styles.featuredBadge}>
+                <Ionicons 
+                  name={activeCategory === 'featured' ? 'star' : 
+                        activeCategory === 'favorites' ? 'heart' :
+                        activeCategory === 'new' ? 'time' : 'flame'} 
+                  size={12} 
+                  color="#ffffff" 
+                />
+                <Text style={styles.featuredBadgeText}>
+                  {categories.find(c => c.id === activeCategory)?.title || 'Featured'}
+                </Text>
+              </View>
+              
+              {/* Toggle back to minimal view */}
+              <TouchableOpacity onPress={toggleView} style={styles.toggleButton}>
+                <Ionicons name="contract-outline" size={20} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.featuredTitle}>{photoData.title}</Text>
+            <Text style={styles.featuredDescription}>{photoData.description}</Text>
+            
+            <View style={styles.photographerRow}>
+              <Text style={styles.photographerText}>By {photoData.photographer}</Text>
+              <Text style={styles.locationText}>{photoData.location}</Text>
+            </View>
+            
+            <View style={styles.featuredPrice}>
+              <Text style={styles.licenseText}>Standard license</Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.viewDetailsButton}
+              onPress={() => onViewDetailsPress(photoData.id)}
+            >
+              <Text style={styles.viewDetailsText}>View Details</Text>
+              <Ionicons name="arrow-forward" size={16} color="#4f46e5" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+  };
 
   // Render slideshow pagination dots
   const renderPaginationDots = () => {
@@ -507,7 +574,77 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 14,
   },
-  // Existing styles from the original component
+  // Minimal view styles
+  minimalCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 0,
+    position: 'relative',
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  minimalImage: {
+    width: '100%',
+    height: 180,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  minimalInfo: {
+    padding: 12,
+    backgroundColor: '#ffffff',
+  },
+  minimalTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  minimalPhotographer: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  toggleButtonOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 12,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  minimalBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: '#4f46e5',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  
+  // Original detailed view styles
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  toggleButton: {
+    padding: 4,
+  },
   featuredCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
@@ -536,7 +673,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 16,
     alignSelf: 'flex-start',
-    marginBottom: 12,
   },
   featuredBadgeText: {
     color: '#ffffff',
