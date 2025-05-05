@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { photoService } from '@/api/supabase';
+import { slideshowService } from '@/api/supabase';
 import { useAuth } from '@/context/AuthContext';
 
 interface FeaturedPhoto {
@@ -38,7 +39,7 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
   const [activeCategory, setActiveCategory] = useState('featured');
   const [photo, setPhoto] = useState<FeaturedPhoto | null>(featuredPhoto || null);
   const [favoritePhotos, setFavoritePhotos] = useState<FeaturedPhoto[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // State for slideshow
@@ -126,32 +127,19 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
       // Reset favorites
       setFavoritePhotos([]);
       
-      // Check if user has favorites
-      if (!userProfile?.favorites?.length) {
-        setError('No favorite photos found');
-        return;
-      }
+      // Get slideshow photos from service - this will use user favorites or fall back to admin defaults
+      const { data: slideshowPhotos, error: slideshowError } = await slideshowService.getSlideshowPhotos(
+        userProfile?.favorites,
+        5 // Maximum number of slides
+      );
       
-      // Load each favorite photo
-      const photos: FeaturedPhoto[] = [];
+      if (slideshowError) throw slideshowError;
       
-      // Limit to first 5 favorites to avoid too many API calls
-      const favoritesToLoad = userProfile.favorites.slice(0, 5);
-      
-      for (const favoriteId of favoritesToLoad) {
-        try {
-          const { data } = await photoService.getPhotoById(favoriteId);
-          if (data) {
-            photos.push(formatPhotoData(data));
-          }
-        } catch (err) {
-          console.error(`Error loading favorite ${favoriteId}:`, err);
-          // Continue with other favorites even if one fails
-        }
-      }
-      
-      if (photos.length > 0) {
-        setFavoritePhotos(photos);
+      if (slideshowPhotos && slideshowPhotos.length > 0) {
+        // Format the photos for display
+        const formattedPhotos = slideshowPhotos.map(photo => formatPhotoData(photo));
+        setFavoritePhotos(formattedPhotos);
+        
         // Reset slideshow index
         setCurrentIndex(0);
         // Scroll to beginning
@@ -159,7 +147,7 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
           slideshowRef.current?.scrollTo({ x: 0, animated: false });
         }, 100);
       } else {
-        setError('Could not load favorite photos');
+        setError('No favorite photos available');
       }
     } catch (err) {
       console.error('Error loading favorites:', err);
@@ -294,7 +282,7 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
           </TouchableOpacity>
           
           {/* Category badge */}
-          <View style={styles.minimalBadge}>
+          {/* <View style={styles.minimalBadge}>
             <Ionicons 
               name={activeCategory === 'featured' ? 'star' : 
                     activeCategory === 'favorites' ? 'heart' :
@@ -302,7 +290,7 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
               size={12} 
               color="#ffffff" 
             />
-          </View>
+          </View> */}
         </TouchableOpacity>
       );
     } else {
