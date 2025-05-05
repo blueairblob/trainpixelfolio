@@ -184,7 +184,7 @@ export const photoService = {
       const { data, error, status } = await supabaseClient
         .from('mobile_catalog_view')
         .select('*')
-        .eq('image_no', imageNo)
+        .filter('image_no', 'eq', imageNo)
         .maybeSingle();
       
       if (error) {

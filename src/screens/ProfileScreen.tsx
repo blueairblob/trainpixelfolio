@@ -251,11 +251,7 @@ const ProfileScreen = ({ navigation }) => {
       </View>
 
       {/* Content area based on selected tab */}
-      <ScrollView contentContainerStyle={
-        activeTab === 'favorites' 
-          ? styles.scrollContentFavorites 
-          : styles.scrollContent
-      }>
+      
         {activeTab === 'info' && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -475,7 +471,7 @@ const ProfileScreen = ({ navigation }) => {
             </View>
           </View>
         )}
-      </ScrollView>
+      
     </SafeAreaView>
   );
 };
@@ -630,6 +626,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  tabContent: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
   activeTab: {
     borderBottomColor: '#4f46e5',

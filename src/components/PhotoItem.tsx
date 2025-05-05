@@ -32,7 +32,7 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
   // Check if photo is in favorites
   useEffect(() => {
     // Make sure we're using the correct ID format (image_no)
-    const favoriteId = photo.image_no || photo.id;
+    const favoriteId = photo.image_no || photo.originalId;
     setIsFavoriteState(isFavorite(favoriteId));
   }, [photo, isFavorite]);
 
@@ -53,7 +53,7 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
     
     try {
       // Make sure we're using the correct ID format (image_no)
-      const favoriteId = photo.image_no || photo.id;
+      const favoriteId = photo.image_no || photo.originalId;
       
       console.log(`Toggle favorite for photo ${favoriteId}`);
       
@@ -68,7 +68,7 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
       console.error('Error toggling favorite:', error);
       Alert.alert('Error', 'Could not update favorites');
     }
-  }, [isFavoriteState, photo.image_no, photo.id, addFavorite, removeFavorite]);
+  }, [isFavoriteState, photo.image_no, photo.originalId, addFavorite, removeFavorite]);
 
   // Generate a placeholder blurhash-like color based on the photo id
   const placeholderColor = `#${(parseInt(photo.id.replace(/\D/g, ''), 10) % 0xffffff).toString(16).padStart(6, '0')}`;
