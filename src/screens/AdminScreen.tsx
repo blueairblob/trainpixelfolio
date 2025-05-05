@@ -16,6 +16,7 @@ import DateRangeFilter from '@/components/filters/DateRangeFilter';
 import { supabaseClient } from '@/api/supabase/client';
 import { useFocusEffect } from '@react-navigation/native';
 import PhotoManager from '@/components/admin/PhotoManager';
+import AdminFavoritesSettings from '@/components/admin/AdminFavoritesSettings';
 
 // Form types
 interface PhotoMetadata {
@@ -52,6 +53,7 @@ const AdminScreen = ({ navigation, route }) => {
   const tabs = [
     { id: 'dashboard', title: 'Dashboard', icon: 'grid-outline' },
     { id: 'upload', title: 'Upload', icon: 'cloud-upload-outline' },
+    { id: 'favorites', title: 'Slideshow', icon: 'heart-outline' },
     { id: 'config', title: 'App Config', icon: 'settings-outline' },
     { id: 'users', title: 'Users', icon: 'people-outline' }
   ];
@@ -1062,6 +1064,13 @@ const AdminScreen = ({ navigation, route }) => {
               </View>
             </View>
           )}
+
+          {activeTab === 'favorites' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Slideshow Favorites</Text>
+              <AdminFavoritesSettings />
+            </View>
+          )}   
           
           {/* Users Tab Content */}
           {activeTab === 'users' && (

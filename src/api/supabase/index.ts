@@ -12,6 +12,7 @@ export { cartService } from './services/cartService';
 export { adminService } from './services/adminService';
 export { filterService } from './services/filterService';
 export { photoAdminService } from './services/photoAdminService';
+export { default as slideshowService } from './services/slideshowService';
 
 // Export types
 export * from './types';

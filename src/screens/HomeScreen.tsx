@@ -9,6 +9,7 @@ import HeaderSection from '../components/HeaderSection';
 import WelcomeSection from '../components/WelcomeSection';
 import CategoriesSection from '../components/CategoriesSection';
 import FeaturedPhotoSection from '../components/FeaturedPhotoSection';
+import FavoriteSlideshow from '../components/FavoritesSlideshow';
 import SearchBar from '../components/SearchBar';
 import { photoService } from '@/api/supabase';
 
@@ -86,6 +87,11 @@ const HomeScreen = ({ navigation }) => {
     });
   };
 
+  // Handle photo press in the slideshow
+  const handlePhotoPress = (photoId: string) => {
+    navigation.navigate('PhotoDetailScreen', { id: photoId });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -105,6 +111,9 @@ const HomeScreen = ({ navigation }) => {
         <WelcomeSection 
           onBrowsePress={() => navigation.navigate('Gallery')} 
         />
+        
+        {/* Add the new FavoriteSlideshow component here */}
+        <FavoriteSlideshow onPhotoPress={handlePhotoPress} />
         
         <CategoriesSection 
           categories={categories}
