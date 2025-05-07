@@ -350,7 +350,7 @@ const AdminFavoritesSettings: React.FC = () => {
                       onPress={() => moveDown(index)}
                       disabled={index === adminFavoritePhotos.length - 1}
                     >
-                                              <Ionicons 
+                      <Ionicons 
                         name="chevron-down" 
                         size={20} 
                         color={index === adminFavoritePhotos.length - 1 ? "#9ca3af" : "#4b5563"} 
@@ -372,20 +372,22 @@ const AdminFavoritesSettings: React.FC = () => {
         )}
       </View>
       
-      {/* Save button */}
-      {adminFavorites.length > 0 && (
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={saveAdminFavorites}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <Text style={styles.saveButtonText}>Save Default Favorites</Text>
-          )}
-        </TouchableOpacity>
-      )}
+      {/* Save button - Modified to always show, regardless of whether there are favorites */}
+      <TouchableOpacity
+        style={styles.saveButton}
+        onPress={saveAdminFavorites}
+        disabled={isSaving}
+      >
+        {isSaving ? (
+          <ActivityIndicator size="small" color="#ffffff" />
+        ) : (
+          <Text style={styles.saveButtonText}>
+            {adminFavorites.length > 0 
+              ? "Save Default Favorites" 
+              : "Save Empty Favorites List"}
+          </Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 };

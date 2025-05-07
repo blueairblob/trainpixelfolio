@@ -88,6 +88,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
           ref={inputRef}
           style={styles.input}
           placeholder={placeholder}
+          placeholderTextColor="#9ca3af"  // Added explicit placeholder text color
           value={searchText}
           onChangeText={handleTextChange}
           onSubmitEditing={handleSubmit}
@@ -129,10 +130,9 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    // height: 40,
     fontSize: 16,
     color: '#1f2937',
-    //paddingVertical: 10, // Adjust this to move text down slightly
+    // Removed paddingVertical comment since it was unnecessary
   },
   clearButton: {
     padding: 8,

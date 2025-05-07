@@ -147,7 +147,8 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
           slideshowRef.current?.scrollTo({ x: 0, animated: false });
         }, 100);
       } else {
-        setError('No favorite photos available');
+        // Modified this part to use the same error message as in AdminFavoritesSettings.tsx
+        setError('No default favorites set');
       }
     } catch (err) {
       console.error('Error loading favorites:', err);
@@ -423,8 +424,13 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
           <ActivityIndicator size="large" color="#4f46e5" />
         </View>
       ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+        // Modified this part to match the style from AdminFavoritesSettings.tsx
+        <View style={styles.emptyContainer}>
+          <Ionicons name="heart-outline" size={48} color="#d1d5db" />
+          <Text style={styles.emptyText}>No default favorites set</Text>
+          <Text style={styles.emptySubtext}>
+            Search for photos above to add them as defaults
+          </Text>
         </View>
       ) : activeCategory === 'favorites' && favoritePhotos.length > 0 ? (
         // Favorites Slideshow
@@ -538,6 +544,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderRadius: 12,
   },
+  // Added these styles from AdminFavoritesSettings.tsx
+  emptyContainer: {
+    height: 200,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#4b5563',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  // Original error styles (keeping for compatibility)
   errorContainer: {
     height: 200,
     justifyContent: 'center',
@@ -550,17 +581,6 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 14,
     textAlign: 'center',
-  },
-  emptyContainer: {
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-  },
-  emptyText: {
-    color: '#6b7280',
-    fontSize: 14,
   },
   // Minimal view styles
   minimalCard: {
