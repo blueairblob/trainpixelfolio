@@ -17,6 +17,7 @@ import { supabaseClient } from '@/api/supabase/client';
 import { useFocusEffect } from '@react-navigation/native';
 import PhotoManager from '@/components/admin/PhotoManager';
 import AdminFavoritesSettings from '@/components/admin/AdminFavoritesSettings';
+import AppConfigTabs from '@/components/admin/AppConfigTabs';
 
 // Form types
 interface PhotoMetadata {
@@ -53,7 +54,6 @@ const AdminScreen = ({ navigation, route }) => {
   const tabs = [
     { id: 'dashboard', title: 'Dashboard', icon: 'grid-outline' },
     { id: 'upload', title: 'Upload', icon: 'cloud-upload-outline' },
-    { id: 'favorites', title: 'Slideshow', icon: 'heart-outline' },
     { id: 'config', title: 'App Config', icon: 'settings-outline' },
     { id: 'users', title: 'Users', icon: 'people-outline' }
   ];
@@ -946,131 +946,16 @@ const AdminScreen = ({ navigation, route }) => {
           
           {/* Config Tab Content */}
           {activeTab === 'config' && (
-            <View>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>App Configuration</Text>
-                
-                {/* General Settings */}
-                <Text style={styles.formSectionTitle}>General Settings</Text>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>App Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={appConfig.appName}
-                    onChangeText={value => setAppConfig(prev => ({ ...prev, appName: value }))}
-                    placeholder="Enter app name"
-                  />
-                </View>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Primary Color</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={appConfig.primaryColor}
-                    onChangeText={value => setAppConfig(prev => ({ ...prev, primaryColor: value }))}
-                    placeholder="Enter hex color code (e.g., #4f46e5)"
-                  />
-                  <View style={[styles.colorPreview, { backgroundColor: appConfig.primaryColor }]} />
-                </View>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Secondary Color</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={appConfig.secondaryColor}
-                    onChangeText={value => setAppConfig(prev => ({ ...prev, secondaryColor: value }))}
-                    placeholder="Enter hex color code (e.g., #ef4444)"
-                  />
-                  <View style={[styles.colorPreview, { backgroundColor: appConfig.secondaryColor }]} />
-                </View>
-                
-                {/* Content Settings */}
-                <Text style={styles.formSectionTitle}>Content Settings</Text>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Splash Screen Image URL</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={appConfig.splashImageUrl}
-                    onChangeText={value => setAppConfig(prev => ({ ...prev, splashImageUrl: value }))}
-                    placeholder="Enter image URL"
-                  />
-                </View>
-                
-                <View style={styles.imagePreviewContainer}>
-                  <Image 
-                    source={{ uri: appConfig.splashImageUrl }}
-                    style={styles.splashImagePreview}
-                    resizeMode="cover"
-                  />
-                </View>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Featured Photo ID</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={appConfig.featuredPhotoId}
-                    onChangeText={value => setAppConfig(prev => ({ ...prev, featuredPhotoId: value }))}
-                    placeholder="Enter photo ID for featured photo"
-                  />
-                </View>
-                
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Max Cache Size (MB)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={appConfig.maxCacheSize.toString()}
-                    onChangeText={value => {
-                      const numValue = parseInt(value);
-                      if (!isNaN(numValue)) {
-                        setAppConfig(prev => ({ ...prev, maxCacheSize: numValue }));
-                      } else if (value === '') {
-                        setAppConfig(prev => ({ ...prev, maxCacheSize: 0 }));
-                      }
-                    }}
-                    keyboardType="numeric"
-                    placeholder="Enter max cache size in MB"
-                  />
-                </View>
-                
-                <View style={styles.switchContainer}>
-                  <Text style={styles.switchLabel}>Enable Offline Support</Text>
-                  <Switch
-                    value={appConfig.offlineSupport}
-                    onValueChange={value => setAppConfig(prev => ({ ...prev, offlineSupport: value }))}
-                    trackColor={{ false: '#d1d5db', true: '#c7d2fe' }}
-                    thumbColor={appConfig.offlineSupport ? '#4f46e5' : '#9ca3af'}
-                  />
-                </View>
-                
-                <View style={styles.switchContainer}>
-                  <Text style={styles.switchLabel}>Show Prices</Text>
-                  <Switch
-                    value={appConfig.showPrices}
-                    onValueChange={value => setAppConfig(prev => ({ ...prev, showPrices: value }))}
-                    trackColor={{ false: '#d1d5db', true: '#c7d2fe' }}
-                    thumbColor={appConfig.showPrices ? '#4f46e5' : '#9ca3af'}
-                  />
-                </View>
-                
-                {/* Save Button */}
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={saveAppConfig}
-                >
-                  <Text style={styles.saveButtonText}>Save Configuration</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {activeTab === 'favorites' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Slideshow Favorites</Text>
-              <AdminFavoritesSettings />
+              <Text style={styles.sectionTitle}>App Configuration</Text>
+              <AppConfigTabs 
+                appConfig={appConfig}
+                setAppConfig={setAppConfig}
+                saveAppConfig={saveAppConfig}
+                isLoading={isLoading}
+              />
             </View>
-          )}   
+          )}  
           
           {/* Users Tab Content */}
           {activeTab === 'users' && (
