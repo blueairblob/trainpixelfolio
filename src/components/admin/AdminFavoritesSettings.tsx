@@ -9,12 +9,15 @@ import {
   TouchableOpacity, 
   TextInput,
   Alert,
-  ActivityIndicator 
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { photoService } from '@/api/supabase';
 import { slideshowService } from '@/api/supabase';
+import SelectInput from '@/components/filters/SelectInput';
+
 
 const AdminFavoritesSettings: React.FC = () => {
   const { isAdmin, userProfile } = useAuth();
