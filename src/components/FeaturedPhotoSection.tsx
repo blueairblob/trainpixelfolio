@@ -116,10 +116,47 @@ const FeaturedPhotoSection = ({ featuredPhoto, onViewDetailsPress }: FeaturedPho
     if (activeCategory === 'favorites') {
       await loadFavorites();
     } else {
-      await loadSinglePhoto();
+      await loadCategoryPhotos(activeCategory);
     }
     
     setIsLoading(false);
+  };
+
+  const loadCategoryPhotos = async (category) => {
+    try {
+      // Reset the active photo
+      setPhoto(null);
+      
+      // Get photos for this category from slideshowService
+      const { data: categoryPhotos, error: categoryError } = await slideshowService.getSlideshowPhotos(
+        userProfile?.favorites,
+        1, // We only need 1 photo for non-favorites categories
+        category // The specified category
+      );
+      
+      if (categoryError) throw categoryError;
+      
+      if (categoryPhotos && categoryPhotos.length > 0) {
+        // Format the photo data for display - we only use the first one
+        const formattedPhoto = formatPhotoData(categoryPhotos[0]);
+        setPhoto(formattedPhoto);
+      } else {
+        setError(`No photos set for ${category}`);
+        
+        // Fall back to featured photo if we have one
+        if (featuredPhoto && category !== 'featured') {
+          setPhoto(featuredPhoto);
+        }
+      }
+    } catch (err) {
+      console.error(`Error loading ${category} photo:`, err);
+      setError(`Failed to load ${category} photo`);
+      
+      // Fall back to featured photo if we have one
+      if (featuredPhoto && category !== 'featured') {
+        setPhoto(featuredPhoto);
+      }
+    }
   };
 
   const loadFavorites = async () => {

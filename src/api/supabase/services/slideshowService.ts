@@ -1,10 +1,10 @@
-// src/services/slideshowService.ts
+// src/api/supabase/services/slideshowService.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { photoService } from '@/api/supabase';
 import { Photo } from '@/api/supabase/types';
 
 // Constants
-const ADMIN_FAVORITES_KEY = 'admin_default_favorites';
+const CACHE_KEY_PREFIX = 'slideshow_category_';
 const DEFAULT_MAX_SLIDES = 5;
 
 // Types
@@ -14,19 +14,20 @@ interface SlideshowServiceResponse<T> {
 }
 
 /**
- * Service for handling slideshow favorites
+ * Service for handling slideshow categories
  */
 export const slideshowService = {
   /**
-   * Get admin default favorites
+   * Get photos for a specific category
    */
-  getAdminFavorites: async (): Promise<SlideshowServiceResponse<string[]>> => {
+  getCategoryPhotos: async (category: string): Promise<SlideshowServiceResponse<string[]>> => {
     try {
-      const storedFavorites = await AsyncStorage.getItem(ADMIN_FAVORITES_KEY);
+      const cacheKey = `${CACHE_KEY_PREFIX}${category}`;
+      const storedPhotos = await AsyncStorage.getItem(cacheKey);
       
-      if (storedFavorites) {
+      if (storedPhotos) {
         return {
-          data: JSON.parse(storedFavorites),
+          data: JSON.parse(storedPhotos),
           error: null
         };
       }
@@ -36,7 +37,7 @@ export const slideshowService = {
         error: null
       };
     } catch (error) {
-      console.error('Error getting admin favorites:', error);
+      console.error(`Error getting photos for ${category}:`, error);
       return {
         data: null,
         error: error as Error
@@ -45,18 +46,19 @@ export const slideshowService = {
   },
   
   /**
-   * Save admin default favorites
+   * Save photos for a specific category
    */
-  saveAdminFavorites: async (favorites: string[]): Promise<SlideshowServiceResponse<null>> => {
+  saveCategoryPhotos: async (category: string, photos: string[]): Promise<SlideshowServiceResponse<null>> => {
     try {
-      await AsyncStorage.setItem(ADMIN_FAVORITES_KEY, JSON.stringify(favorites));
+      const cacheKey = `${CACHE_KEY_PREFIX}${category}`;
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(photos));
       
       return {
         data: null,
         error: null
       };
     } catch (error) {
-      console.error('Error saving admin favorites:', error);
+      console.error(`Error saving photos for ${category}:`, error);
       return {
         data: null,
         error: error as Error
@@ -65,33 +67,51 @@ export const slideshowService = {
   },
   
   /**
-   * Get slideshow photos - uses user favorites if available, otherwise admin defaults
+   * Get slideshow photos - uses photos from the specified category
+   * For backward compatibility, we still support the original functions
+   */
+  getAdminFavorites: async (): Promise<SlideshowServiceResponse<string[]>> => {
+    return slideshowService.getCategoryPhotos('favorites');
+  },
+  
+  saveAdminFavorites: async (favorites: string[]): Promise<SlideshowServiceResponse<null>> => {
+    return slideshowService.saveCategoryPhotos('favorites', favorites);
+  },
+  
+  /**
+   * Get slideshow photos for a specific category
    */
   getSlideshowPhotos: async (
     userFavorites: string[] | null | undefined,
-    maxSlides: number = DEFAULT_MAX_SLIDES
+    maxSlides: number = DEFAULT_MAX_SLIDES,
+    category: string = 'favorites'
   ): Promise<SlideshowServiceResponse<Photo[]>> => {
     try {
       // Determine which favorites to use
       let favoriteIds: string[] = [];
       
-      if (userFavorites && userFavorites.length > 0) {
-        // Use user favorites if available
-        favoriteIds = userFavorites.slice(0, maxSlides);
-        console.log(`Using ${favoriteIds.length} user favorites for slideshow`);
-      } else {
-        // Fall back to admin favorites
-        const { data: adminFavorites } = await slideshowService.getAdminFavorites();
-        
-        if (adminFavorites && adminFavorites.length > 0) {
-          favoriteIds = adminFavorites.slice(0, maxSlides);
-          console.log(`Using ${favoriteIds.length} admin favorites for slideshow`);
+      // For the favorites category, use user favorites if available
+      if (category === 'favorites') {
+        if (userFavorites && userFavorites.length > 0) {
+          // Use user favorites if available
+          favoriteIds = userFavorites.slice(0, maxSlides);
         } else {
-          // No favorites defined at all
-          return {
-            data: [],
-            error: null
-          };
+          // Fall back to admin favorites
+          const { data: adminFavorites } = await slideshowService.getCategoryPhotos('favorites');
+          
+          if (adminFavorites && adminFavorites.length > 0) {
+            favoriteIds = adminFavorites.slice(0, maxSlides);
+          }
+        }
+      } else {
+        // For other categories, just use the admin-defined photos
+        const { data: categoryPhotos } = await slideshowService.getCategoryPhotos(category);
+        
+        if (categoryPhotos && categoryPhotos.length > 0) {
+          // For non-favorites categories, we may only want one photo
+          favoriteIds = category === 'favorites' 
+            ? categoryPhotos.slice(0, maxSlides)
+            : categoryPhotos.slice(0, 1); // Only take the first photo for other categories
         }
       }
       
@@ -102,7 +122,7 @@ export const slideshowService = {
         };
       }
       
-      // Load each favorite photo
+      // Load each photo
       const photos: Photo[] = [];
       for (const id of favoriteIds) {
         try {

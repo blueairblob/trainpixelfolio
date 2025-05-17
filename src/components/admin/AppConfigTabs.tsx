@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppConfigForm from './AppConfigForm';
-import AdminFavoritesSettings from './AdminFavoritesSettings';
+import AdminSlideshowSettings from './AdminSlideshowSettings';
 
 interface AppConfigTabsProps {
   appConfig: any;
@@ -65,7 +65,7 @@ const AppConfigTabs: React.FC<AppConfigTabsProps> = ({
             isLoading={isLoading}
           />
         ) : (
-          <AdminFavoritesSettings />
+          <AdminSlideshowSettings />
         )}
       </View>
     </View>

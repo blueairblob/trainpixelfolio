@@ -112,7 +112,6 @@ const HomeScreen = ({ navigation }) => {
           onBrowsePress={() => navigation.navigate('Gallery')} 
         />
         
-        {/* Add the new FavoriteSlideshow component here */}
         <FavoriteSlideshow onPhotoPress={handlePhotoPress} />
         
         <CategoriesSection 
