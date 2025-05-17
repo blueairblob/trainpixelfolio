@@ -44,10 +44,11 @@ const AdminSlideshowSettings: React.FC = () => {
   const [displayedPhotos, setDisplayedPhotos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // New state to hold the master favorites list
+  const [masterFavoritesList, setMasterFavoritesList] = useState<any[]>([]);
+  const [isMasterListLoading, setIsMasterListLoading] = useState(true);
   
   // Auto mode states - track which categories have auto mode enabled
   const [autoModeSettings, setAutoModeSettings] = useState<Record<string, boolean>>({
@@ -62,9 +63,10 @@ const AdminSlideshowSettings: React.FC = () => {
   const isAutoModeAllowed = currentCategory.autoModeAllowed;
   const isAutoModeEnabled = autoModeSettings[selectedCategory] || false;
   
-  // Load slideshow settings
+  // Load slideshow settings and master favorites list
   useEffect(() => {
     loadAutoModeSettings();
+    loadMasterFavoritesList();
     loadCategoryPhotos();
   }, [selectedCategory]);
   
@@ -92,6 +94,55 @@ const AdminSlideshowSettings: React.FC = () => {
         }
       });
       setAutoModeSettings(defaultSettings);
+    }
+  };
+  
+  // Load the master favorites list
+  const loadMasterFavoritesList = async () => {
+    try {
+      setIsMasterListLoading(true);
+      
+      // Get admin favorites from slideshowService
+      const { data: adminFavorites, error: favoritesError } = await slideshowService.getAdminFavorites();
+      
+      if (favoritesError) {
+        throw favoritesError;
+      }
+      
+      let favoriteIds: string[] = [];
+      
+      if (adminFavorites && adminFavorites.length > 0) {
+        // Use admin favorites
+        favoriteIds = adminFavorites;
+      } else if (userProfile?.favorites && userProfile.favorites.length > 0) {
+        // If no admin favorites but the admin has personal favorites, use those
+        favoriteIds = userProfile.favorites;
+        
+        // Save these as the initial admin favorites
+        await slideshowService.saveAdminFavorites(favoriteIds);
+      }
+      
+      // Now load the actual photos for these favorites
+      const photos = [];
+      
+      for (const id of favoriteIds) {
+        try {
+          const { data: photo } = await photoService.getPhotoById(id);
+          if (photo) {
+            photos.push(photo);
+          }
+        } catch (err) {
+          console.error(`Error loading master favorite photo ${id}:`, err);
+          // Continue with other photos even if one fails
+        }
+      }
+      
+      setMasterFavoritesList(photos);
+    } catch (err) {
+      console.error('Error loading master favorites list:', err);
+      setError('Failed to load favorites list');
+    } finally {
+      setIsMasterListLoading(false);
     }
   };
   
@@ -233,33 +284,7 @@ const AdminSlideshowSettings: React.FC = () => {
     }));
   };
   
-  // Handle photo search
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    
-    try {
-      setIsSearching(true);
-      
-      const { data: results, error } = await photoService.searchPhotos(
-        searchQuery,
-        { page: 1, limit: 20 }
-      );
-      
-      if (error) throw error;
-      
-      setSearchResults(results || []);
-    } catch (err) {
-      console.error('Error searching photos:', err);
-      Alert.alert('Error', 'Failed to search photos');
-    } finally {
-      setIsSearching(false);
-    }
-  };
-  
-  // Add a photo to the current category
+  // Add a photo from the master favorites list to the current category
   const addToCategory = async (photo: any) => {
     // If auto mode is enabled, warn the user
     if (isAutoModeAllowed && isAutoModeEnabled) {
@@ -313,10 +338,6 @@ const AdminSlideshowSettings: React.FC = () => {
     } else {
       setDisplayedPhotos(prev => [...prev, photo]);
     }
-    
-    // Clear search
-    setSearchQuery('');
-    setSearchResults([]);
   };
   
   // Remove a photo from the current category
@@ -478,7 +499,7 @@ const AdminSlideshowSettings: React.FC = () => {
           <Text style={styles.autoModeDescription}>
             {isAutoModeEnabled 
               ? `${currentCategory.name} will be automatically selected from the database.`
-              : `Manually select photos to use for ${currentCategory.name}.`}
+              : `Manually select photos from the favorites list to use for ${currentCategory.name}.`}
           </Text>
         </View>
       )}
@@ -499,61 +520,56 @@ const AdminSlideshowSettings: React.FC = () => {
         </View>
       ) : (
         <>
-          {/* Search section - only show when auto mode is disabled */}
-          <View style={styles.searchSection}>
-            <Text style={styles.sectionTitle}>Add Photos to {currentCategory.name}</Text>
-            <View style={styles.searchInputContainer}>
-              <TextInput
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search for photos to add..."
-                onSubmitEditing={handleSearch}
-              />
-              <TouchableOpacity 
-                style={styles.searchButton}
-                onPress={handleSearch}
-                disabled={isSearching}
-              >
-                {isSearching ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Ionicons name="search" size={18} color="#ffffff" />
-                )}
-              </TouchableOpacity>
-            </View>
+          {/* Master Favorites List - only show when auto mode is disabled */}
+          <View style={styles.favoritesListSection}>
+            <Text style={styles.sectionTitle}>
+              Add Photos from Favorites List to {currentCategory.name}
+            </Text>
             
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <View style={styles.searchResultsContainer}>
-                <Text style={styles.searchResultsTitle}>
-                  Search Results ({searchResults.length} photos)
-                </Text>
-                <FlatList
-                  data={searchResults}
-                  keyExtractor={(item) => item.image_no}
-                  horizontal
-                  showsHorizontalScrollIndicator={true}
-                  renderItem={({ item }) => (
-                    <View style={styles.searchResultItem}>
-                      <Image
-                        source={{ uri: item.image_url }}
-                        style={styles.searchResultImage}
-                        resizeMode="cover"
-                      />
-                      <TouchableOpacity
-                        style={styles.addButton}
-                        onPress={() => addToCategory(item)}
-                      >
-                        <Ionicons name="add-circle" size={24} color="#4f46e5" />
-                      </TouchableOpacity>
-                      <Text style={styles.searchResultText} numberOfLines={2}>
-                        {item.description || 'Untitled Photo'}
-                      </Text>
-                    </View>
-                  )}
-                />
+            {isMasterListLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#4f46e5" />
+                <Text style={styles.loadingText}>Loading favorites list...</Text>
               </View>
+            ) : masterFavoritesList.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="heart-outline" size={48} color="#d1d5db" />
+                <Text style={styles.emptyText}>No favorites available</Text>
+                <Text style={styles.emptySubtext}>
+                  You need to create a favorites list first
+                </Text>
+                <TouchableOpacity
+                  style={styles.manageFavoritesButton}
+                  onPress={() => Alert.alert('Navigation', 'This would navigate to the favorites management tab')}
+                >
+                  <Text style={styles.manageFavoritesText}>Manage Favorites</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <FlatList
+                data={masterFavoritesList}
+                keyExtractor={(item) => item.image_no}
+                horizontal
+                showsHorizontalScrollIndicator={true}
+                renderItem={({ item }) => (
+                  <View style={styles.searchResultItem}>
+                    <Image
+                      source={{ uri: item.image_url }}
+                      style={styles.searchResultImage}
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity
+                      style={styles.addButton}
+                      onPress={() => addToCategory(item)}
+                    >
+                      <Ionicons name="add-circle" size={24} color="#4f46e5" />
+                    </TouchableOpacity>
+                    <Text style={styles.searchResultText} numberOfLines={2}>
+                      {item.description || 'Untitled Photo'}
+                    </Text>
+                  </View>
+                )}
+              />
             )}
           </View>
           
@@ -571,7 +587,7 @@ const AdminSlideshowSettings: React.FC = () => {
                 <Ionicons name="images-outline" size={48} color="#d1d5db" />
                 <Text style={styles.emptyText}>No photos set for {currentCategory.name}</Text>
                 <Text style={styles.emptySubtext}>
-                  Search for photos above to add them
+                  Add photos from the favorites list above
                 </Text>
               </View>
             ) : (
@@ -743,7 +759,8 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontStyle: 'italic',
   },
-  searchSection: {
+  // Master favorites list section
+  favoritesListSection: {
     marginBottom: 24,
   },
   sectionTitle: {
@@ -751,36 +768,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#4b5563',
     marginBottom: 12,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    marginRight: 8,
-  },
-  searchButton: {
-    backgroundColor: '#4f46e5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchResultsContainer: {
-    marginTop: 12,
-  },
-  searchResultsTitle: {
-    fontSize: 14,
-    color: '#4b5563',
-    marginBottom: 8,
   },
   searchResultItem: {
     width: 140,
@@ -808,6 +795,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Current photos section
   currentPhotosSection: {
     marginBottom: 24,
   },
@@ -840,6 +828,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
+    marginBottom: 12,
+  },
+  manageFavoritesButton: {
+    backgroundColor: '#4f46e5',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  manageFavoritesText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   photoItem: {
     flexDirection: 'row',
