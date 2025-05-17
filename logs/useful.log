@@ -147,3 +147,8 @@ It's important to regenerate the types whenever:
 3. You add new views or functions
 
 This ensures your TypeScript code remains type-safe as your database schema evolves.
+
+
+
+
+A change to AdminSlideshowSettings.tsx the only method of choosing a Featured, Favarourite, new  or popular is from the list of favourites. With Featured, Popular or New categories there will be a switch to apply an "auto" setting which will mean that the images are defined by backend lookup.
