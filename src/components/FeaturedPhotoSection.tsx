@@ -572,6 +572,9 @@ const styles = StyleSheet.create({
   },
   paginationDotActive: {
     backgroundColor: '#4f46e5',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   // Loading and error states
   loadingContainer: {
@@ -679,7 +682,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 10,
   },
-  
+    // Auto mode badge
+    autoModeBadge: {
+      position: 'absolute',
+      top: 10,
+      left: 10,
+      backgroundColor: '#4f46e5',
+      borderRadius: 12,
+      width: 24,
+      height: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10,
+    },
   // Original detailed view styles
   headerRow: {
     flexDirection: 'row',

@@ -10,7 +10,8 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
@@ -18,12 +19,16 @@ import { photoService } from '@/api/supabase';
 import { slideshowService } from '@/api/supabase';
 import SelectInput from '@/components/filters/SelectInput';
 
+// Define category settings including which ones can use auto mode
 const SLIDESHOW_CATEGORIES = [
-  { id: 'favorites', name: 'Default Favourites', multipleAllowed: true },
-  { id: 'featured', name: 'Featured', multipleAllowed: false },
-  { id: 'new', name: 'New', multipleAllowed: false },
-  { id: 'popular', name: 'Popular', multipleAllowed: false },
+  { id: 'favorites', name: 'Default Favourites', multipleAllowed: true, autoModeAllowed: false },
+  { id: 'featured', name: 'Featured', multipleAllowed: false, autoModeAllowed: true },
+  { id: 'new', name: 'New', multipleAllowed: false, autoModeAllowed: true },
+  { id: 'popular', name: 'Popular', multipleAllowed: false, autoModeAllowed: true },
 ];
+
+// Settings storage key for auto mode preferences
+const AUTO_MODE_STORAGE_KEY = 'slideshow_auto_mode_';
 
 const AdminSlideshowSettings: React.FC = () => {
   const { isAdmin, userProfile } = useAuth();
@@ -44,14 +49,69 @@ const AdminSlideshowSettings: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Auto mode states - track which categories have auto mode enabled
+  const [autoModeSettings, setAutoModeSettings] = useState<Record<string, boolean>>({
+    featured: true,
+    new: true,
+    popular: true
+  });
+  
   // Get the current category config
   const currentCategory = SLIDESHOW_CATEGORIES.find(c => c.id === selectedCategory) || SLIDESHOW_CATEGORIES[0];
   const isMultipleAllowed = currentCategory.multipleAllowed;
+  const isAutoModeAllowed = currentCategory.autoModeAllowed;
+  const isAutoModeEnabled = autoModeSettings[selectedCategory] || false;
   
   // Load slideshow settings
   useEffect(() => {
+    loadAutoModeSettings();
     loadCategoryPhotos();
   }, [selectedCategory]);
+  
+  // Load auto mode settings from AsyncStorage
+  const loadAutoModeSettings = async () => {
+    try {
+      const settings: Record<string, boolean> = {};
+      
+      // Load auto mode settings for each category that supports it
+      for (const category of SLIDESHOW_CATEGORIES) {
+        if (category.autoModeAllowed) {
+          const { data } = await slideshowService.getAutoModeSetting(category.id);
+          settings[category.id] = data !== null ? data : true; // Default to true if not set
+        }
+      }
+      
+      setAutoModeSettings(settings);
+    } catch (err) {
+      console.error('Error loading auto mode settings:', err);
+      // Default to true for all categories that support auto mode
+      const defaultSettings: Record<string, boolean> = {};
+      SLIDESHOW_CATEGORIES.forEach(category => {
+        if (category.autoModeAllowed) {
+          defaultSettings[category.id] = true;
+        }
+      });
+      setAutoModeSettings(defaultSettings);
+    }
+  };
+  
+  // Save auto mode setting for the current category
+  const saveAutoModeSetting = async (category: string, enabled: boolean) => {
+    try {
+      await slideshowService.saveAutoModeSetting(category, enabled);
+      
+      // Update local state
+      setAutoModeSettings(prev => ({
+        ...prev,
+        [category]: enabled
+      }));
+      
+      return true;
+    } catch (err) {
+      console.error(`Error saving auto mode setting for ${category}:`, err);
+      return false;
+    }
+  };
   
   // Load slideshow settings for the selected category
   const loadCategoryPhotos = async () => {
@@ -129,6 +189,25 @@ const AdminSlideshowSettings: React.FC = () => {
     try {
       setIsSaving(true);
       
+      // If auto mode is allowed for this category, save the auto mode setting first
+      if (isAutoModeAllowed) {
+        const success = await saveAutoModeSetting(selectedCategory, isAutoModeEnabled);
+        if (!success) {
+          throw new Error(`Failed to save auto mode setting for ${currentCategory.name}`);
+        }
+      }
+      
+      // If auto mode is enabled, we don't need to save manual selections
+      // But we'll clear any existing selections to avoid confusion
+      if (isAutoModeAllowed && isAutoModeEnabled) {
+        // Clear any existing selections for this category
+        await slideshowService.saveCategoryPhotos(selectedCategory, []);
+        Alert.alert('Success', `${currentCategory.name} set to automatic mode`);
+        setIsSaving(false);
+        return;
+      }
+      
+      // Otherwise, save the selected photos
       const photos = categoryPhotos[selectedCategory];
       const { error: saveError } = await slideshowService.saveCategoryPhotos(selectedCategory, photos);
       
@@ -143,6 +222,15 @@ const AdminSlideshowSettings: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+  
+  // Handle auto mode toggle
+  const handleAutoModeToggle = (enabled: boolean) => {
+    // Update local state immediately for responsive UI
+    setAutoModeSettings(prev => ({
+      ...prev,
+      [selectedCategory]: enabled
+    }));
   };
   
   // Handle photo search
@@ -173,6 +261,31 @@ const AdminSlideshowSettings: React.FC = () => {
   
   // Add a photo to the current category
   const addToCategory = async (photo: any) => {
+    // If auto mode is enabled, warn the user
+    if (isAutoModeAllowed && isAutoModeEnabled) {
+      Alert.alert(
+        'Auto Mode Enabled',
+        `Auto mode is currently enabled for ${currentCategory.name}. Disable auto mode to manually select photos.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Disable Auto Mode', 
+            onPress: () => {
+              // Disable auto mode and add the photo
+              handleAutoModeToggle(false);
+              addToCategoryInternal(photo);
+            } 
+          }
+        ]
+      );
+      return;
+    }
+    
+    addToCategoryInternal(photo);
+  };
+  
+  // Internal function to add a photo to the category
+  const addToCategoryInternal = (photo: any) => {
     // Check if already in the category
     if (categoryPhotos[selectedCategory].includes(photo.image_no)) {
       Alert.alert('Info', `This photo is already in ${currentCategory.name}`);
@@ -208,6 +321,31 @@ const AdminSlideshowSettings: React.FC = () => {
   
   // Remove a photo from the current category
   const removeFromCategory = (photoId: string) => {
+    // If auto mode is enabled, warn the user
+    if (isAutoModeAllowed && isAutoModeEnabled) {
+      Alert.alert(
+        'Auto Mode Enabled',
+        `Auto mode is currently enabled for ${currentCategory.name}. Disable auto mode to manually remove photos.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Disable Auto Mode', 
+            onPress: () => {
+              // Disable auto mode and remove the photo
+              handleAutoModeToggle(false);
+              removeFromCategoryInternal(photoId);
+            } 
+          }
+        ]
+      );
+      return;
+    }
+    
+    removeFromCategoryInternal(photoId);
+  };
+  
+  // Internal function to remove a photo from the category
+  const removeFromCategoryInternal = (photoId: string) => {
     // Filter out the photo ID from current category
     const updatedPhotos = categoryPhotos[selectedCategory].filter(id => id !== photoId);
     
@@ -223,6 +361,15 @@ const AdminSlideshowSettings: React.FC = () => {
   
   // Reorder photos (move up) - only applicable for favorites
   const moveUp = (index: number) => {
+    // Don't allow reordering when auto mode is enabled
+    if (isAutoModeAllowed && isAutoModeEnabled) {
+      Alert.alert(
+        'Auto Mode Enabled',
+        `Auto mode is currently enabled for ${currentCategory.name}. Disable auto mode to reorder photos.`
+      );
+      return;
+    }
+    
     if (!isMultipleAllowed || index <= 0) return; // Already at the top or not allowed
     
     // Reorder the IDs array
@@ -246,6 +393,15 @@ const AdminSlideshowSettings: React.FC = () => {
   
   // Reorder photos (move down) - only applicable for favorites
   const moveDown = (index: number) => {
+    // Don't allow reordering when auto mode is enabled
+    if (isAutoModeAllowed && isAutoModeEnabled) {
+      Alert.alert(
+        'Auto Mode Enabled',
+        `Auto mode is currently enabled for ${currentCategory.name}. Disable auto mode to reorder photos.`
+      );
+      return;
+    }
+    
     if (!isMultipleAllowed || index >= displayedPhotos.length - 1) return; // Already at the bottom or not allowed
     
     // Reorder the IDs array
@@ -307,148 +463,186 @@ const AdminSlideshowSettings: React.FC = () => {
         </Text>
       </View>
       
-      {/* Search section */}
-      <View style={styles.searchSection}>
-        <Text style={styles.sectionTitle}>Add Photos to {currentCategory.name}</Text>
-        <View style={styles.searchInputContainer}>
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search for photos to add..."
-            onSubmitEditing={handleSearch}
-          />
-          <TouchableOpacity 
-            style={styles.searchButton}
-            onPress={handleSearch}
-            disabled={isSearching}
-          >
-            {isSearching ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Ionicons name="search" size={18} color="#ffffff" />
-            )}
-          </TouchableOpacity>
-        </View>
-        
-        {/* Search Results */}
-        {searchResults.length > 0 && (
-          <View style={styles.searchResultsContainer}>
-            <Text style={styles.searchResultsTitle}>
-              Search Results ({searchResults.length} photos)
-            </Text>
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item) => item.image_no}
-              horizontal
-              showsHorizontalScrollIndicator={true}
-              renderItem={({ item }) => (
-                <View style={styles.searchResultItem}>
-                  <Image
-                    source={{ uri: item.image_url }}
-                    style={styles.searchResultImage}
-                    resizeMode="cover"
-                  />
-                  <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => addToCategory(item)}
-                  >
-                    <Ionicons name="add-circle" size={24} color="#4f46e5" />
-                  </TouchableOpacity>
-                  <Text style={styles.searchResultText} numberOfLines={2}>
-                    {item.description || 'Untitled Photo'}
-                  </Text>
-                </View>
-              )}
+      {/* Auto mode toggle - only show for categories that support it */}
+      {isAutoModeAllowed && (
+        <View style={styles.autoModeContainer}>
+          <View style={styles.autoModeToggleRow}>
+            <Text style={styles.autoModeLabel}>Auto Mode</Text>
+            <Switch
+              value={isAutoModeEnabled}
+              onValueChange={handleAutoModeToggle}
+              trackColor={{ false: '#d1d5db', true: '#c7d2fe' }}
+              thumbColor={isAutoModeEnabled ? '#4f46e5' : '#9ca3af'}
             />
           </View>
-        )}
-      </View>
+          <Text style={styles.autoModeDescription}>
+            {isAutoModeEnabled 
+              ? `${currentCategory.name} will be automatically selected from the database.`
+              : `Manually select photos to use for ${currentCategory.name}.`}
+          </Text>
+        </View>
+      )}
       
-      {/* Current photos section */}
-      <View style={styles.currentPhotosSection}>
-        <Text style={styles.sectionTitle}>Current {currentCategory.name}</Text>
-        
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4f46e5" />
-            <Text style={styles.loadingText}>Loading photos...</Text>
-          </View>
-        ) : displayedPhotos.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="images-outline" size={48} color="#d1d5db" />
-            <Text style={styles.emptyText}>No photos set for {currentCategory.name}</Text>
-            <Text style={styles.emptySubtext}>
-              Search for photos above to add them
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={displayedPhotos}
-            keyExtractor={(item) => item.image_no}
-            renderItem={({ item, index }) => (
-              <View style={styles.photoItem}>
-                <Image
-                  source={{ uri: item.image_url }}
-                  style={styles.photoImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.photoInfo}>
-                  <Text style={styles.photoTitle} numberOfLines={1}>
-                    {item.description || 'Untitled Photo'}
-                  </Text>
-                  <Text style={styles.photoPhotographer} numberOfLines={1}>
-                    {item.photographer || 'Unknown photographer'}
-                  </Text>
-                </View>
-                
-                <View style={styles.photoActions}>
-                  {/* Reorder buttons - only show for multiple allowed categories */}
-                  {isMultipleAllowed && (
-                    <View style={styles.reorderButtons}>
+      {/* If auto mode is enabled, show a message */}
+      {isAutoModeAllowed && isAutoModeEnabled ? (
+        <View style={styles.autoModeActiveContainer}>
+          <Ionicons name="flash" size={32} color="#4f46e5" />
+          <Text style={styles.autoModeActiveTitle}>Auto Mode Enabled</Text>
+          <Text style={styles.autoModeActiveText}>
+            {currentCategory.name} will be automatically selected based on the most{' '}
+            {selectedCategory === 'new' ? 'recent' : 
+             selectedCategory === 'popular' ? 'popular' : 'relevant'} photos.
+          </Text>
+          <Text style={styles.autoModeActiveHint}>
+            Disable auto mode to manually select photos.
+          </Text>
+        </View>
+      ) : (
+        <>
+          {/* Search section - only show when auto mode is disabled */}
+          <View style={styles.searchSection}>
+            <Text style={styles.sectionTitle}>Add Photos to {currentCategory.name}</Text>
+            <View style={styles.searchInputContainer}>
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search for photos to add..."
+                onSubmitEditing={handleSearch}
+              />
+              <TouchableOpacity 
+                style={styles.searchButton}
+                onPress={handleSearch}
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Ionicons name="search" size={18} color="#ffffff" />
+                )}
+              </TouchableOpacity>
+            </View>
+            
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <View style={styles.searchResultsContainer}>
+                <Text style={styles.searchResultsTitle}>
+                  Search Results ({searchResults.length} photos)
+                </Text>
+                <FlatList
+                  data={searchResults}
+                  keyExtractor={(item) => item.image_no}
+                  horizontal
+                  showsHorizontalScrollIndicator={true}
+                  renderItem={({ item }) => (
+                    <View style={styles.searchResultItem}>
+                      <Image
+                        source={{ uri: item.image_url }}
+                        style={styles.searchResultImage}
+                        resizeMode="cover"
+                      />
                       <TouchableOpacity
-                        style={[styles.reorderButton, index === 0 && styles.disabledButton]}
-                        onPress={() => moveUp(index)}
-                        disabled={index === 0}
+                        style={styles.addButton}
+                        onPress={() => addToCategory(item)}
                       >
-                        <Ionicons 
-                          name="chevron-up" 
-                          size={20} 
-                          color={index === 0 ? "#9ca3af" : "#4b5563"} 
-                        />
+                        <Ionicons name="add-circle" size={24} color="#4f46e5" />
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.reorderButton, 
-                          index === displayedPhotos.length - 1 && styles.disabledButton
-                        ]}
-                        onPress={() => moveDown(index)}
-                        disabled={index === displayedPhotos.length - 1}
-                      >
-                        <Ionicons 
-                          name="chevron-down" 
-                          size={20} 
-                          color={index === displayedPhotos.length - 1 ? "#9ca3af" : "#4b5563"} 
-                        />
-                      </TouchableOpacity>
+                      <Text style={styles.searchResultText} numberOfLines={2}>
+                        {item.description || 'Untitled Photo'}
+                      </Text>
                     </View>
                   )}
-                  
-                  {/* Remove button */}
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeFromCategory(item.image_no)}
-                  >
-                    <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                  </TouchableOpacity>
-                </View>
+                />
               </View>
             )}
-          />
-        )}
-      </View>
+          </View>
+          
+          {/* Current photos section - only show when auto mode is disabled */}
+          <View style={styles.currentPhotosSection}>
+            <Text style={styles.sectionTitle}>Current {currentCategory.name}</Text>
+            
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4f46e5" />
+                <Text style={styles.loadingText}>Loading photos...</Text>
+              </View>
+            ) : displayedPhotos.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="images-outline" size={48} color="#d1d5db" />
+                <Text style={styles.emptyText}>No photos set for {currentCategory.name}</Text>
+                <Text style={styles.emptySubtext}>
+                  Search for photos above to add them
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={displayedPhotos}
+                keyExtractor={(item) => item.image_no}
+                renderItem={({ item, index }) => (
+                  <View style={styles.photoItem}>
+                    <Image
+                      source={{ uri: item.image_url }}
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.photoInfo}>
+                      <Text style={styles.photoTitle} numberOfLines={1}>
+                        {item.description || 'Untitled Photo'}
+                      </Text>
+                      <Text style={styles.photoPhotographer} numberOfLines={1}>
+                        {item.photographer || 'Unknown photographer'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.photoActions}>
+                      {/* Reorder buttons - only show for multiple allowed categories */}
+                      {isMultipleAllowed && (
+                        <View style={styles.reorderButtons}>
+                          <TouchableOpacity
+                            style={[styles.reorderButton, index === 0 && styles.disabledButton]}
+                            onPress={() => moveUp(index)}
+                            disabled={index === 0}
+                          >
+                            <Ionicons 
+                              name="chevron-up" 
+                              size={20} 
+                              color={index === 0 ? "#9ca3af" : "#4b5563"} 
+                            />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.reorderButton, 
+                              index === displayedPhotos.length - 1 && styles.disabledButton
+                            ]}
+                            onPress={() => moveDown(index)}
+                            disabled={index === displayedPhotos.length - 1}
+                          >
+                            <Ionicons 
+                              name="chevron-down" 
+                              size={20} 
+                              color={index === displayedPhotos.length - 1 ? "#9ca3af" : "#4b5563"} 
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                      
+                      {/* Remove button */}
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => removeFromCategory(item.image_no)}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              />
+            )}
+          </View>
+        </>
+      )}
       
-      {/* Save button */}
+      {/* Save button - always show */}
       <TouchableOpacity
         style={styles.saveButton}
         onPress={saveCategoryPhotos}
@@ -458,7 +652,9 @@ const AdminSlideshowSettings: React.FC = () => {
           <ActivityIndicator size="small" color="#ffffff" />
         ) : (
           <Text style={styles.saveButtonText}>
-            Save {currentCategory.name}
+            {isAutoModeAllowed && isAutoModeEnabled
+              ? `Save ${currentCategory.name} Auto Mode`
+              : `Save ${currentCategory.name}`}
           </Text>
         )}
       </TouchableOpacity>
@@ -494,6 +690,57 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 8,
+    fontStyle: 'italic',
+  },
+  // Auto mode styles
+  autoModeContainer: {
+    marginBottom: 24,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  autoModeToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  autoModeLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4b5563',
+  },
+  autoModeDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  autoModeActiveContainer: {
+    padding: 24,
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0f2fe',
+    marginBottom: 24,
+  },
+  autoModeActiveTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#4f46e5',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  autoModeActiveText: {
+    fontSize: 14,
+    color: '#4b5563',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  autoModeActiveHint: {
+    fontSize: 12,
+    color: '#6b7280',
     fontStyle: 'italic',
   },
   searchSection: {
