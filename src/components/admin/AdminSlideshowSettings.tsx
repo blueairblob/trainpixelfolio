@@ -10,7 +10,6 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  ScrollView,
   Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

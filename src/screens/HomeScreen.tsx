@@ -112,17 +112,18 @@ const HomeScreen = ({ navigation }) => {
           onBrowsePress={() => navigation.navigate('Gallery')} 
         />
         
-        <FavoriteSlideshow onPhotoPress={handlePhotoPress} />
+        <FeaturedPhotoSection
+          // featuredPhoto={featuredPhoto}
+          onViewDetailsPress={(photoId) => navigation.navigate('PhotoDetail', { id: photoId })}
+        />
+
+        {/* <FavoriteSlideshow onPhotoPress={handlePhotoPress} /> */}
         
         <CategoriesSection 
           categories={categories}
           onCategoryPress={(categoryId) => navigation.navigate('Gallery', { category: categoryId })}
         />
         
-        <FeaturedPhotoSection
-          featuredPhoto={featuredPhoto}
-          onViewDetailsPress={(photoId) => navigation.navigate('PhotoDetail', { id: photoId })}
-        />
       </ScrollView>
     </SafeAreaView>
   );
