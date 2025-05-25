@@ -4,13 +4,13 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  FlatList, 
   Image, 
   TouchableOpacity, 
-  TextInput,
   Alert,
   ActivityIndicator,
-  Switch
+  Switch,
+  FlatList,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
@@ -25,9 +25,6 @@ const SLIDESHOW_CATEGORIES = [
   { id: 'new', name: 'New', multipleAllowed: false, autoModeAllowed: true },
   { id: 'popular', name: 'Popular', multipleAllowed: false, autoModeAllowed: true },
 ];
-
-// Settings storage key for auto mode preferences
-const AUTO_MODE_STORAGE_KEY = 'slideshow_auto_mode_';
 
 const AdminSlideshowSettings: React.FC = () => {
   const { isAdmin, userProfile } = useAuth();
@@ -459,6 +456,181 @@ const AdminSlideshowSettings: React.FC = () => {
     );
   }
   
+  // Render the master favorites list section
+  const renderMasterFavoritesList = () => {
+    useEffect(() => {
+      if (masterFavoritesList.length > 0) {
+        console.log(`Master favorites list has ${masterFavoritesList.length} items`);
+        masterFavoritesList.forEach((item, index) => {
+          console.log(`Favorite ${index}: ${item.image_no} - ${item.description}`);
+        });
+      }
+    }, [masterFavoritesList]);
+
+    if (isMasterListLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#4f46e5" />
+          <Text style={styles.loadingText}>Loading favorites list...</Text>
+        </View>
+      );
+    }
+    
+    if (masterFavoritesList.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="heart-outline" size={48} color="#d1d5db" />
+          <Text style={styles.emptyText}>No favorites available</Text>
+          <Text style={styles.emptySubtext}>
+            You need to create a favorites list first
+          </Text>
+          <TouchableOpacity
+            style={styles.manageFavoritesButton}
+            onPress={() => Alert.alert('Navigation', 'This would navigate to the favorites management tab')}
+          >
+            <Text style={styles.manageFavoritesText}>Manage Favorites</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    console.log(`Rendering ${masterFavoritesList.length} favorites`); // Add logging
+    
+    // Fix the horizontal ScrollView
+    return (
+      <View style={styles.favoritesScrollContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          contentContainerStyle={{flexDirection: 'row'}}
+        >
+          {masterFavoritesList.map(item => (
+            <View key={item.image_no} style={styles.searchResultItem}>
+              <Image
+                source={{ uri: item.image_url }}
+                style={styles.searchResultImage}
+                resizeMode="cover"
+              />
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => addToCategory(item)}
+              >
+                <Ionicons name="add-circle" size={24} color="#4f46e5" />
+              </TouchableOpacity>
+              <Text style={styles.searchResultText} numberOfLines={2}>
+                {item.description || 'Untitled Photo'}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Render the current photos section
+  const renderCurrentPhotos = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4f46e5" />
+          <Text style={styles.loadingText}>Loading photos...</Text>
+        </View>
+      );
+    }
+    
+    if (displayedPhotos.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="images-outline" size={48} color="#d1d5db" />
+          <Text style={styles.emptyText}>No photos set for {currentCategory.name}</Text>
+          <Text style={styles.emptySubtext}>
+            Add photos from the favorites list above
+          </Text>
+        </View>
+      );
+    }
+    
+    // If we have a small number of items, we don't need scrolling
+    if (displayedPhotos.length <= 4) {
+      return (
+        <View>
+          {displayedPhotos.map((item, index) => renderPhotoItem(item, index))}
+        </View>
+      );
+    }
+    
+    // For more items, use a ScrollView to enable vertical scrolling within this section
+    return (
+      <ScrollView 
+        style={styles.photoListScrollView}
+        contentContainerStyle={styles.photoListContent}
+        nestedScrollEnabled={true}
+      >
+        {displayedPhotos.map((item, index) => renderPhotoItem(item, index))}
+      </ScrollView>
+    );
+  };
+
+// Extract the photo item rendering to a separate function for reuse
+const renderPhotoItem = (item, index) => (
+  <View key={item.image_no} style={styles.photoItem}>
+    <Image
+      source={{ uri: item.image_url }}
+      style={styles.photoImage}
+      resizeMode="cover"
+    />
+    <View style={styles.photoInfo}>
+      <Text style={styles.photoTitle} numberOfLines={1}>
+        {item.description || 'Untitled Photo'}
+      </Text>
+      <Text style={styles.photoPhotographer} numberOfLines={1}>
+        {item.photographer || 'Unknown photographer'}
+      </Text>
+    </View>
+    
+    <View style={styles.photoActions}>
+      {/* Reorder buttons - only show for multiple allowed categories */}
+      {isMultipleAllowed && (
+        <View style={styles.reorderButtons}>
+          <TouchableOpacity
+            style={[styles.reorderButton, index === 0 && styles.disabledButton]}
+            onPress={() => moveUp(index)}
+            disabled={index === 0}
+          >
+            <Ionicons 
+              name="chevron-up" 
+              size={20} 
+              color={index === 0 ? "#9ca3af" : "#4b5563"} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.reorderButton, 
+              index === displayedPhotos.length - 1 && styles.disabledButton
+            ]}
+            onPress={() => moveDown(index)}
+            disabled={index === displayedPhotos.length - 1}
+          >
+            <Ionicons 
+              name="chevron-down" 
+              size={20} 
+              color={index === displayedPhotos.length - 1 ? "#9ca3af" : "#4b5563"} 
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      {/* Remove button */}
+      <TouchableOpacity
+        style={styles.removeButton}
+        onPress={() => removeFromCategory(item.image_no)}
+      >
+        <Ionicons name="trash-outline" size={20} color="#ef4444" />
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+  
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Manage Slideshow Categories</Text>
@@ -518,143 +690,21 @@ const AdminSlideshowSettings: React.FC = () => {
           </Text>
         </View>
       ) : (
-        <>
+        <View>
           {/* Master Favorites List - only show when auto mode is disabled */}
           <View style={styles.favoritesListSection}>
             <Text style={styles.sectionTitle}>
               Add Photos from Favorites List to {currentCategory.name}
             </Text>
-            
-            {isMasterListLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#4f46e5" />
-                <Text style={styles.loadingText}>Loading favorites list...</Text>
-              </View>
-            ) : masterFavoritesList.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="heart-outline" size={48} color="#d1d5db" />
-                <Text style={styles.emptyText}>No favorites available</Text>
-                <Text style={styles.emptySubtext}>
-                  You need to create a favorites list first
-                </Text>
-                <TouchableOpacity
-                  style={styles.manageFavoritesButton}
-                  onPress={() => Alert.alert('Navigation', 'This would navigate to the favorites management tab')}
-                >
-                  <Text style={styles.manageFavoritesText}>Manage Favorites</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <FlatList
-                data={masterFavoritesList}
-                keyExtractor={(item) => item.image_no}
-                horizontal
-                showsHorizontalScrollIndicator={true}
-                renderItem={({ item }) => (
-                  <View style={styles.searchResultItem}>
-                    <Image
-                      source={{ uri: item.image_url }}
-                      style={styles.searchResultImage}
-                      resizeMode="cover"
-                    />
-                    <TouchableOpacity
-                      style={styles.addButton}
-                      onPress={() => addToCategory(item)}
-                    >
-                      <Ionicons name="add-circle" size={24} color="#4f46e5" />
-                    </TouchableOpacity>
-                    <Text style={styles.searchResultText} numberOfLines={2}>
-                      {item.description || 'Untitled Photo'}
-                    </Text>
-                  </View>
-                )}
-              />
-            )}
+            {renderMasterFavoritesList()}
           </View>
           
           {/* Current photos section - only show when auto mode is disabled */}
           <View style={styles.currentPhotosSection}>
             <Text style={styles.sectionTitle}>Current {currentCategory.name}</Text>
-            
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#4f46e5" />
-                <Text style={styles.loadingText}>Loading photos...</Text>
-              </View>
-            ) : displayedPhotos.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="images-outline" size={48} color="#d1d5db" />
-                <Text style={styles.emptyText}>No photos set for {currentCategory.name}</Text>
-                <Text style={styles.emptySubtext}>
-                  Add photos from the favorites list above
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                data={displayedPhotos}
-                keyExtractor={(item) => item.image_no}
-                renderItem={({ item, index }) => (
-                  <View style={styles.photoItem}>
-                    <Image
-                      source={{ uri: item.image_url }}
-                      style={styles.photoImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.photoInfo}>
-                      <Text style={styles.photoTitle} numberOfLines={1}>
-                        {item.description || 'Untitled Photo'}
-                      </Text>
-                      <Text style={styles.photoPhotographer} numberOfLines={1}>
-                        {item.photographer || 'Unknown photographer'}
-                      </Text>
-                    </View>
-                    
-                    <View style={styles.photoActions}>
-                      {/* Reorder buttons - only show for multiple allowed categories */}
-                      {isMultipleAllowed && (
-                        <View style={styles.reorderButtons}>
-                          <TouchableOpacity
-                            style={[styles.reorderButton, index === 0 && styles.disabledButton]}
-                            onPress={() => moveUp(index)}
-                            disabled={index === 0}
-                          >
-                            <Ionicons 
-                              name="chevron-up" 
-                              size={20} 
-                              color={index === 0 ? "#9ca3af" : "#4b5563"} 
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[
-                              styles.reorderButton, 
-                              index === displayedPhotos.length - 1 && styles.disabledButton
-                            ]}
-                            onPress={() => moveDown(index)}
-                            disabled={index === displayedPhotos.length - 1}
-                          >
-                            <Ionicons 
-                              name="chevron-down" 
-                              size={20} 
-                              color={index === displayedPhotos.length - 1 ? "#9ca3af" : "#4b5563"} 
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                      
-                      {/* Remove button */}
-                      <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => removeFromCategory(item.image_no)}
-                      >
-                        <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-              />
-            )}
+            {renderCurrentPhotos()}
           </View>
-        </>
+        </View>
       )}
       
       {/* Save button - always show */}
@@ -679,6 +729,7 @@ const AdminSlideshowSettings: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
     padding: 16,
   },
   title: {
@@ -761,23 +812,13 @@ const styles = StyleSheet.create({
   // Master favorites list section
   favoritesListSection: {
     marginBottom: 24,
+    height: 180, // Fixed height to contain the horizontal FlatList
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#4b5563',
     marginBottom: 12,
-  },
-  searchResultItem: {
-    width: 140,
-    marginRight: 12,
-    position: 'relative',
-  },
-  searchResultImage: {
-    width: 140,
-    height: 100,
-    borderRadius: 8,
-    marginBottom: 8,
   },
   searchResultText: {
     fontSize: 12,
@@ -797,6 +838,8 @@ const styles = StyleSheet.create({
   // Current photos section
   currentPhotosSection: {
     marginBottom: 24,
+    // Use a fixed height or maxHeight to prevent scrolling issues
+    maxHeight: 300,
   },
   loadingContainer: {
     padding: 20,
@@ -891,6 +934,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
+    marginTop: 16,
   },
   saveButtonText: {
     color: '#ffffff',
@@ -906,6 +950,32 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 14,
     textAlign: 'center',
+  },
+  horizontalScrollContent: {
+    paddingVertical: 8,
+    paddingRight: 16, // Add some padding at the end of the scroll
+  },
+  photoListScrollView: {
+    maxHeight: 300, // Set a maximum height for the scrollable area
+  },
+  photoListContent: {
+    paddingVertical: 8,
+  },
+  favoritesScrollContainer: {
+    height: 160, // Set explicit height to contain the scroll view
+    marginBottom: 16,
+  },
+  searchResultItem: {
+    width: 140,
+    marginRight: 12,
+    position: 'relative',
+    height: 140, // Set explicit height
+  },
+  searchResultImage: {
+    width: 140,
+    height: 100,
+    borderRadius: 8,
+    marginBottom: 8,
   },
 });
 
