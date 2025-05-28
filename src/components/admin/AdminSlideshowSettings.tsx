@@ -9,7 +9,6 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
-  FlatList,
   ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

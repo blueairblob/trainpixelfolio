@@ -1,8 +1,8 @@
-// GalleryHeader.tsx
+// GalleryHeader.tsx - Alternative fix with built-in SafeAreaView
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
 
 interface GalleryHeaderProps {
   onFilterPress: () => void;
@@ -12,50 +12,55 @@ interface GalleryHeaderProps {
 
 const GalleryHeader = ({ onFilterPress, viewMode, setViewMode }: GalleryHeaderProps) => {
   return (
-    <View style={styles.header}>
-      <Text style={styles.headerTitle}>Photo Gallery</Text>
-      <View style={styles.headerButtons}>
-        <TouchableOpacity 
-          style={styles.filterButton}
-          onPress={onFilterPress}
-        >
-          <Ionicons name="filter-outline" size={20} color="#4f46e5" />
-        </TouchableOpacity>
-        <View style={styles.viewModeButtons}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Photo Gallery</Text>
+        <View style={styles.headerButtons}>
           <TouchableOpacity 
-            style={[
-              styles.viewModeButton, 
-              viewMode === 'grid' && styles.activeViewModeButton
-            ]}
-            onPress={() => setViewMode('grid')}
+            style={styles.filterButton}
+            onPress={onFilterPress}
           >
-            <Ionicons name="grid-outline" size={20} color={viewMode === 'grid' ? "#4f46e5" : "#6b7280"} />
+            <Ionicons name="filter-outline" size={20} color="#4f46e5" />
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[
-              styles.viewModeButton, 
-              viewMode === 'compact' && styles.activeViewModeButton
-            ]}
-            onPress={() => setViewMode('compact')}
-          >
-            <Ionicons name="list-outline" size={20} color={viewMode === 'compact' ? "#4f46e5" : "#6b7280"} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[
-              styles.viewModeButton, 
-              viewMode === 'single' && styles.activeViewModeButton
-            ]}
-            onPress={() => setViewMode('single')}
-          >
-            <Ionicons name="square-outline" size={20} color={viewMode === 'single' ? "#4f46e5" : "#6b7280"} />
-          </TouchableOpacity>
+          <View style={styles.viewModeButtons}>
+            <TouchableOpacity 
+              style={[
+                styles.viewModeButton, 
+                viewMode === 'grid' && styles.activeViewModeButton
+              ]}
+              onPress={() => setViewMode('grid')}
+            >
+              <Ionicons name="grid-outline" size={20} color={viewMode === 'grid' ? "#4f46e5" : "#6b7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.viewModeButton, 
+                viewMode === 'compact' && styles.activeViewModeButton
+              ]}
+              onPress={() => setViewMode('compact')}
+            >
+              <Ionicons name="list-outline" size={20} color={viewMode === 'compact' ? "#4f46e5" : "#6b7280"} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.viewModeButton, 
+                viewMode === 'single' && styles.activeViewModeButton
+              ]}
+              onPress={() => setViewMode('single')}
+            >
+              <Ionicons name="square-outline" size={20} color={viewMode === 'single' ? "#4f46e5" : "#6b7280"} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: '#ffffff',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
