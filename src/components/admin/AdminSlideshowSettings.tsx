@@ -456,17 +456,9 @@ const AdminSlideshowSettings: React.FC = () => {
     );
   }
   
+
   // Render the master favorites list section
   const renderMasterFavoritesList = () => {
-    useEffect(() => {
-      if (masterFavoritesList.length > 0) {
-        console.log(`Master favorites list has ${masterFavoritesList.length} items`);
-        masterFavoritesList.forEach((item, index) => {
-          console.log(`Favorite ${index}: ${item.image_no} - ${item.description}`);
-        });
-      }
-    }, [masterFavoritesList]);
-
     if (isMasterListLoading) {
       return (
         <View style={styles.loadingContainer}>
@@ -494,36 +486,35 @@ const AdminSlideshowSettings: React.FC = () => {
       );
     }
     
-    console.log(`Rendering ${masterFavoritesList.length} favorites`); // Add logging
+    console.log(`Rendering ${masterFavoritesList.length} favorites`);
     
-    // Fix the horizontal ScrollView
+    // Fixed horizontal ScrollView structure
     return (
-      <View style={styles.favoritesScrollContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={true}
-          contentContainerStyle={{flexDirection: 'row'}}
-        >
-          {masterFavoritesList.map(item => (
-            <View key={item.image_no} style={styles.searchResultItem}>
-              <Image
-                source={{ uri: item.image_url }}
-                style={styles.searchResultImage}
-                resizeMode="cover"
-              />
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => addToCategory(item)}
-              >
-                <Ionicons name="add-circle" size={24} color="#4f46e5" />
-              </TouchableOpacity>
-              <Text style={styles.searchResultText} numberOfLines={2}>
-                {item.description || 'Untitled Photo'}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.horizontalScrollContent}
+        style={styles.horizontalScrollView}
+      >
+        {masterFavoritesList.map(item => (
+          <View key={item.image_no} style={styles.searchResultItem}>
+            <Image
+              source={{ uri: item.image_url }}
+              style={styles.searchResultImage}
+              resizeMode="cover"
+            />
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => addToCategory(item)}
+            >
+              <Ionicons name="add-circle" size={24} color="#4f46e5" />
+            </TouchableOpacity>
+            <Text style={styles.searchResultText} numberOfLines={2}>
+              {item.description || 'Untitled Photo'}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
     );
   };
 
@@ -812,13 +803,31 @@ const styles = StyleSheet.create({
   // Master favorites list section
   favoritesListSection: {
     marginBottom: 24,
-    height: 180, // Fixed height to contain the horizontal FlatList
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#4b5563',
     marginBottom: 12,
+  },
+  // Updated horizontal scroll styles
+  horizontalScrollView: {
+    height: 160,
+  },
+  horizontalScrollContent: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  searchResultItem: {
+    width: 140,
+    marginRight: 12,
+    position: 'relative',
+  },
+  searchResultImage: {
+    width: 140,
+    height: 100,
+    borderRadius: 8,
+    marginBottom: 8,
   },
   searchResultText: {
     fontSize: 12,
@@ -838,7 +847,6 @@ const styles = StyleSheet.create({
   // Current photos section
   currentPhotosSection: {
     marginBottom: 24,
-    // Use a fixed height or maxHeight to prevent scrolling issues
     maxHeight: 300,
   },
   loadingContainer: {
@@ -951,31 +959,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  horizontalScrollContent: {
-    paddingVertical: 8,
-    paddingRight: 16, // Add some padding at the end of the scroll
-  },
   photoListScrollView: {
-    maxHeight: 300, // Set a maximum height for the scrollable area
+    maxHeight: 300,
   },
   photoListContent: {
     paddingVertical: 8,
-  },
-  favoritesScrollContainer: {
-    height: 160, // Set explicit height to contain the scroll view
-    marginBottom: 16,
-  },
-  searchResultItem: {
-    width: 140,
-    marginRight: 12,
-    position: 'relative',
-    height: 140, // Set explicit height
-  },
-  searchResultImage: {
-    width: 140,
-    height: 100,
-    borderRadius: 8,
-    marginBottom: 8,
   },
 });
 

@@ -46,3 +46,10 @@ PAT updated !
 
 ## Add to project
 git add .;git commit -m "12.3 - Tidy package.json"; git push origin main
+
+
+
+git remote set-url origin https://blueairblob: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@github.com/blueairblob/trainpixelfolio.git
+
+
+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
