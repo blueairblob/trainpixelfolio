@@ -18,6 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import PhotoManager from '@/components/admin/PhotoManager';
 import AdminFavoritesSettings from '@/components/admin/AdminFavoritesSettings';
 import AppConfigTabs from '@/components/admin/AppConfigTabs';
+import UserManagement from '@/components/admin/UserManagement';
 
 // Form types
 interface PhotoMetadata {
@@ -673,8 +674,6 @@ const AdminScreen = ({ navigation, route }) => {
     );
   }
   
-
-
   // Handle edit requests from Photo Manager component
   const handleSaveComplete = async (photoId) => {
     try {
@@ -959,40 +958,8 @@ const AdminScreen = ({ navigation, route }) => {
           
           {/* Users Tab Content */}
           {activeTab === 'users' && (
-            <View>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>User Management</Text>
-                <Text style={styles.infoText}>Manage user accounts and permissions.</Text>
-                
-                {users.length > 0 ? (
-                  <FlatList
-                    data={users}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <View style={styles.userItem}>
-                        <View style={styles.userInfo}>
-                          <Text style={styles.userName}>{item.name || 'User'}</Text>
-                          <Text style={styles.userDate}>
-                            Joined {new Date(item.created_at).toLocaleDateString()}
-                          </Text>
-                        </View>
-                        <View style={styles.userActions}>
-                          <Text style={styles.roleLabel}>Admin</Text>
-                          <Switch
-                            value={item.isAdmin}
-                            onValueChange={() => handleToggleAdmin(item.id, item.isAdmin)}
-                            trackColor={{ false: '#d1d5db', true: '#4f46e5' }}
-                            thumbColor="#ffffff"
-                          />
-                        </View>
-                      </View>
-                    )}
-                    contentContainerStyle={styles.usersList}
-                  />
-                ) : (
-                  <Text style={styles.emptyListText}>No users found</Text>
-                )}
-              </View>
+            <View style={styles.usersTabContainer}>
+              <UserManagement isVisible={activeTab === 'users'} />
             </View>
           )}
         </ScrollView>
@@ -1749,6 +1716,10 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  usersTabContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
 });
 
