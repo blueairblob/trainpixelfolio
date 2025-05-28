@@ -98,24 +98,23 @@ const AdminSlideshowSettings: React.FC = () => {
     try {
       setIsMasterListLoading(true);
       
-      // Get admin favorites from slideshowService
-      const { data: adminFavorites, error: favoritesError } = await slideshowService.getAdminFavorites();
-      
-      if (favoritesError) {
-        throw favoritesError;
-      }
-      
+      // Use the current user's favorites list regardless of admin status
       let favoriteIds: string[] = [];
       
-      if (adminFavorites && adminFavorites.length > 0) {
-        // Use admin favorites
-        favoriteIds = adminFavorites;
-      } else if (userProfile?.favorites && userProfile.favorites.length > 0) {
-        // If no admin favorites but the admin has personal favorites, use those
+      if (userProfile?.favorites && userProfile.favorites.length > 0) {
+        // Use the current user's personal favorites
         favoriteIds = userProfile.favorites;
+        console.log(`Loading ${favoriteIds.length} user favorites for slideshow management`);
+      } else {
+        // If the user has no favorites, try to fall back to admin defaults
+        const { data: adminFavorites, error: favoritesError } = await slideshowService.getAdminFavorites();
         
-        // Save these as the initial admin favorites
-        await slideshowService.saveAdminFavorites(favoriteIds);
+        if (!favoritesError && adminFavorites && adminFavorites.length > 0) {
+          favoriteIds = adminFavorites;
+          console.log(`No user favorites found, using ${favoriteIds.length} admin defaults`);
+        } else {
+          console.log('No favorites found for user or admin defaults');
+        }
       }
       
       // Now load the actual photos for these favorites
@@ -128,12 +127,13 @@ const AdminSlideshowSettings: React.FC = () => {
             photos.push(photo);
           }
         } catch (err) {
-          console.error(`Error loading master favorite photo ${id}:`, err);
+          console.error(`Error loading favorite photo ${id}:`, err);
           // Continue with other photos even if one fails
         }
       }
       
       setMasterFavoritesList(photos);
+      console.log(`Successfully loaded ${photos.length} photos for master favorites list`);
     } catch (err) {
       console.error('Error loading master favorites list:', err);
       setError('Failed to load favorites list');
@@ -474,13 +474,13 @@ const AdminSlideshowSettings: React.FC = () => {
           <Ionicons name="heart-outline" size={48} color="#d1d5db" />
           <Text style={styles.emptyText}>No favorites available</Text>
           <Text style={styles.emptySubtext}>
-            You need to create a favorites list first
+            Add photos to your favorites list to use them in slideshows
           </Text>
           <TouchableOpacity
             style={styles.manageFavoritesButton}
-            onPress={() => Alert.alert('Navigation', 'This would navigate to the favorites management tab')}
+            onPress={() => Alert.alert('Info', 'Go to the Gallery and tap the heart icon on photos to add them to your favorites')}
           >
-            <Text style={styles.manageFavoritesText}>Manage Favorites</Text>
+            <Text style={styles.manageFavoritesText}>How to Add Favorites</Text>
           </TouchableOpacity>
         </View>
       );
@@ -685,7 +685,7 @@ const renderPhotoItem = (item, index) => (
           {/* Master Favorites List - only show when auto mode is disabled */}
           <View style={styles.favoritesListSection}>
             <Text style={styles.sectionTitle}>
-              Add Photos from Favorites List to {currentCategory.name}
+              Add Photos from Your Favorites ({masterFavoritesList.length} available) to {currentCategory.name}
             </Text>
             {renderMasterFavoritesList()}
           </View>
