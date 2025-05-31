@@ -1,7 +1,8 @@
-// HeaderSection.tsx
+// src/components/HeaderSection.tsx - Updated with feature flags
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { canShowCart } from '@/config/features';
 
 interface HeaderSectionProps {
   onCartPress: () => void;
@@ -10,10 +11,17 @@ interface HeaderSectionProps {
 const HeaderSection = ({ onCartPress }: HeaderSectionProps) => {
   return (
     <View style={styles.header}>
-      <Text style={styles.title}>TrainPhoto</Text>
-      <TouchableOpacity onPress={onCartPress}>
-        <Ionicons name="cart" size={24} color="#4f46e5" />
-      </TouchableOpacity>
+      <Text style={styles.title}>Pica Loco</Text>
+      
+      {/* Conditionally show cart icon */}
+      {canShowCart() && (
+        <TouchableOpacity onPress={onCartPress}>
+          <Ionicons name="cart" size={24} color="#4f46e5" />
+        </TouchableOpacity>
+      )}
+      
+      {/* Show placeholder for spacing if cart is hidden */}
+      {!canShowCart() && <View style={styles.spacer} />}
     </View>
   );
 };
@@ -30,6 +38,10 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: '#1f2937',
+  },
+  spacer: {
+    width: 24,
+    height: 24,
   },
 });
 

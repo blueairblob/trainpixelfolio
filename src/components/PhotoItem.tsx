@@ -1,9 +1,11 @@
-// src/components/PhotoItem.tsx
+// src/components/PhotoItem.tsx - Updated with feature flags
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { canShowCart, canShowPricing, APP_CONFIG } from '@/config/features';
 
 interface Photo {
   id: string;
@@ -11,7 +13,7 @@ interface Photo {
   photographer: string;
   price: number;
   imageUrl: string;
-  thumbnailUrl?: string; // Make thumbnail optional
+  thumbnailUrl?: string;
   location: string;
   description: string;
 }
@@ -27,16 +29,15 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const { addFavorite, removeFavorite, isFavorite } = useAuth();
+  const { addToCart, isCartEnabled } = useCart();
   const [isFavoriteState, setIsFavoriteState] = useState(false);
 
   // Check if photo is in favorites
   useEffect(() => {
-    // Make sure we're using the correct ID format (image_no)
     const favoriteId = photo.image_no || photo.originalId;
     setIsFavoriteState(isFavorite(favoriteId));
   }, [photo, isFavorite]);
 
-  // Memoize the onPress handler to prevent unnecessary re-renders
   const handlePress = useCallback(() => {
     onPress(photo.id);
   }, [photo.id, onPress]);
@@ -49,13 +50,10 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
 
   // Handle favorite toggle
   const handleFavoriteToggle = useCallback(async (e) => {
-    e.stopPropagation(); // Prevent triggering the parent onPress
+    e.stopPropagation();
     
     try {
-      // Make sure we're using the correct ID format (image_no)
       const favoriteId = photo.image_no || photo.originalId;
-      
-      console.log(`Toggle favorite for photo ${favoriteId}`);
       
       if (isFavoriteState) {
         await removeFavorite(favoriteId);
@@ -70,8 +68,28 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
     }
   }, [isFavoriteState, photo.image_no, photo.originalId, addFavorite, removeFavorite]);
 
-  // Generate a placeholder blurhash-like color based on the photo id
-  const placeholderColor = `#${(parseInt(photo.id.replace(/\D/g, ''), 10) % 0xffffff).toString(16).padStart(6, '0')}`;
+  // Handle add to cart (only if cart is enabled)
+  const handleAddToCart = useCallback((e) => {
+    e.stopPropagation();
+    
+    if (!isCartEnabled) {
+      Alert.alert('Coming Soon', APP_CONFIG.MESSAGES.CART_DISABLED);
+      return;
+    }
+    
+    addToCart({
+      id: photo.id,
+      title: photo.title,
+      photographer: photo.photographer,
+      price: canShowPricing() ? photo.price : 0,
+      imageUrl: photo.imageUrl,
+      thumbnailUrl: photo.thumbnailUrl,
+      location: photo.location,
+      description: photo.description,
+    });
+    
+    Alert.alert('Added', 'Item added to cart');
+  }, [photo, addToCart, isCartEnabled]);
 
   const renderImage = (imageStyle: any) => (
     <View style={{ position: 'relative' }}>
@@ -96,11 +114,10 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
         placeholder={photo.thumbnailUrl}
         placeholderContentFit="cover"
         cachePolicy="memory-disk"
-        recyclingKey={`${photo.id}-${retryCount}`} // Helps with image refresh on retry
+        recyclingKey={`${photo.id}-${retryCount}`}
         onLoadStart={() => setIsLoading(true)}
         onLoad={() => setIsLoading(false)}
         onError={() => {
-          console.log(`Image failed to load: ${photo.imageUrl}`);
           setIsLoading(false);
           setHasError(true);
         }}
@@ -125,13 +142,15 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
       <TouchableOpacity
         style={styles.gridItem}
         onPress={handlePress}
-        activeOpacity={0.7} // Better feedback on touch
+        activeOpacity={0.7}
       >
         {renderImage(styles.gridImage)}
         <View style={styles.gridItemInfo}>
           <Text style={styles.gridItemTitle} numberOfLines={1}>{photo.title}</Text>
           <Text style={styles.compactPhotographer}>{photo.photographer}</Text>
-          {/* <Text style={styles.gridItemPrice}>£{photo.price.toFixed(2)}</Text> */}
+          {canShowPricing() && (
+            <Text style={styles.gridItemPrice}>£{photo.price.toFixed(2)}</Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -147,7 +166,9 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
           <Text style={styles.compactTitle} numberOfLines={1}>{photo.title}</Text>
           <Text style={styles.compactPhotographer}>{photo.photographer}</Text>
           <View style={styles.compactFooter}>
-            {/* <Text style={styles.compactPrice}>£{photo.price.toFixed(2)}</Text> */}
+            {canShowPricing() && (
+              <Text style={styles.compactPrice}>£{photo.price.toFixed(2)}</Text>
+            )}
             <View style={styles.compactButtonGroup}>
               <TouchableOpacity 
                 style={styles.compactButton} 
@@ -159,9 +180,17 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
                   color={isFavoriteState ? "#ef4444" : "#4b5563"} 
                 />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.compactButton} activeOpacity={0.6}>
-                <Ionicons name="add-circle-outline" size={20} color="#4f46e5" />
-              </TouchableOpacity>
+              
+              {/* Conditionally show add to cart button */}
+              {canShowCart() && (
+                <TouchableOpacity 
+                  style={styles.compactButton} 
+                  onPress={handleAddToCart}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color="#4f46e5" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -179,7 +208,9 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
             <Text style={styles.singleDescription} numberOfLines={3}>{photo.description}</Text>
           )}
           <View style={styles.singleFooter}>
-            <Text style={styles.singlePrice}>£{photo.price.toFixed(2)}</Text>
+            {canShowPricing() && (
+              <Text style={styles.singlePrice}>£{photo.price.toFixed(2)}</Text>
+            )}
             <View style={styles.singleButtons}>
               <TouchableOpacity
                 style={[styles.favoriteButton, isFavoriteState && styles.favoriteButtonActive]}
@@ -198,6 +229,7 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
                   {isFavoriteState ? "Saved" : "Save"}
                 </Text>
               </TouchableOpacity>
+              
               <TouchableOpacity
                 style={styles.detailButton}
                 onPress={handlePress}
@@ -205,13 +237,18 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
               >
                 <Text style={styles.detailButtonText}>Details</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.addButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="cart-outline" size={16} color="#ffffff" />
-                <Text style={styles.addButtonText}>Add</Text>
-              </TouchableOpacity>
+              
+              {/* Conditionally show add to cart button */}
+              {canShowCart() && (
+                <TouchableOpacity 
+                  style={styles.addButton}
+                  onPress={handleAddToCart}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="cart-outline" size={16} color="#ffffff" />
+                  <Text style={styles.addButtonText}>Add</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -408,7 +445,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
-  // Styles for loading and error states
   loader: {
     position: 'absolute',
     top: '50%',
@@ -437,7 +473,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     backgroundColor: '#f0f0f0',
   },
-  // Favorite overlay for grid and compact views
   favoriteOverlay: {
     position: 'absolute',
     top: 8,

@@ -1,4 +1,4 @@
-// src/screens/PhotoDetailScreen.tsx
+// src/screens/PhotoDetailScreen.tsx - Updated with feature flags
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, Image, ScrollView,
@@ -10,6 +10,7 @@ import { photoService } from '@/api/supabase';
 import { Photo } from '@/api/supabase/types';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { canShowCart, canShowPricing, canShowAdminPanel, APP_CONFIG } from '@/config/features';
 
 const PhotoDetailScreen = ({ route, navigation }) => {
   const { id } = route.params;
@@ -17,10 +18,7 @@ const PhotoDetailScreen = ({ route, navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Use the CartContext hook
-  const { items, addToCart } = useCart();
-  
-  // Check if the current photo is in the cart
+  const { items, addToCart, isCartEnabled } = useCart();
   const isInCart = items.some(item => item.id === id);
   
   const { 
@@ -33,7 +31,6 @@ const PhotoDetailScreen = ({ route, navigation }) => {
   
   const [isFavoriteState, setIsFavoriteState] = useState(false);
   
-  // Load photo and check if it's in favorites
   useEffect(() => {
     const loadPhoto = async () => {
       try {
@@ -47,9 +44,7 @@ const PhotoDetailScreen = ({ route, navigation }) => {
         }
         
         setPhoto(photoData);
-        
-        // Check if this photo is in favorites
-        setIsFavoriteState(isFavorite(id));
+        setIsFavoriteState(isFavorite(photoData.image_no));
       } catch (err) {
         console.error('Error loading photo details:', err);
         setError('Failed to load photo details. Please try again later.');
@@ -61,47 +56,34 @@ const PhotoDetailScreen = ({ route, navigation }) => {
     loadPhoto();
   }, [id, isFavorite]);
   
-  // Handle add to cart
   const handleAddToCart = useCallback(() => {
     try {
-      if (isGuest) {
-        Alert.alert(
-          "Guest Mode",
-          "Please sign in to purchase photos.",
-          [{ text: "OK" }]
-        );
+      if (!canShowCart()) {
+        Alert.alert('Coming Soon', APP_CONFIG.MESSAGES.CART_DISABLED);
         return;
       }
       
       if (!photo) return;
       
-      // Create a properly formatted cart item from the photo
-      // Make sure the price is set to a default value if undefined
       const cartItem = {
         ...photo,
         id: photo.image_no,
-        price: 0.50, // Set a default price of £0.50
+        price: canShowPricing() ? 0.50 : 0, // Default price or 0 if pricing disabled
         title: photo.description || 'Untitled Photo',
         imageUrl: photo.image_url
       };
       
-      // Use the addToCart from CartContext
       addToCart(cartItem);
       Alert.alert('Success', 'Added to cart');
     } catch (err) {
       console.error('Error adding to cart:', err);
       Alert.alert('Error', 'Failed to add to cart');
     }
-  }, [photo, isGuest, addToCart]);
+  }, [photo, addToCart]);
 
-
-  // Handle toggle favorite
   const handleToggleFavorite = useCallback(async () => {
     try {
-      // Make sure we're using image_no as the ID for favorites
       const favoriteId = photo.image_no;
-      
-      console.log(`Toggle favorite for photo ${favoriteId}`);
       
       if (isFavoriteState) {
         await removeFavorite(favoriteId);
@@ -116,50 +98,18 @@ const PhotoDetailScreen = ({ route, navigation }) => {
     }
   }, [photo, isFavoriteState, addFavorite, removeFavorite]);
 
-  // Load photo and check if it's in favorites
-  useEffect(() => {
-    const loadPhoto = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        const { data: photoData, error } = await photoService.getPhotoById(id);
-
-        if (!photoData) {
-          throw new Error('Photo not found');
-        }
-        
-        setPhoto(photoData);
-        
-        // Check if this photo is in favorites using image_no
-        setIsFavoriteState(isFavorite(photoData.image_no));
-      } catch (err) {
-        console.error('Error loading photo details:', err);
-        setError('Failed to load photo details. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadPhoto();
-  }, [id, isFavorite]);
-
-  // Navigate to the AdminScreen with the photo to edit
   const handleEditPhoto = useCallback(() => {
-    if (!isAdmin || !photo) return;
+    if (!isAdmin || !canShowAdminPanel()) {
+      Alert.alert('Coming Soon', APP_CONFIG.MESSAGES.ADMIN_DISABLED);
+      return;
+    }
     
-    // Log what we're working with
-    console.log('Photo object for editing:', {
-      id: photo.id,
-      image_no: photo.image_no
-    });
+    if (!photo) return;
     
-    // Just pass the image_no - the photoAdminService will handle finding the UUID
     navigation.navigate('AdminScreen', {
       initialTab: 'upload',
       photoToEdit: {
         ...photo,
-        // Just pass the image_no - the admin service will look it up
         id: photo.image_no 
       }
     });
@@ -200,8 +150,8 @@ const PhotoDetailScreen = ({ route, navigation }) => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Photo Details</Text>
         <View style={styles.headerActions}>
-          {/* Edit button for admins */}
-          {isAdmin && (
+          {/* Edit button for admins (only if admin panel is enabled) */}
+          {isAdmin && canShowAdminPanel() && (
             <TouchableOpacity 
               onPress={handleEditPhoto} 
               style={styles.editButton}
@@ -223,14 +173,12 @@ const PhotoDetailScreen = ({ route, navigation }) => {
       </View>
       
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Photo Image */}
         <Image 
           source={{ uri: photo.image_url }}
           style={styles.photoImage}
           resizeMode="contain"
         />
         
-        {/* Photo Details */}
         <View style={styles.detailsContainer}>
           <Text style={styles.photoTitle}>{photo.description || 'Untitled'}</Text>
           
@@ -380,38 +328,52 @@ const PhotoDetailScreen = ({ route, navigation }) => {
         </View>
       </ScrollView>
       
-      {/* Purchase button */}
-      <View style={styles.footer}>
-        <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Price</Text>
-          <Text style={styles.price}>£0.50</Text>
+      {/* Purchase button - only show if cart/pricing is enabled */}
+      {(canShowCart() || canShowPricing()) && (
+        <View style={styles.footer}>
+          <View style={styles.priceContainer}>
+            {canShowPricing() && (
+              <>
+                <Text style={styles.priceLabel}>Price</Text>
+                <Text style={styles.price}>£0.50</Text>
+              </>
+            )}
+          </View>
+          
+          {canShowCart() && (
+            <TouchableOpacity 
+              style={[
+                styles.purchaseButton, 
+                isInCart && styles.inCartButton,
+                !isCartEnabled && styles.disabledButton
+              ]}
+              onPress={handleAddToCart}
+              disabled={isInCart || !isCartEnabled}
+            >
+              <Text style={styles.purchaseButtonText}>
+                {isInCart 
+                  ? 'Added to Cart' 
+                  : 'Add to Cart'
+                }
+              </Text>
+              <Ionicons 
+                name={isInCart ? 'checkmark-circle' : 'cart-outline'} 
+                size={20} 
+                color="#ffffff" 
+                style={styles.purchaseButtonIcon} 
+              />
+            </TouchableOpacity>
+          )}
+          
+          {!canShowCart() && canShowPricing() && (
+            <View style={styles.comingSoonContainer}>
+              <Text style={styles.comingSoonText}>
+                Purchase options coming soon
+              </Text>
+            </View>
+          )}
         </View>
-        
-        <TouchableOpacity 
-          style={[
-            styles.purchaseButton, 
-            isInCart && styles.inCartButton,
-            isGuest && styles.disabledButton
-          ]}
-          onPress={handleAddToCart}
-          disabled={isInCart || isGuest}
-        >
-          <Text style={styles.purchaseButtonText}>
-            {isInCart 
-              ? 'Added to Cart' 
-              : isGuest 
-                ? 'Sign In to Purchase' 
-                : 'Add to Cart'
-            }
-          </Text>
-          <Ionicons 
-            name={isInCart ? 'checkmark-circle' : 'cart-outline'} 
-            size={20} 
-            color="#ffffff" 
-            style={styles.purchaseButtonIcon} 
-          />
-        </TouchableOpacity>
-      </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -476,7 +438,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   content: {
-    paddingBottom: 90, // Add padding for footer
+    paddingBottom: 90,
   },
   photoImage: {
     width: '100%',
@@ -692,6 +654,17 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  comingSoonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  comingSoonText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontStyle: 'italic',
   },
 });
 

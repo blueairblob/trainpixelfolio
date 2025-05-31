@@ -1,131 +1,210 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+// src/context/CartContext.tsx - Updated with feature flags
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FEATURES, canShowCart, canShowPricing } from '@/config/features';
 
-export interface Photo {
+export interface CartItem {
   id: string;
   title: string;
-  imageUrl: string;
-  price: number;
   photographer: string;
-  [key: string]: any; // for other properties
-}
-
-export interface CartItem extends Photo {
+  price: number;
+  imageUrl: string;
+  thumbnailUrl?: string;
+  location: string;
+  description: string;
   quantity: number;
 }
 
 interface CartContextType {
+  // Cart state
   items: CartItem[];
   totalItems: number;
   totalPrice: number;
-  addToCart: (photo: Photo) => void;
+  isLoading: boolean;
+  
+  // Cart methods (may be disabled by feature flags)
+  addToCart: (item: Omit<CartItem, 'quantity'>) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  
+  // Feature availability
+  isCartEnabled: boolean;
+  isPricingEnabled: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export const CartProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+const CART_STORAGE_KEY = 'picaloco_cart';
+
+interface CartProviderProps {
+  children: ReactNode;
+}
+
+export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Calculate derived values
-  const totalItems = items.reduce((total, item) => total + item.quantity, 0);
-  const totalPrice = items.reduce((total, item) => total + (item.price * item.quantity), 0);
+  // Feature availability flags
+  const isCartEnabled = canShowCart();
+  const isPricingEnabled = canShowPricing();
+  
+  // Computed values
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = isPricingEnabled 
+    ? items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    : 0;
 
-  // Load cart from AsyncStorage on mount
   useEffect(() => {
-    const loadCart = async () => {
-      try {
-        const storedCart = await AsyncStorage.getItem('cart');
-        if (storedCart) {
-          setItems(JSON.parse(storedCart));
-        }
-      } catch (error) {
-        console.error('Failed to load cart from storage', error);
-      }
-    };
-
     loadCart();
   }, []);
 
-  // Save cart to AsyncStorage whenever it changes
   useEffect(() => {
-    const saveCart = async () => {
-      try {
-        await AsyncStorage.setItem('cart', JSON.stringify(items));
-      } catch (error) {
-        console.error('Failed to save cart to storage', error);
-      }
-    };
+    // Save cart whenever items change (but only if cart is enabled)
+    if (isCartEnabled) {
+      saveCart();
+    }
+  }, [items, isCartEnabled]);
 
-    saveCart();
-  }, [items]);
-
-  // Add item to cart
-  const addToCart = (photo: Photo) => {
-    setItems(prevItems => {
-      // Check if item already exists in cart
-      const itemIndex = prevItems.findIndex(item => item.id === photo.id);
+  const loadCart = async () => {
+    try {
+      setIsLoading(true);
       
-      if (itemIndex > -1) {
-        // If item exists, increase quantity
-        const updatedItems = [...prevItems];
-        updatedItems[itemIndex] = {
-          ...updatedItems[itemIndex],
-          quantity: updatedItems[itemIndex].quantity + 1
-        };
-        return updatedItems;
+      // If cart is disabled, don't load anything
+      if (!isCartEnabled) {
+        setItems([]);
+        return;
+      }
+      
+      const cartData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+      if (cartData) {
+        const parsedItems: CartItem[] = JSON.parse(cartData);
+        setItems(parsedItems);
+      }
+    } catch (error) {
+      console.error('Error loading cart:', error);
+      setItems([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveCart = async () => {
+    try {
+      if (!isCartEnabled) {
+        // If cart is disabled, clear stored cart data
+        await AsyncStorage.removeItem(CART_STORAGE_KEY);
+        return;
+      }
+      
+      await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    } catch (error) {
+      console.error('Error saving cart:', error);
+    }
+  };
+
+  const addToCart = (item: Omit<CartItem, 'quantity'>) => {
+    if (!isCartEnabled) {
+      console.log('Cart functionality is disabled');
+      return;
+    }
+    
+    setItems(currentItems => {
+      const existingItem = currentItems.find(cartItem => cartItem.id === item.id);
+      
+      if (existingItem) {
+        // Item already exists, increase quantity
+        return currentItems.map(cartItem =>
+          cartItem.id === item.id
+            ? { ...cartItem, quantity: cartItem.quantity + 1 }
+            : cartItem
+        );
       } else {
-        // If item doesn't exist, add it with quantity 1
-        return [...prevItems, { ...photo, quantity: 1 }];
+        // New item, add to cart
+        const newItem: CartItem = {
+          ...item,
+          quantity: 1,
+          price: isPricingEnabled ? item.price : 0 // Set price to 0 if pricing is disabled
+        };
+        return [...currentItems, newItem];
       }
     });
   };
 
-  // Remove item from cart
   const removeFromCart = (id: string) => {
-    setItems(prevItems => prevItems.filter(item => item.id !== id));
+    if (!isCartEnabled) {
+      console.log('Cart functionality is disabled');
+      return;
+    }
+    
+    setItems(currentItems => currentItems.filter(item => item.id !== id));
   };
 
-  // Update item quantity
   const updateQuantity = (id: string, quantity: number) => {
+    if (!isCartEnabled) {
+      console.log('Cart functionality is disabled');
+      return;
+    }
+    
     if (quantity <= 0) {
       removeFromCart(id);
       return;
     }
-    
-    setItems(prevItems => 
-      prevItems.map(item => 
+
+    setItems(currentItems =>
+      currentItems.map(item =>
         item.id === id ? { ...item, quantity } : item
       )
     );
   };
 
-  // Clear the cart
   const clearCart = () => {
+    if (!isCartEnabled) {
+      console.log('Cart functionality is disabled');
+      return;
+    }
+    
     setItems([]);
   };
 
+  // If cart is disabled, provide empty/disabled implementations
+  const disabledAddToCart = () => {
+    console.log('Cart functionality is disabled');
+  };
+
+  const disabledRemoveFromCart = () => {
+    console.log('Cart functionality is disabled');
+  };
+
+  const disabledUpdateQuantity = () => {
+    console.log('Cart functionality is disabled');
+  };
+
+  const disabledClearCart = () => {
+    console.log('Cart functionality is disabled');
+  };
+
+  const value: CartContextType = {
+    items: isCartEnabled ? items : [],
+    totalItems: isCartEnabled ? totalItems : 0,
+    totalPrice: isCartEnabled && isPricingEnabled ? totalPrice : 0,
+    isLoading,
+    addToCart: isCartEnabled ? addToCart : disabledAddToCart,
+    removeFromCart: isCartEnabled ? removeFromCart : disabledRemoveFromCart,
+    updateQuantity: isCartEnabled ? updateQuantity : disabledUpdateQuantity,
+    clearCart: isCartEnabled ? clearCart : disabledClearCart,
+    isCartEnabled,
+    isPricingEnabled,
+  };
+
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        totalItems,
-        totalPrice,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart
-      }}
-    >
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );
 };
 
-// Custom hook to use the cart context
-export const useCart = () => {
+export const useCart = (): CartContextType => {
   const context = useContext(CartContext);
   if (context === undefined) {
     throw new Error('useCart must be used within a CartProvider');

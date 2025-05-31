@@ -1,434 +1,374 @@
-// src/context/AuthContext.tsx
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+// src/context/AuthContext.tsx - Updated with feature flags
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authService } from '@/api/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
+import { FEATURES, mustUseGuestMode, canShowAuth } from '@/config/features';
 
-// Import the correct Supabase client
-import { supabaseClient } from '@/api/supabase/client';
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url?: string;
+  created_at: string;
+  updated_at: string;
+  favorites?: string[];
+  orders?: any[];
+}
 
-// Import the Supabase services
-import { authService, userService } from '@/api/supabase';
-import { ExtendedUserProfile } from '@/api/supabase/types';
-
-type AuthContextType = {
-  user: User | null;
-  session: Session | null;
+interface AuthContextType {
+  // User state
   isAuthenticated: boolean;
-  isLoading: boolean;
-  isAdmin: boolean;
-  userProfile: ExtendedUserProfile | null;
   isGuest: boolean;
+  userProfile: UserProfile | null;
+  isAdmin: boolean;
+  isLoading: boolean;
+  
+  // Auth methods (may be disabled by feature flags)
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  updateProfile: (updates: any) => Promise<void>;
+  
+  // Guest mode methods
   enableGuestMode: () => Promise<void>;
   disableGuestMode: () => Promise<void>;
-  login: (email: string, password: string) => Promise<any>;
-  register: (name: string, email: string, password: string) => Promise<any>;
-  logout: () => Promise<void>;
-  updateProfile: (data: Partial<ExtendedUserProfile>) => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  
+  // Favorites management
   addFavorite: (photoId: string) => Promise<void>;
   removeFavorite: (photoId: string) => Promise<void>;
-  getFavorites: () => Promise<string[]>;
   isFavorite: (photoId: string) => boolean;
-};
-
-const GUEST_MODE_KEY = 'guestMode';
-const GUEST_FAVORITES_KEY = 'guest-favorites';
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [userProfile, setUserProfile] = useState<ExtendedUserProfile | null>(null);
-  const [isGuest, setIsGuest] = useState<boolean>(false);
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
-  // Fetch user profile from the Supabase database
-  const fetchUserProfile = async (userId: string) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
+  
+  // Check if user is authenticated (not guest)
+  const isAuthenticated = !isGuest && userProfile !== null;
+  
+  // Check admin status
+  const isAdmin = isAuthenticated && FEATURES.ENABLE_ADMIN_PANEL && 
+    userProfile?.email?.includes('admin'); // Simplified admin check
+
+  useEffect(() => {
+    initializeAuth();
+  }, []);
+
+  const initializeAuth = async () => {
     try {
-      const { data: profile, error } = await userService.getExtendedUserProfile(userId);
+      setIsLoading(true);
       
+      // If forced guest mode is enabled, automatically set guest mode
+      if (mustUseGuestMode()) {
+        console.log('Forced guest mode enabled');
+        await enableGuestMode();
+        return;
+      }
+      
+      // If authentication is disabled, force guest mode
+      if (!canShowAuth()) {
+        console.log('Authentication disabled, forcing guest mode');
+        await enableGuestMode();
+        return;
+      }
+      
+      // Check if we're in guest mode
+      const isGuestMode = await authService.isGuestMode();
+      if (isGuestMode) {
+        setIsGuest(true);
+        await loadGuestProfile();
+        return;
+      }
+      
+      // Try to get existing session (only if auth is enabled)
+      const { data: session } = await authService.getSession();
+      if (session?.session && session.user) {
+        await loadUserProfile(session.user.id);
+      } else {
+        // No session, redirect to guest mode if auth is disabled
+        if (!canShowAuth()) {
+          await enableGuestMode();
+        }
+      }
+    } catch (error) {
+      console.error('Auth initialization error:', error);
+      // Fallback to guest mode on any error
+      await enableGuestMode();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadUserProfile = async (userId: string) => {
+    try {
+      // Only load profile if authentication is enabled
+      if (!canShowAuth()) {
+        return;
+      }
+      
+      const { data: profile, error } = await authService.getUserProfile(userId);
       if (error) throw error;
       
       if (profile) {
-        setUserProfile(profile);
-        setIsAdmin(profile.isAdmin);
+        // Load favorites from AsyncStorage for the profile
+        const favorites = await loadFavoritesFromStorage(userId);
+        setUserProfile({
+          ...profile,
+          favorites: favorites || []
+        });
+        setIsGuest(false);
       }
-    } catch (error: any) {
-      console.error('Error fetching user profile:', error);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      // Fallback to guest mode
+      await enableGuestMode();
     }
   };
 
-  // Set up guest profile
-  const setupGuestProfile = async () => {
+  const loadGuestProfile = async () => {
     try {
-      // Get guest favorites from storage
-      const guestFavorites = await loadGuestFavorites();
-
       // Create a guest profile
-      const guestProfile: ExtendedUserProfile = {
-        id: 'guest',
+      const guestId = 'guest_user';
+      const favorites = await loadFavoritesFromStorage(guestId);
+      
+      setUserProfile({
+        id: guestId,
         name: 'Guest User',
-        avatar_url: null,
-        created_at: null,
-        updated_at: null,
-        favorites: guestFavorites,
-        isAdmin: false,
-        orders: []
-      };
-
-      setUserProfile(guestProfile);
+        email: 'guest@picaloco.app',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        favorites: favorites || []
+      });
       setIsGuest(true);
-      setIsAuthenticated(true);
-      setIsAdmin(false);
-      setIsLoading(false);
     } catch (error) {
-      console.error('Error setting up guest profile:', error);
+      console.error('Error loading guest profile:', error);
     }
   };
 
-  // Load guest favorites from AsyncStorage
-  const loadGuestFavorites = async () => {
+  const loadFavoritesFromStorage = async (userId: string): Promise<string[]> => {
     try {
-      const { data } = await userService.getFavorites({ isGuest: true });
-      return data || [];
+      const favoritesJson = await AsyncStorage.getItem(`favorites_${userId}`);
+      return favoritesJson ? JSON.parse(favoritesJson) : [];
     } catch (error) {
-      console.error('Error loading guest favorites:', error);
+      console.error('Error loading favorites:', error);
       return [];
     }
   };
 
-  // Set up auth state listener for Supabase
-  useEffect(() => {
-    // Check if guest mode was previously enabled
-    const checkGuestMode = async () => {
-      const isGuestMode = await authService.isGuestMode();
-      if (isGuestMode && !isAuthenticated) {
-        await setupGuestProfile();
-      }
-    };
-
-    const setupAuthListener = async () => {
-      // Get the current session 
-      const { data } = await authService.getSession();
-      const currentSession = data.session;
-      
-      // Set up the auth state change listener
-      const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
-        async (event, newSession) => {
-          console.log("Auth state changed:", event);
-          setSession(newSession);
-          setUser(newSession?.user ?? null);
-          setIsAuthenticated(!!newSession);
-
-          if (newSession?.user) {
-            await fetchUserProfile(newSession.user.id);
-            // If user logs in, disable guest mode
-            setIsGuest(false);
-            await authService.disableGuestMode();
-          } else {
-            setUserProfile(null);
-            setIsAdmin(false);
-            // Check if we should enable guest mode
-            await checkGuestMode();
-          }
-          
-          setIsLoading(false);
-        }
-      );
-
-      // Set initial state
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setIsAuthenticated(!!currentSession);
-
-      if (currentSession?.user) {
-        await fetchUserProfile(currentSession.user.id);
-      } else {
-        // Check if we should enable guest mode
-        await checkGuestMode();
-        setIsLoading(false);
-      }
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    };
-
-    setupAuthListener();
-  }, []);
-
-  const login = async (email: string, password: string) => {
+  const saveFavoritesToStorage = async (userId: string, favorites: string[]) => {
     try {
-      const { user, session, error } = await authService.signIn(email, password);
-      
+      await AsyncStorage.setItem(`favorites_${userId}`, JSON.stringify(favorites));
+    } catch (error) {
+      console.error('Error saving favorites:', error);
+    }
+  };
+
+  // Auth methods (disabled if feature flags are off)
+  const login = async (email: string, password: string): Promise<boolean> => {
+    if (!canShowAuth()) {
+      console.log('Login disabled by feature flag');
+      return false;
+    }
+    
+    try {
+      const { session, user, error } = await authService.signIn(email, password);
       if (error) throw error;
       
-      // If guest had favorites, transfer them to user account
-      if (isGuest && user) {
-        await userService.transferGuestFavorites(user.id);
+      if (user) {
+        await loadUserProfile(user.id);
+        await disableGuestMode();
+        return true;
       }
-      
-      return { user, session };
-    } catch (error: any) {
-      console.error('Error during login:', error);
-      Alert.alert("Login Error", error.message);
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
       throw error;
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string): Promise<void> => {
+    if (!canShowAuth()) {
+      throw new Error('Registration is not available in this version');
+    }
+    
     try {
-      const { user, session, error } = await authService.signUp(name, email, password);
-      
+      const { user, error } = await authService.signUp(name, email, password);
       if (error) throw error;
       
-      // If email confirmation is required
-      if (user && !session) {
-        Alert.alert(
-          "Verification Required",
-          "Please check your email for a verification link to complete your registration."
-        );
+      if (user) {
+        // Don't automatically log in, let them verify email first
+        console.log('User registered successfully');
       }
-      
-      return { user, session };
-    } catch (error: any) {
-      console.error('Error during registration:', error);
-      Alert.alert("Registration Error", error.message);
+    } catch (error) {
+      console.error('Registration error:', error);
       throw error;
     }
   };
 
-  const updateProfile = async (profileData: Partial<ExtendedUserProfile>) => {
-    if (!user && !isGuest) {
-      Alert.alert("Error", "You must be logged in to update your profile");
+  const logout = async (): Promise<void> => {
+    try {
+      if (isAuthenticated) {
+        await authService.signOut();
+      }
+      
+      // Switch to guest mode instead of completely logging out
+      await enableGuestMode();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still switch to guest mode even if logout fails
+      await enableGuestMode();
+    }
+  };
+
+  const updateProfile = async (updates: any): Promise<void> => {
+    if (!isAuthenticated || !userProfile) {
+      throw new Error('No authenticated user to update');
+    }
+    
+    try {
+      const { error } = await authService.updateUserProfile(userProfile.id, updates);
+      if (error) throw error;
+      
+      // Update local profile
+      setUserProfile(prev => prev ? { ...prev, ...updates } : null);
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
+  };
+
+  const enableGuestMode = async (): Promise<void> => {
+    try {
+      await authService.enableGuestMode();
+      await loadGuestProfile();
+    } catch (error) {
+      console.error('Enable guest mode error:', error);
+      // Create minimal guest profile even if storage fails
+      setUserProfile({
+        id: 'guest_user',
+        name: 'Guest User',
+        email: 'guest@picaloco.app',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        favorites: []
+      });
+      setIsGuest(true);
+    }
+  };
+
+  const disableGuestMode = async (): Promise<void> => {
+    if (!canShowAuth()) {
+      console.log('Cannot disable guest mode - authentication is disabled');
       return;
     }
-
+    
     try {
-      if (isGuest) {
-        // Update local guest profile
-        setUserProfile(prev => prev ? { ...prev, ...profileData } : null);
-        Alert.alert("Success", "Profile updated successfully");
-        return;
-      }
-
-      // Update authenticated user profile in Supabase
-      const { error } = await userService.updateProfile(user!.id, profileData);
-      
-      if (error) throw error;
-
-      // Refresh profile data
-      await refreshProfile();
-
-      Alert.alert("Success", "Profile updated successfully");
-    } catch (error: any) {
-      console.error('Error updating profile:', error);
-      Alert.alert("Profile Update Error", error.message);
-      throw error;
-    }
-  };
-
-  const changePassword = async (currentPassword: string, newPassword: string) => {
-    if (!user || !user.email) {
-      Alert.alert("Error", "You must be logged in to change your password");
-      return;
-    }
-
-    try {
-      // First verify the current password by signing in
-      const { error: signInError } = await authService.signIn(user.email, currentPassword);
-
-      if (signInError) throw signInError;
-
-      // Then update the password
-      const { error } = await authService.updateUser({ password: newPassword });
-
-      if (error) throw error;
-
-      Alert.alert("Success", "Password changed successfully");
-    } catch (error: any) {
-      console.error('Error changing password:', error);
-      Alert.alert("Password Change Error", error.message);
-      throw error;
-    }
-  };
-
-  const refreshProfile = async () => {
-    if (!user) return;
-
-    await fetchUserProfile(user.id);
-  };
-
-  const logout = async () => {
-    try {
-      const { error } = await authService.signOut();
-      if (error) throw error;
-
-      console.log("Logout successful");
-      
-      // Reset guest mode when logging out
-      setIsGuest(false);
       await authService.disableGuestMode();
-    } catch (error: any) {
-      console.error('Error during logout:', error);
-      Alert.alert("Logout Error", error.message);
-      throw error;
+      setIsGuest(false);
+    } catch (error) {
+      console.error('Disable guest mode error:', error);
     }
   };
-  
-  const enableGuestMode = async () => {
-    await authService.enableGuestMode();
-    setIsGuest(true);
-    console.log("Guest mode enabled");
+
+  // Favorites management (works for both guest and authenticated users)
+  const addFavorite = async (photoId: string): Promise<void> => {
+    if (!userProfile) return;
     
-    // Load any previously stored favorites and set up guest profile
-    await setupGuestProfile();
-  };
-  
-  const disableGuestMode = async () => {
-    await authService.disableGuestMode();
-    setIsGuest(false);
-    setUserProfile(null);
-    setIsAuthenticated(false);
-    console.log("Guest mode disabled");
-  };
-
-
-  // Modified favorites handling in AuthContext.tsx
-
-  // Add a photo to favorites
-  const addFavorite = async (photoId: string) => {
     try {
-      // Ensure we're using image_no as the ID
-      // If photoId is not already in the correct format, we need to standardize it
-      // For now, we'll assume photoId is already in image_no format
-      const favoriteId = photoId;
+      const currentFavorites = userProfile.favorites || [];
+      if (currentFavorites.includes(photoId)) return;
       
-      console.log(`Adding to favorites: ${favoriteId}`);
-      
-      if (isGuest) {
-        // Use userService for guest favorites
-        await userService.addToFavorites(favoriteId, { isGuest: true });
-      } else if (user) {
-        // Use userService for authenticated user favorites
-        await userService.addToFavorites(favoriteId, { userId: user.id });
-      } else {
-        throw new Error("User must be authenticated or in guest mode");
-      }
+      const newFavorites = [...currentFavorites, photoId];
       
       // Update local state
-      setUserProfile(prev => {
-        if (!prev) return null;
-        const updatedFavorites = [...prev.favorites, favoriteId];
-        return { ...prev, favorites: updatedFavorites };
-      });
-    } catch (error: any) {
-      console.error('Error adding favorite:', error);
-      Alert.alert("Error", "Failed to add to favorites");
+      setUserProfile(prev => prev ? { ...prev, favorites: newFavorites } : null);
+      
+      // Save to AsyncStorage
+      await saveFavoritesToStorage(userProfile.id, newFavorites);
+      
+      // If authenticated and auth is enabled, also save to database
+      if (isAuthenticated && canShowAuth()) {
+        try {
+          await authService.updateUserProfile(userProfile.id, { 
+            favorites: newFavorites 
+          });
+        } catch (error) {
+          console.error('Error syncing favorites to server:', error);
+          // Don't throw - local storage is still updated
+        }
+      }
+    } catch (error) {
+      console.error('Add favorite error:', error);
       throw error;
     }
   };
 
-  // Remove a photo from favorites
-  const removeFavorite = async (photoId: string) => {
+  const removeFavorite = async (photoId: string): Promise<void> => {
+    if (!userProfile) return;
+    
     try {
-      // Ensure we're using image_no as the ID
-      // If photoId is not already in the correct format, we need to standardize it
-      // For now, we'll assume photoId is already in image_no format
-      const favoriteId = photoId;
-      
-      console.log(`Removing from favorites: ${favoriteId}`);
-      
-      if (isGuest) {
-        // Use userService for guest favorites
-        await userService.removeFromFavorites(favoriteId, { isGuest: true });
-      } else if (user) {
-        // Use userService for authenticated user favorites
-        await userService.removeFromFavorites(favoriteId, { userId: user.id });
-      } else {
-        throw new Error("User must be authenticated or in guest mode");
-      }
+      const currentFavorites = userProfile.favorites || [];
+      const newFavorites = currentFavorites.filter(id => id !== photoId);
       
       // Update local state
-      setUserProfile(prev => {
-        if (!prev) return null;
-        const updatedFavorites = prev.favorites.filter(id => id !== favoriteId);
-        return { ...prev, favorites: updatedFavorites };
-      });
-    } catch (error: any) {
-      console.error('Error removing favorite:', error);
-      Alert.alert("Error", "Failed to remove from favorites");
+      setUserProfile(prev => prev ? { ...prev, favorites: newFavorites } : null);
+      
+      // Save to AsyncStorage
+      await saveFavoritesToStorage(userProfile.id, newFavorites);
+      
+      // If authenticated and auth is enabled, also save to database
+      if (isAuthenticated && canShowAuth()) {
+        try {
+          await authService.updateUserProfile(userProfile.id, { 
+            favorites: newFavorites 
+          });
+        } catch (error) {
+          console.error('Error syncing favorites to server:', error);
+          // Don't throw - local storage is still updated
+        }
+      }
+    } catch (error) {
+      console.error('Remove favorite error:', error);
       throw error;
     }
   };
 
-  // Check if a photo is in favorites
   const isFavorite = (photoId: string): boolean => {
-    // Ensure we're using image_no as the ID
-    // If photoId is not already in the correct format, we need to standardize it
-    // For now, we'll assume photoId is already in image_no format
-    const favoriteId = photoId;
-    
-    if (!userProfile) return false;
-    return userProfile.favorites.includes(favoriteId);
+    return userProfile?.favorites?.includes(photoId) || false;
   };
 
-  // Get user favorites
-  const getFavorites = async (): Promise<string[]> => {
-    try {
-      if (isGuest) {
-        const { data } = await userService.getFavorites({ isGuest: true });
-        return data || [];
-      }
-      
-      if (!user || !userProfile) {
-        return [];
-      }
-      
-      const { data } = await userService.getFavorites({ userId: user.id });
-      return data || [];
-      
-    } catch (error: any) {
-      console.error('Error getting favorites:', error);
-      return [];
-    }
+  const value: AuthContextType = {
+    isAuthenticated,
+    isGuest,
+    userProfile,
+    isAdmin,
+    isLoading,
+    login,
+    register,
+    logout,
+    updateProfile,
+    enableGuestMode,
+    disableGuestMode,
+    addFavorite,
+    removeFavorite,
+    isFavorite,
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        isAuthenticated,
-        isLoading,
-        isAdmin,
-        userProfile,
-        isGuest,
-        enableGuestMode,
-        disableGuestMode,
-        login,
-        register,
-        logout,
-        updateProfile,
-        changePassword,
-        refreshProfile,
-        addFavorite,
-        removeFavorite,
-        getFavorites,
-        isFavorite
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

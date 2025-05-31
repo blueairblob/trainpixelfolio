@@ -1,4 +1,4 @@
-// src/screens/ProfileScreen.tsx
+// src/screens/ProfileScreen.tsx - Updated with feature flags
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
@@ -7,6 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { canShowAuth, canShowAdminPanel, APP_CONFIG } from '@/config/features';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FavoritesTab from '@/components/FavoritesTab'; 
 
@@ -18,27 +19,17 @@ const ProfileScreen = ({ navigation }) => {
     logout, 
     isGuest, 
     enableGuestMode, 
-    disableGuestMode 
+    disableGuestMode,
+    updateProfile
   } = useAuth();
   
-  const { updateProfile } = useAuth();
-
   const [activeTab, setActiveTab] = useState('info');
   const [isEditing, setIsEditing] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
   // Form states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
-  // Show/hide passwords
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     if (userProfile) {
@@ -51,7 +42,6 @@ const ProfileScreen = ({ navigation }) => {
     setIsLoading(true);
     try {
       await logout();
-      // Clear any local storage if needed
       await AsyncStorage.removeItem('userProfile');
     } catch (error) {
       console.error('Logout error:', error);
@@ -61,98 +51,126 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleUpdateProfile = async () => {
+    if (!canShowAuth()) {
+      Alert.alert('Coming Soon', APP_CONFIG.MESSAGES.AUTH_DISABLED);
+      return;
+    }
+    
     try {
-      // Show loading indicator
       setIsLoading(true);
-      
-      // Call the updateProfile function from the AuthContext
-      await updateProfile({
-        name: name,
-        // Add other fields you want to update
-      });
-      
-      // Success message
+      await updateProfile({ name });
       Alert.alert('Success', 'Profile updated successfully');
-      
-      // Exit editing mode
       setIsEditing(false);
     } catch (error) {
-      // Show error message
       console.error('Error updating profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
     } finally {
-      // Hide loading indicator
       setIsLoading(false);
     }
   };
 
-  const handleChangePassword = () => {
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+  const handleAdminAccess = () => {
+    if (!canShowAdminPanel()) {
+      Alert.alert('Coming Soon', APP_CONFIG.MESSAGES.ADMIN_DISABLED);
       return;
     }
-
-    // Password change logic here
-    Alert.alert('Success', 'Password changed successfully');
-    setIsChangingPassword(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-  };
-
-  const handleAdminAccess = () => {
     navigation.navigate('AdminScreen');
   };
 
-  const handleContinueAsGuest = () => {
-    enableGuestMode();
-  };
-  
   const handleSignIn = async () => {
-    if (isGuest) {
-      await disableGuestMode();
-
+    if (!canShowAuth()) {
+      Alert.alert('Coming Soon', APP_CONFIG.MESSAGES.AUTH_DISABLED);
       return;
     }
-
-    // If not in guest mode, this code should never run
-    // but we'll leave it as a fallback
+    
+    if (isGuest) {
+      await disableGuestMode();
+      return;
+    }
+    
     navigation.navigate('AuthScreen');
   };
 
-  // If not authenticated and not in guest mode, show login/guest options
-  if (!isAuthenticated && !isGuest) {
+  // For guest-only mode or when auth is disabled
+  if (!canShowAuth() || isGuest) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.authContainer}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1527684651001-731c474bbb5a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2074&q=80' }}
-            style={styles.logo}
+        <View style={styles.header}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.avatar}
           />
-          <Text style={styles.title}>TrainPhoto</Text>
-          <Text style={styles.subtitle}>Sign in to access your profile</Text>
+          <Text style={styles.userName}>{userProfile?.name || 'Guest User'}</Text>
           
-          <View style={styles.buttonContainer}>
+          <View style={styles.guestBadge}>
+            <Text style={styles.guestBadgeText}>Guest Mode</Text>
+          </View>
+          
+          <Text style={styles.guestMessage}>
+            Browsing as a guest. Full account features will be available in a future update.
+          </Text>
+          
+          {/* Show sign in button only if auth will be enabled later */}
+          {canShowAuth() && (
             <TouchableOpacity 
-              style={styles.primaryButton}
+              style={styles.signInButton} 
               onPress={handleSignIn}
             >
-              <Text style={styles.primaryButtonText}>Sign In / Register</Text>
+              <Text style={styles.signInButtonText}>Sign In</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.secondaryButton}
-              onPress={handleContinueAsGuest}
-            >
-              <Text style={styles.secondaryButtonText}>Continue as Guest</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
+
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'info' && styles.activeTab]} 
+            onPress={() => setActiveTab('info')}
+          >
+            <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Profile Info</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'favorites' && styles.activeTab]} 
+            onPress={() => setActiveTab('favorites')}
+          >
+            <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.tabContent}>
+          {activeTab === 'info' && (
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>App Information</Text>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>App Name:</Text>
+                <Text style={styles.infoValue}>{APP_CONFIG.APP_NAME}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Version:</Text>
+                <Text style={styles.infoValue}>{APP_CONFIG.VERSION}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Mode:</Text>
+                <Text style={styles.infoValue}>Guest Browsing</Text>
+              </View>
+              
+              <Text style={styles.featureNote}>
+                This is an early access version. Account creation, photo purchasing, and other premium features will be available in future updates.
+              </Text>
+            </View>
+          )}
+
+          {activeTab === 'favorites' && (
+            <View style={[styles.sectionContainer, styles.favoritesContainer]}>
+              <FavoritesTab navigation={navigation} />
+            </View>
+          )}
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // Render profile for authenticated or guest users
+  // Full authenticated mode (when auth is enabled)
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -165,11 +183,6 @@ const ProfileScreen = ({ navigation }) => {
           style={styles.avatar}
         />
         <Text style={styles.userName}>{userProfile?.name || 'User'}</Text>
-        {isGuest && (
-          <View style={styles.guestBadge}>
-            <Text style={styles.guestBadgeText}>Guest Mode</Text>
-          </View>
-        )}
         
         {isAuthenticated && !isGuest && (
           <Text style={styles.memberSince}>
@@ -179,36 +192,25 @@ const ProfileScreen = ({ navigation }) => {
           </Text>
         )}
         
-        {isAdmin && (
+        {isAdmin && canShowAdminPanel() && (
           <View style={styles.adminBadge}>
             <Text style={styles.adminBadgeText}>Admin</Text>
           </View>
         )}
         
-        {isAuthenticated && !isGuest && (
-          <TouchableOpacity 
-            style={styles.logoutButton} 
-            onPress={handleLogout}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            )}
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity 
+          style={styles.logoutButton} 
+          onPress={handleLogout}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          )}
+        </TouchableOpacity>
         
-        {isGuest && (
-          <TouchableOpacity 
-            style={styles.signInButton} 
-            onPress={handleSignIn}
-          >
-            <Text style={styles.signInButtonText}>Sign In</Text>
-          </TouchableOpacity>
-        )}
-        
-        {isAdmin && isAuthenticated && !isGuest && (
+        {isAdmin && canShowAdminPanel() && (
           <TouchableOpacity 
             style={styles.adminButton} 
             onPress={handleAdminAccess}
@@ -227,31 +229,21 @@ const ProfileScreen = ({ navigation }) => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'orders' && styles.activeTab]} 
-          onPress={() => setActiveTab('orders')}
-        >
-          <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>Orders</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
           style={[styles.tab, activeTab === 'favorites' && styles.activeTab]} 
           onPress={() => setActiveTab('favorites')}
         >
           <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
         </TouchableOpacity>
         
-        {isAuthenticated && !isGuest && (
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'settings' && styles.activeTab]} 
-            onPress={() => setActiveTab('settings')}
-          >
-            <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>Settings</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'settings' && styles.activeTab]} 
+          onPress={() => setActiveTab('settings')}
+        >
+          <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>Settings</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Content area based on selected tab */}
-      
+      <ScrollView style={styles.tabContent}>
         {activeTab === 'info' && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -259,60 +251,14 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.infoLabel}>Name:</Text>
               <Text style={styles.infoValue}>{userProfile?.name || 'Not Set'}</Text>
             </View>
-            {isAuthenticated && !isGuest && (
-              <>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Email:</Text>
-                  <Text style={styles.infoValue}>{userProfile?.email || 'Not Set'}</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>Account Type:</Text>
-                  <Text style={styles.infoValue}>{isAdmin ? 'Administrator' : 'Standard User'}</Text>
-                </View>
-              </>
-            )}
-          </View>
-        )}
-
-        {activeTab === 'orders' && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Order History</Text>
-            {isGuest ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="cart-outline" size={64} color="#d1d5db" />
-                <Text style={styles.emptyStateTitle}>No Order History</Text>
-                <Text style={styles.emptyStateText}>
-                  Please sign in to view your orders.
-                </Text>
-              </View>
-            ) : userProfile?.orders?.length ? (
-              userProfile.orders.map((order, index) => (
-                <View key={index} style={styles.orderCard}>
-                  <View style={styles.orderHeader}>
-                    <Text style={styles.orderNumber}>{order.id}</Text>
-                    <Text style={[styles.orderStatus, 
-                      order.status === 'Completed' ? styles.statusCompleted : 
-                      order.status === 'Processing' ? styles.statusProcessing :
-                      styles.statusPending
-                    ]}>
-                      {order.status}
-                    </Text>
-                  </View>
-                  <View style={styles.orderDetails}>
-                    <Text style={styles.orderDate}>{order.date}</Text>
-                    <Text style={styles.orderTotal}>${order.total.toFixed(2)}</Text>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="cart-outline" size={64} color="#d1d5db" />
-                <Text style={styles.emptyStateTitle}>No orders yet</Text>
-                <Text style={styles.emptyStateText}>
-                  When you make purchases, they will appear here.
-                </Text>
-              </View>
-            )}
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Email:</Text>
+              <Text style={styles.infoValue}>{userProfile?.email || 'Not Set'}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>Account Type:</Text>
+              <Text style={styles.infoValue}>{isAdmin ? 'Administrator' : 'Standard User'}</Text>
+            </View>
           </View>
         )}
 
@@ -322,7 +268,7 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         )}
 
-        {activeTab === 'settings' && isAuthenticated && !isGuest && (
+        {activeTab === 'settings' && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Account Settings</Text>
             
@@ -367,111 +313,9 @@ const ProfileScreen = ({ navigation }) => {
                 </TouchableOpacity>
               )}
             </View>
-            
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsHeader}>Change Password</Text>
-              {isChangingPassword ? (
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Current Password</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={currentPassword}
-                      onChangeText={setCurrentPassword}
-                      secureTextEntry={!showCurrentPassword}
-                      placeholder="Enter current password"
-                    />
-                    <TouchableOpacity
-                      style={styles.eyeIcon}
-                      onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                    >
-                      <Ionicons 
-                        name={showCurrentPassword ? "eye-off-outline" : "eye-outline"} 
-                        size={20} 
-                        color="#9ca3af" 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <Text style={styles.label}>New Password</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={newPassword}
-                      onChangeText={setNewPassword}
-                      secureTextEntry={!showNewPassword}
-                      placeholder="Enter new password"
-                    />
-                    <TouchableOpacity
-                      style={styles.eyeIcon}
-                      onPress={() => setShowNewPassword(!showNewPassword)}
-                    >
-                      <Ionicons 
-                        name={showNewPassword ? "eye-off-outline" : "eye-outline"} 
-                        size={20} 
-                        color="#9ca3af" 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <Text style={styles.label}>Confirm New Password</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="lock-closed-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      secureTextEntry={!showConfirmPassword}
-                      placeholder="Confirm new password"
-                    />
-                    <TouchableOpacity
-                      style={styles.eyeIcon}
-                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      <Ionicons 
-                        name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
-                        size={20} 
-                        color="#9ca3af" 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <View style={styles.buttonRow}>
-                    <TouchableOpacity
-                      style={[styles.button, styles.cancelButton]}
-                      onPress={() => {
-                        setIsChangingPassword(false);
-                        setCurrentPassword('');
-                        setNewPassword('');
-                        setConfirmPassword('');
-                      }}
-                    >
-                      <Text style={styles.buttonText}>Cancel</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity
-                      style={[styles.button, styles.saveButton]}
-                      onPress={handleChangePassword}
-                    >
-                      <Text style={[styles.buttonText, styles.saveButtonText]}>Change Password</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.settingsButton}
-                  onPress={() => setIsChangingPassword(true)}
-                >
-                  <Text style={styles.settingsButtonText}>Change Password</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#4f46e5" />
-                </TouchableOpacity>
-              )}
-            </View>
           </View>
         )}
-      
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -480,57 +324,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-  },
-  authContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
-    marginBottom: 32,
-    textAlign: 'center',
-  },
-  buttonContainer: {
-    width: '100%',
-    gap: 12,
-  },
-  primaryButton: {
-    backgroundColor: '#4f46e5',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-  },
-  secondaryButtonText: {
-    color: '#4b5563',
-    fontWeight: '600',
-    fontSize: 16,
   },
   header: {
     backgroundColor: 'white',
@@ -555,6 +348,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginBottom: 16,
+  },
+  guestMessage: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
   },
   adminBadge: {
     backgroundColor: '#c7d2fe',
@@ -643,12 +443,6 @@ const styles = StyleSheet.create({
     color: '#4f46e5',
     fontWeight: '600',
   },
-  scrollContent: {
-    paddingBottom: 24,
-  },
-  scrollContentFavorites: {
-    flexGrow: 1,
-  },
   sectionContainer: {
     padding: 16,
     backgroundColor: 'white',
@@ -693,70 +487,17 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     fontSize: 14,
   },
-  orderCard: {
+  featureNote: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  orderNumber: {
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#1f2937',
-  },
-  orderStatus: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statusCompleted: {
-    backgroundColor: '#d1fae5',
-    color: '#065f46',
-  },
-  statusProcessing: {
-    backgroundColor: '#e0f2fe',
-    color: '#0369a1',
-  },
-  statusPending: {
-    backgroundColor: '#fef3c7',
-    color: '#92400e',
-  },
-  orderDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  orderDate: {
-    color: '#6b7280',
-    fontSize: 14,
-  },
-  orderTotal: {
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#1f2937',
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyStateTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4b5563',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
   },
   settingsSection: {
     marginBottom: 24,
@@ -806,9 +547,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     color: '#1f2937',
-  },
-  eyeIcon: {
-    padding: 12,
   },
   buttonRow: {
     flexDirection: 'row',

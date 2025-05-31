@@ -49,3 +49,42 @@ git add .;git commit -m "12.3 - Tidy package.json"; git push origin main
 
 
 
+## How to release a build:
+
+### iOS
+
+TestFlight is Apple's official platform for testing apps and is generally the easier approach:
+
+1. Submit to TestFlight:
+
+```bash
+eas build --platform ios --profile production --auto-submit
+```
+
+This builds your app and automatically submits it to App Store Connect.
+
+
+2. If you've already built the app without auto-submit, you can submit it separately:
+
+```bash
+eas submit -p ios --latest
+```
+
+3. Invite Testers:
+
+ - Log in to [App Store Connect](https://appstoreconnect.apple.com/)
+ - Navigate to your app → TestFlight
+ - Add testers via email under "External Testing" or "Internal Testing" (for your team)
+ - Testers will receive an email invitation with instructions to download TestFlight and your app
+
+### Android
+
+```bash
+eas build --platform android --profile production
+```
+
+
+I've assumed that you have an iphone and so this is an invite to try the "PicaLoco" app. This is Apples system for testing Mobile Phone Apps before they are accepted on to the Apple store. However, having said that this App is no where near ready and so I would be grateful is you could follow the instructions and download the TestFlight app in order to get access to the "PicaLoco" app. I would be very grateful if you could have a tinker and try anything under "Guest Mode" in other words I'm not expecting you to login or register at this stage.
+
+Kind regards,
+Simon

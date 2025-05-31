@@ -1,4 +1,4 @@
-// App.tsx
+// App.tsx - Updated with feature flags
 import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -20,6 +20,9 @@ import { FilterProvider } from './src/context/FilterContext';
 import { CartProvider } from './src/context/CartContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
+// Feature flags
+import { FEATURES, canShowCart, canShowAuth, canShowAdminPanel } from './src/config/features';
+
 // Create the navigators
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -35,8 +38,10 @@ const getTabIcon = (route: string, focused: boolean): string => {
   }
 };
 
-// Main tab navigator
+// Main tab navigator with conditional tabs
 const TabNavigator = () => {
+  const { isAdmin } = useAuth();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -51,24 +56,33 @@ const TabNavigator = () => {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Gallery" component={GalleryScreen} />
-      <Tab.Screen name="Cart" component={CartScreen} />
+      
+      {/* Conditionally show Cart tab */}
+      {canShowCart() && (
+        <Tab.Screen name="Cart" component={CartScreen} />
+      )}
+      
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 };
 
-// Root navigator with auth check
+// Root navigator with conditional auth
 const RootNavigator = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isGuest } = useAuth();
   
   // Show nothing while checking authentication status
   if (isLoading) {
     return null;
   }
 
+  // If authentication is disabled, always go to main app
+  // (users will be automatically set to guest mode)
+  const shouldShowAuth = canShowAuth() && !isAuthenticated && !isGuest;
+
   return (
     <Stack.Navigator>
-      {!isAuthenticated ? (
+      {shouldShowAuth ? (
         <Stack.Screen 
           name="AuthScreen" 
           component={AuthScreen} 
@@ -86,34 +100,72 @@ const RootNavigator = () => {
             component={PhotoDetailScreen}
             options={{ headerShown: false, title: 'Photo Details' }} 
           />
-          <Stack.Screen 
-            name="AdminScreen" 
-            component={AdminScreen}
-            options={{ headerShown: false, title: 'Admin Dashboard' }}
-            // This allows us to pass parameters to navigate to specific admin tab
-            // and set up edit mode for photos
-          />
+          
+          {/* Conditionally show Cart screen */}
+          {canShowCart() && (
+            <Stack.Screen 
+              name="CartScreen" 
+              component={CartScreen}
+              options={{ headerShown: false, title: 'Shopping Cart' }}
+            />
+          )}
+          
+          {/* Conditionally show Admin screen */}
+          {canShowAdminPanel() && (
+            <Stack.Screen 
+              name="AdminScreen" 
+              component={AdminScreen}
+              options={{ headerShown: false, title: 'Admin Dashboard' }}
+            />
+          )}
         </>
       )}
     </Stack.Navigator>
   );
 };
 
-// App component with auth provider
+// Feature flag info component for development
+const FeatureFlagInfo = () => {
+  if (!__DEV__) return null;
+  
+  console.log('🏗️ Feature Flags Status:', {
+    AUTH: FEATURES.ENABLE_AUTHENTICATION,
+    CART: FEATURES.ENABLE_CART,
+    PRICING: FEATURES.ENABLE_PRICING,
+    GUEST_MODE: FEATURES.FORCE_GUEST_MODE,
+    ADMIN: FEATURES.ENABLE_ADMIN_PANEL,
+  });
+  
+  return null;
+};
+
+// App component with conditional providers
 const App = () => {
-  console.log("Running App.tsx");
+  console.log("🚀 Running Pica Loco App.tsx");
 
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <CartProvider>
+        {/* Conditionally wrap with CartProvider */}
+        {canShowCart() ? (
+          <CartProvider>
+            <FilterProvider>
+              <NavigationContainer>
+                <FeatureFlagInfo />
+                <RootNavigator />
+                <StatusBar style="auto" />
+              </NavigationContainer>
+            </FilterProvider>
+          </CartProvider>
+        ) : (
           <FilterProvider>
             <NavigationContainer>
+              <FeatureFlagInfo />
               <RootNavigator />
               <StatusBar style="auto" />
             </NavigationContainer>
           </FilterProvider>
-        </CartProvider>
+        )}
       </AuthProvider>
     </SafeAreaProvider>
   );
