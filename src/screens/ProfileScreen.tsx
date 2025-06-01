@@ -1,4 +1,4 @@
-// src/screens/ProfileScreen.tsx - Updated with feature flags
+// src/screens/ProfileScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
@@ -91,17 +91,21 @@ const ProfileScreen = ({ navigation }) => {
     navigation.navigate('AuthScreen');
   };
 
-  // For guest-only mode or when auth is disabled
-  if (!canShowAuth() || isGuest) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Image
-            source={require('../../assets/icon.png')}
-            style={styles.avatar}
-          />
-          <Text style={styles.userName}>{userProfile?.name || 'Guest User'}</Text>
-          
+  // Render header content (same for both modes)
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <Image
+        source={
+          userProfile?.avatar_url 
+            ? { uri: userProfile.avatar_url } 
+            : require('../../assets/icon.png')
+        }
+        style={styles.avatar}
+      />
+      <Text style={styles.userName}>{userProfile?.name || 'Guest User'}</Text>
+      
+      {isGuest && (
+        <>
           <View style={styles.guestBadge}>
             <Text style={styles.guestBadgeText}>Guest Mode</Text>
           </View>
@@ -110,7 +114,6 @@ const ProfileScreen = ({ navigation }) => {
             Browsing as a guest. Full account features will be available in a future update.
           </Text>
           
-          {/* Show sign in button only if auth will be enabled later */}
           {canShowAuth() && (
             <TouchableOpacity 
               style={styles.signInButton} 
@@ -119,202 +122,192 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.signInButtonText}>Sign In</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </>
+      )}
 
-        <View style={styles.tabContainer}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'info' && styles.activeTab]} 
-            onPress={() => setActiveTab('info')}
-          >
-            <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Profile Info</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'favorites' && styles.activeTab]} 
-            onPress={() => setActiveTab('favorites')}
-          >
-            <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.tabContent}>
-          {activeTab === 'info' && (
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>App Information</Text>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>App Name:</Text>
-                <Text style={styles.infoValue}>{APP_CONFIG.APP_NAME}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Version:</Text>
-                <Text style={styles.infoValue}>{APP_CONFIG.VERSION}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Mode:</Text>
-                <Text style={styles.infoValue}>Guest Browsing</Text>
-              </View>
-              
-              <Text style={styles.featureNote}>
-                This is an early access version. Account creation, photo purchasing, and other premium features will be available in future updates.
-              </Text>
-            </View>
-          )}
-
-          {activeTab === 'favorites' && (
-            <View style={[styles.sectionContainer, styles.favoritesContainer]}>
-              <FavoritesTab navigation={navigation} />
-            </View>
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // Full authenticated mode (when auth is enabled)
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Image
-          source={
-            userProfile?.avatar_url 
-              ? { uri: userProfile.avatar_url } 
-              : require('../../assets/icon.png')
-          }
-          style={styles.avatar}
-        />
-        <Text style={styles.userName}>{userProfile?.name || 'User'}</Text>
-        
-        {isAuthenticated && !isGuest && (
+      {isAuthenticated && !isGuest && (
+        <>
           <Text style={styles.memberSince}>
             Member since {userProfile?.created_at 
               ? new Date(userProfile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
               : 'Recently'}
           </Text>
-        )}
-        
-        {isAdmin && canShowAdminPanel() && (
+          
+          <TouchableOpacity 
+            style={styles.logoutButton} 
+            onPress={handleLogout}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            )}
+          </TouchableOpacity>
+        </>
+      )}
+      
+      {isAdmin && canShowAdminPanel() && (
+        <>
           <View style={styles.adminBadge}>
             <Text style={styles.adminBadgeText}>Admin</Text>
           </View>
-        )}
-        
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={handleLogout}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          )}
-        </TouchableOpacity>
-        
-        {isAdmin && canShowAdminPanel() && (
+          
           <TouchableOpacity 
             style={styles.adminButton} 
             onPress={handleAdminAccess}
           >
             <Text style={styles.adminButtonText}>Admin Dashboard</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </>
+      )}
+    </View>
+  );
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'info' && styles.activeTab]} 
-          onPress={() => setActiveTab('info')}
-        >
-          <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Profile Info</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'favorites' && styles.activeTab]} 
-          onPress={() => setActiveTab('favorites')}
-        >
-          <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
-        </TouchableOpacity>
-        
+  // Render tab navigation
+  const renderTabNavigation = () => (
+    <View style={styles.tabContainer}>
+      <TouchableOpacity 
+        style={[styles.tab, activeTab === 'info' && styles.activeTab]} 
+        onPress={() => setActiveTab('info')}
+      >
+        <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Profile Info</Text>
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={[styles.tab, activeTab === 'favorites' && styles.activeTab]} 
+        onPress={() => setActiveTab('favorites')}
+      >
+        <Text style={[styles.tabText, activeTab === 'favorites' && styles.activeTabText]}>Favorites</Text>
+      </TouchableOpacity>
+      
+      {/* Only show settings tab for authenticated users */}
+      {isAuthenticated && !isGuest && canShowAuth() && (
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'settings' && styles.activeTab]} 
           onPress={() => setActiveTab('settings')}
         >
           <Text style={[styles.tabText, activeTab === 'settings' && styles.activeTabText]}>Settings</Text>
         </TouchableOpacity>
-      </View>
+      )}
+    </View>
+  );
 
-      <ScrollView style={styles.tabContent}>
-        {activeTab === 'info' && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Name:</Text>
-              <Text style={styles.infoValue}>{userProfile?.name || 'Not Set'}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>{userProfile?.email || 'Not Set'}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Account Type:</Text>
-              <Text style={styles.infoValue}>{isAdmin ? 'Administrator' : 'Standard User'}</Text>
-            </View>
+  // Render info tab content
+  const renderInfoContent = () => (
+    <View style={styles.sectionContainer}>
+      {isAuthenticated && !isGuest ? (
+        <>
+          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Name:</Text>
+            <Text style={styles.infoValue}>{userProfile?.name || 'Not Set'}</Text>
           </View>
-        )}
-
-        {activeTab === 'favorites' && (
-          <View style={[styles.sectionContainer, styles.favoritesContainer]}>
-            <FavoritesTab navigation={navigation} />
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Email:</Text>
+            <Text style={styles.infoValue}>{userProfile?.email || 'Not Set'}</Text>
           </View>
-        )}
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Account Type:</Text>
+            <Text style={styles.infoValue}>{isAdmin ? 'Administrator' : 'Standard User'}</Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={styles.sectionTitle}>App Information</Text>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>App Name:</Text>
+            <Text style={styles.infoValue}>{APP_CONFIG.APP_NAME}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Version:</Text>
+            <Text style={styles.infoValue}>{APP_CONFIG.VERSION}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Mode:</Text>
+            <Text style={styles.infoValue}>Guest Browsing</Text>
+          </View>
+          
+          <Text style={styles.featureNote}>
+            This is an early access version. Account creation, photo purchasing, and other premium features will be available in future updates.
+          </Text>
+        </>
+      )}
+    </View>
+  );
 
-        {activeTab === 'settings' && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Account Settings</Text>
+  // Render settings tab content
+  const renderSettingsContent = () => (
+    <View style={styles.sectionContainer}>
+      <Text style={styles.sectionTitle}>Account Settings</Text>
+      
+      <View style={styles.settingsSection}>
+        <Text style={styles.settingsHeader}>Edit Profile</Text>
+        {isEditing ? (
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Name</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="person-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter your name"
+              />
+            </View>
             
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsHeader}>Edit Profile</Text>
-              {isEditing ? (
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Name</Text>
-                  <View style={styles.inputWrapper}>
-                    <Ionicons name="person-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={name}
-                      onChangeText={setName}
-                      placeholder="Enter your name"
-                    />
-                  </View>
-                  
-                  <View style={styles.buttonRow}>
-                    <TouchableOpacity
-                      style={[styles.button, styles.cancelButton]}
-                      onPress={() => setIsEditing(false)}
-                    >
-                      <Text style={styles.buttonText}>Cancel</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity
-                      style={[styles.button, styles.saveButton]}
-                      onPress={handleUpdateProfile}
-                    >
-                      <Text style={[styles.buttonText, styles.saveButtonText]}>Save Changes</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.settingsButton}
-                  onPress={() => setIsEditing(true)}
-                >
-                  <Text style={styles.settingsButtonText}>Edit Profile</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#4f46e5" />
-                </TouchableOpacity>
-              )}
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={() => setIsEditing(false)}
+              >
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.button, styles.saveButton]}
+                onPress={handleUpdateProfile}
+              >
+                <Text style={[styles.buttonText, styles.saveButtonText]}>Save Changes</Text>
+              </TouchableOpacity>
             </View>
           </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => setIsEditing(true)}
+          >
+            <Text style={styles.settingsButtonText}>Edit Profile</Text>
+            <Ionicons name="chevron-forward" size={20} color="#4f46e5" />
+          </TouchableOpacity>
         )}
+      </View>
+    </View>
+  );
+
+  // For favorites tab, we need to render it without wrapping in ScrollView
+  if (activeTab === 'favorites') {
+    return (
+      <SafeAreaView style={styles.container}>
+        {renderHeader()}
+        {renderTabNavigation()}
+        {/* Render FavoritesTab directly without ScrollView wrapper */}
+        <View style={styles.favoritesContainer}>
+          <FavoritesTab navigation={navigation} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // For other tabs, use ScrollView as normal
+  return (
+    <SafeAreaView style={styles.container}>
+      {renderHeader()}
+      {renderTabNavigation()}
+      
+      <ScrollView style={styles.tabContent}>
+        {activeTab === 'info' && renderInfoContent()}
+        {activeTab === 'settings' && renderSettingsContent()}
       </ScrollView>
     </SafeAreaView>
   );
@@ -457,11 +450,7 @@ const styles = StyleSheet.create({
   },
   favoritesContainer: {
     flex: 1,
-    padding: 0,
-    margin: 0,
-    borderRadius: 0,
-    shadowOpacity: 0,
-    elevation: 0,
+    backgroundColor: '#f8f9fa',
   },
   sectionTitle: {
     fontSize: 18,
