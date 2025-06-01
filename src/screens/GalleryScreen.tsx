@@ -96,6 +96,22 @@ const GalleryScreen = ({ navigation, route }) => {
     }, [route.params, navigation, activeCategory, search])
   );
 
+  // Debug
+  useEffect(() => {
+    console.log('=== GALLERY SCREEN DEBUG ===');
+    console.log('hasActiveFilters:', hasActiveFilters);
+    console.log('isSearchMode:', isSearchMode);
+    console.log('filteredResults.length:', filteredResults.length);
+    console.log('photos.length:', photos.length);
+    console.log('search.results.length:', search.results.length);
+    
+    if (filteredResults.length > 0) {
+      console.log('Filtered results sample:', filteredResults[0]);
+    }
+  }, [hasActiveFilters, isSearchMode, filteredResults, photos, search.results]);
+
+
+
   // Load categories effect
   useEffect(() => {
     const loadCategories = async () => {
@@ -344,6 +360,8 @@ const GalleryScreen = ({ navigation, route }) => {
     // If we have active filters, use filteredResults instead of regular data
     if (hasActiveFilters && !isSearchMode) {
       console.log(`Using ${filteredResults.length} filtered results instead of regular data`);
+      console.log('First filtered result:', filteredResults[0]); // Debug log
+      
       return filteredResults.map((photo, index) => ({
         id: `${photo.image_no}_${index}`, // Added index to ensure uniqueness
         originalId: photo.image_no, // Keep original ID for navigation

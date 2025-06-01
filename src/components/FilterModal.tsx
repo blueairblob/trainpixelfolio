@@ -118,9 +118,17 @@ const FilterModal = ({
     const timer = setTimeout(() => {
       try {
         getFilteredCount();
+
+        // Check if filters have changed from initial state
+        const currentFilters = {
+          ...filters,
+          description,
+          worksNumber,
+          imageNo
+        };
         
         // Check if filters have changed from initial state
-        const hasChanged = JSON.stringify(filters) !== JSON.stringify(initialFilters);
+        const hasChanged = JSON.stringify(currentFilters) !== JSON.stringify(initialFilters);
         setFiltersChanged(hasChanged);
       } catch (e) {
         console.log('Count estimation error, using fallback:', e);
@@ -232,13 +240,16 @@ const FilterModal = ({
  
   // Apply filters
   const handleApplyFilters = () => {
-    // Update filters that use text inputs (for which we maintain local state)
-    setFilters({
+    // Update filters that use text inputs AND trigger refresh
+    const updatedFilters = {
       ...filters,
       description,
       worksNumber,
       imageNo
-    });
+    };
+    
+    console.log('Applying filters with text fields:', updatedFilters);
+    setFilters(updatedFilters);
     
     // Refresh filters to trigger search
     refreshFilters().then(() => {

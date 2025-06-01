@@ -308,6 +308,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const applyFilters = useCallback((baseQuery: any) => {
     let query = baseQuery;
     console.log('Starting to apply filters to query');
+    console.log('Current filter state:', JSON.stringify(filters, null, 2));
 
     if (filters.category) {
       console.log(`Filtering by category: ${filters.category.name}`);
@@ -430,6 +431,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return query;
   }, [filters]);
 
+  
   // Execute a filtered query
   const executeFilteredQuery = useCallback(async () => {
     if (!hasActiveFilters) {

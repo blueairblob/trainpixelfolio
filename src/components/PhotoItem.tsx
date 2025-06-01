@@ -192,6 +192,7 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
         <View style={styles.singleInfo}>
           <Text style={styles.singleTitle}>{photo.title}</Text>
           <Text style={styles.singlePhotographer}>By {photo.photographer}</Text>
+          
           {photo.location && <Text style={styles.singleLocation}>{photo.location}</Text>}
           {photo.description && (
             <Text style={styles.singleDescription} numberOfLines={3}>{photo.description}</Text>
