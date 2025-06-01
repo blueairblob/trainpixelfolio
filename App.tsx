@@ -139,25 +139,12 @@ const FeatureFlagInfo = () => {
   return null;
 };
 
-// App component with conditional providers
 const App = () => {
   console.log("🚀 Running Pica Loco App.tsx");
-
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        {/* Conditionally wrap with CartProvider */}
-        {canShowCart() ? (
-          <CartProvider>
-            <FilterProvider>
-              <NavigationContainer>
-                <FeatureFlagInfo />
-                <RootNavigator />
-                <StatusBar style="auto" />
-              </NavigationContainer>
-            </FilterProvider>
-          </CartProvider>
-        ) : (
+        <CartProvider>
           <FilterProvider>
             <NavigationContainer>
               <FeatureFlagInfo />
@@ -165,7 +152,7 @@ const App = () => {
               <StatusBar style="auto" />
             </NavigationContainer>
           </FilterProvider>
-        )}
+        </CartProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
