@@ -110,7 +110,7 @@ const FilterModal = ({
     }
   }, [visible]);
   
-  // Effect to estimate the result count as filters change
+  // FIXED: Effect to estimate the result count as filters change - now includes text inputs
   useEffect(() => {
     if (!visible) return;
     
@@ -119,7 +119,7 @@ const FilterModal = ({
       try {
         getFilteredCount();
 
-        // Check if filters have changed from initial state
+        // Check if filters have changed from initial state - include text inputs
         const currentFilters = {
           ...filters,
           description,
@@ -139,12 +139,27 @@ const FilterModal = ({
     }, 500);
     
     return () => clearTimeout(timer);
-  }, [filters]);
+  }, [filters, description, worksNumber, imageNo]); // FIXED: Added text inputs to dependency array
 
-  // Function to get estimated count when applying the current filters
+  // FIXED: Function to get estimated count when applying the current filters including text inputs
   const getFilteredCount = async () => {
+    // Create a combined filter state that includes text inputs
+    const combinedFilters = {
+      ...filters,
+      description: description || null,
+      worksNumber: worksNumber || null,
+      imageNo: imageNo || null
+    };
+    
+    // Check if we have any active filters (including text inputs)
+    const hasAnyActiveFilters = Object.values(combinedFilters).some(value => 
+      value !== null && 
+      value !== '' && 
+      (typeof value !== 'object' || Object.values(value).some(v => v !== null && v !== ''))
+    );
+    
     // Skip if no active filters
-    if (!hasActiveFilters) {
+    if (!hasAnyActiveFilters) {
       setEstimatedCount(resultCount || 0);
       return;
     }
@@ -152,17 +167,15 @@ const FilterModal = ({
     setCountLoading(true);
     
     try {
-      console.log('Building count query...');
+      console.log('Building count query with combined filters...', combinedFilters);
       
       // Start with a base query - use a simpler query just for count
-      // Instead of using head: true which might be causing issues
       let query = supabaseClient
         .from('mobile_catalog_view')
         .select('image_no', { count: 'exact' });
       
-      // Apply all the filters
-      console.log('Applying filters to count query...');
-      query = applyFilters(query);
+      // FIXED: Apply filters manually here to include text inputs
+      query = applyFiltersToQuery(query, combinedFilters);
       
       console.log('Executing count query...');
       const { count, error, status } = await query;
@@ -184,6 +197,134 @@ const FilterModal = ({
       setCountLoading(false);
     }
   };
+
+  // FIXED: New function to apply filters to a query that includes text inputs
+  const applyFiltersToQuery = useCallback((baseQuery: any, filterState: any) => {
+    let query = baseQuery;
+    console.log('Starting to apply filters to query');
+    console.log('Current filter state:', JSON.stringify(filterState, null, 2));
+
+    if (filterState.category) {
+      console.log(`Filtering by category: ${filterState.category.name}`);
+      query = query.eq('category', filterState.category.name);
+    }
+
+    // Apply organisation filter
+    if (filterState.organisation) {
+      console.log(`Filtering by organisation: ${JSON.stringify(filterState.organisation)}`);
+      query = query.eq('organisation', filterState.organisation.name);
+    }
+
+    // Apply location filter
+    if (filterState.location) {
+      console.log(`Filtering by location: ${filterState.location.name}`);
+      query = query.eq('location', filterState.location.name);
+    }
+
+    // Apply photographer filter
+    if (filterState.photographer) {
+      console.log(`Filtering by photographer: ${filterState.photographer.name}`);
+      query = query.eq('photographer', filterState.photographer.name);
+    }
+
+    // Apply collection filter
+    if (filterState.collection) {
+      console.log(`Filtering by collection: ${filterState.collection.name}`);
+      query = query.eq('collection', filterState.collection.name);
+    }
+
+    // Apply date range filter
+    if (filterState.dateRange) {
+      if (filterState.dateRange.startDate) {
+        console.log(`Filtering by start date: ${filterState.dateRange.startDate}`);
+        query = query.gte('date_taken', filterState.dateRange.startDate);
+      }
+      if (filterState.dateRange.endDate) {
+        console.log(`Filtering by end date: ${filterState.dateRange.endDate}`);
+        query = query.lte('date_taken', filterState.dateRange.endDate);
+      }
+    }
+
+    // Apply gauge filter
+    if (filterState.gauge) {
+      console.log(`Filtering by gauge: ${filterState.gauge.name}`);
+      query = query.eq('gauge', filterState.gauge.id);
+    }
+
+    // Apply search query
+    if (filterState.searchQuery) {
+      console.log(`Applying search query: ${filterState.searchQuery}`);
+      query = query.or(
+        `description.ilike.%${filterState.searchQuery}%,` +
+        `category.ilike.%${filterState.searchQuery}%,` +
+        `photographer.name.ilike.%${filterState.searchQuery}%,` +
+        `location.name.ilike.%${filterState.searchQuery}%,` +
+        `organisation.name.ilike.%${filterState.searchQuery}%`
+      );
+    }
+
+    // Apply new FileMaker Pro filters with proper ID references
+    if (filterState.country) {
+      console.log(`Filtering by country: ${filterState.country.name}`);
+      query = query.eq('country', filterState.country.name);
+    }
+
+    if (filterState.organisationType) {
+      console.log(`Filtering by organisation type: ${filterState.organisationType.name}`);
+      query = query.eq('organisation_type', filterState.organisationType.id);
+    }
+
+    if (filterState.industryType) {
+      console.log(`Filtering by industry type: ${filterState.industryType.name}`);
+      query = query.ilike('type_of_industry', `%${filterState.industryType.id}%`);
+    }
+
+    if (filterState.activeArea) {
+      console.log(`Filtering by active area: ${filterState.activeArea.name}`);
+      query = query.ilike('active_area', `%${filterState.activeArea.id}%`);
+    }
+
+    if (filterState.route) {
+      console.log(`Filtering by route: ${filterState.route.name}`);
+      query = query.eq('route', filterState.route.name);
+    }
+
+    if (filterState.corporateBody) {
+      console.log(`Filtering by corporate body: ${filterState.corporateBody.name}`);
+      query = query.ilike('corporate_body', `%${filterState.corporateBody.id}%`);
+    }
+
+    if (filterState.facility) {
+      console.log(`Filtering by facility: ${filterState.facility.name}`);
+      query = query.ilike('facility', `%${filterState.facility.id}%`);
+    }
+
+    // FIXED: Apply text input filters
+    if (filterState.description) {
+      console.log(`Filtering by description: ${filterState.description}`);
+      query = query.ilike('description', `%${filterState.description}%`);
+    }
+
+    if (filterState.builder) {
+      console.log(`Filtering by builder: ${filterState.builder.name}`);
+      // This is a bit complex since builders are in a JSON array field
+      query = query.or(`builders::jsonb @> '[{"builder_id": "${filterState.builder.id}"}]'::jsonb,builders::jsonb @> '[{"builder_name": "${filterState.builder.name}"}]'::jsonb`);
+    }
+
+    if (filterState.worksNumber) {
+      console.log(`Filtering by works number: ${filterState.worksNumber}`);
+      // This is also in the builders JSON array
+      query = query.or(`builders::jsonb @> '[{"works_number": "${filterState.worksNumber}"}]'::jsonb`);
+    }
+
+    if (filterState.imageNo) {
+      console.log(`Filtering by image number: ${filterState.imageNo}`);
+      query = query.ilike('image_no', `%${filterState.imageNo}%`);
+    }
+
+    console.log('Finished applying filters to query');
+    return query;
+  }, []);
 
   const loadFilterOptions = async () => {
     if (loadingOptions) return;
