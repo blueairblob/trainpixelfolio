@@ -304,7 +304,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  // Apply filters to a query - updated to use proper ID references
+  // Apply filters to a query
   const applyFilters = useCallback((baseQuery: any) => {
     let query = baseQuery;
     console.log('Starting to apply filters to query');

@@ -170,17 +170,6 @@ const PhotoItem: React.FC<PhotoItemProps> = ({ photo, viewMode, onPress }) => {
               <Text style={styles.compactPrice}>£{photo.price.toFixed(2)}</Text>
             )}
             <View style={styles.compactButtonGroup}>
-              <TouchableOpacity 
-                style={styles.compactButton} 
-                onPress={handleFavoriteToggle}
-              >
-                <Ionicons 
-                  name={isFavoriteState ? "heart" : "heart-outline"} 
-                  size={20} 
-                  color={isFavoriteState ? "#ef4444" : "#4b5563"} 
-                />
-              </TouchableOpacity>
-              
               {/* Conditionally show add to cart button */}
               {canShowCart() && (
                 <TouchableOpacity 
